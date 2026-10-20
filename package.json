@@ -12,6 +12,7 @@
     "postinstall": "prisma generate",
     "dev": "nest start --watch",
     "build": "prisma generate && nest build",
+    "build:seed": "tsc -p tsconfig.seed.json && node -e \"require('node:fs').cpSync('prisma/data/mx-inegi-municipalities.json','dist/seed/prisma/data/mx-inegi-municipalities.json')\"",
     "start": "nest start",
     "start:prod": "node dist/main",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\" \"scripts/**/*.ts\" \"prisma/**/*.ts\"",
@@ -26,6 +27,7 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:seed": "prisma db seed",
+    "db:seed:prod": "node dist/seed/prisma/seed.js",
     "db:reset": "prisma migrate reset --force",
     "db:studio": "prisma studio"
   },

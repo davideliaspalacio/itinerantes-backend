@@ -267,3 +267,362 @@ model ContactMessage {
   @@index([createdAt])
   @@map("contact_messages")
 }
+
+// =============================================================================
+// Fase 02 — Oferta formativa (HU-15, 16, 34; modelo listo para HU-07/08/10/12/17/19/20/22/24/25/27–30)
+// =============================================================================
+//
+// Decisiones (docs/ARCHITECTURE.md → "Oferta formativa"):
+//  - Una fila de Offer = una edición/cohorte (fechas, precio y cupo propios). Una nueva generación del
+//    diplomado se crea duplicando la oferta (HU-27 "Duplicar") con otro slug/nombre.
+//  - Para OPEN_CALL la ventana enrollmentOpensAt/ClosesAt es la ventana de POSTULACIÓN (convocatoria);
+//    startsAt/endsAt son las fechas del programa.
+//  - Precios fijos por moneda (sin conversión), en centavos.
+//  - Las sesiones de clase (OfferSession) se generan desde scheduleRule (HU-29) y viven aparte de los
+//    eventos manuales / fechas importantes (CalendarEvent): el calendario (HU-10) une ambas fuentes.
+//  - Enrollment / Application / Payment (Fases 03–05) referencian Offer (y OfferSession para asistencia).
+
+enum OfferType {
+  /// Diplomado (60 h + proyecto final)
+  DIPLOMA
+  /// Curso (≤ 9 h)
+  COURSE
+  /// Taller (presencial y práctico)
+  WORKSHOP
+  /// Evento (charla, panel, masterclass)
+  EVENT
+  /// Programa por convocatoria (Aprendices del Agua, Siembra de Agua)
+  OPEN_CALL
+}
+
+enum OfferModality {
+  /// En línea en vivo (Zoom / Meet)
+  ONLINE_LIVE
+  /// Presencial
+  IN_PERSON
+}
+
+/// Origen (Anexo A): NAS = nueva plataforma (inscripción y pago en línea); MOODLE = ya pagado fuera.
+enum OfferOrigin {
+  NAS
+  MOODLE
+}
+
+enum OfferPublicationStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum Currency {
+  MXN
+  USD
+}
+
+/// Niveles de beca (porcentajes en BUSINESS_RULES.SCHOLARSHIP_LEVELS).
+enum ScholarshipLevel {
+  AGUA_VIVA
+  RIOS_VIVOS
+  AGUAS_LIBRES
+  CENOTES_VIVOS
+  SPECIAL
+}
+
+/// Categorías de color del calendario (HU-10 / HU-29).
+enum CalendarCategory {
+  /// Formación (azul)
+  TRAINING
+  /// Territorio (verde)
+  TERRITORY
+  /// Comunidad (naranja)
+  COMMUNITY
+  /// Eventos (morado)
+  EVENTS
+  /// Fechas importantes (rojo)
+  IMPORTANT_DATES
+}
+
+/// Temáticas literales de la página Itinerantes del Agua (HU-34), en su orden.
+enum PublicTopic {
+  ECOTECH_WATER_DIPLOMA
+  ECOPEDAGOGIES_DIPLOMA
+  WATER_APPRENTICES_SCHOOL
+  WATER_TREATMENT_SYSTEMS_INTRO
+  CONSTRUCTED_WETLANDS
+  DRY_TOILETS
+  WATER_HARVESTING
+  TRAVELING_WATER_LABS
+  TERRITORIAL_PRACTICES
+  FIELD_VISITS
+}
+
+/// Visibilidad de módulos y recursos (HU-28): ocultos por defecto; publicación programada con publishAt.
+enum ContentVisibility {
+  HIDDEN
+  PUBLISHED
+}
+
+/// Tipos de recurso de un módulo (HU-08 / HU-28). La grabación vive en la sesión (OfferSession).
+enum ModuleResourceType {
+  PRESENTATION
+  PRE_READING
+  ACTIVITY
+}
+
+enum SessionStatus {
+  SCHEDULED
+  CANCELLED
+}
+
+/// Audiencia de un evento manual o fecha importante (HU-10 / HU-29).
+enum CalendarAudience {
+  /// Todas las personas registradas
+  ALL_REGISTERED
+  /// Solo inscritos activos de `offerId`
+  OFFER_ENROLLED
+}
+
+/// Tipo de evento de calendario no generado por el horario.
+enum CalendarEventKind {
+  /// Evento manual (webinar, encuentro de comunidad...)
+  MANUAL
+  ENROLLMENT_OPENS
+  ENROLLMENT_CLOSES
+  OFFER_STARTS
+  SCHOLARSHIP_DEADLINE
+  FINAL_PROJECT
+}
+
+model Offer {
+  id                String                 @id @default(uuid()) @db.Uuid
+  /// Único; ruta pública /escuela/oferta/[slug] (HU-16).
+  slug              String                 @unique @db.VarChar(140)
+  /// Único (HU-27).
+  name              String                 @unique @db.VarChar(160)
+  type              OfferType
+  modality          OfferModality
+  origin            OfferOrigin            @default(NAS)
+  publicationStatus OfferPublicationStatus @default(DRAFT) @map("publication_status")
+  publishedAt       DateTime?              @map("published_at") @db.Timestamptz(3)
+  /// Etiqueta opcional de la cohorte ("Generación 2026–2027").
+  cohortLabel       String?                @map("cohort_label") @db.VarChar(80)
+
+  // --- Difusión y contenido (pasos 1–2 de HU-27) ---
+  summary           String       @db.VarChar(300)
+  description       String       @db.Text
+  /// "¿Qué aprenderás?" (viñetas).
+  learningOutcomes  String[]     @map("learning_outcomes")
+  /// Requisitos (texto libre).
+  requirements      String?      @db.Text
+  /// Key de storage (o URL https absoluta) de la portada.
+  coverImageKey     String?      @map("cover_image_key") @db.VarChar(500)
+  carouselImageKeys String[]     @map("carousel_image_keys")
+  /// Temática pública de HU-34 que enlaza a esta oferta.
+  publicTopic       PublicTopic? @map("public_topic")
+
+  // --- Fechas (UTC). Para OPEN_CALL, enrollment* es la ventana de postulación. ---
+  enrollmentOpensAt  DateTime? @map("enrollment_opens_at") @db.Timestamptz(3)
+  enrollmentClosesAt DateTime? @map("enrollment_closes_at") @db.Timestamptz(3)
+  startsAt           DateTime? @map("starts_at") @db.Timestamptz(3)
+  endsAt             DateTime? @map("ends_at") @db.Timestamptz(3)
+  /// Presentación / entrega del proyecto final (diplomados).
+  finalProjectDueAt  DateTime? @map("final_project_due_at") @db.Timestamptz(3)
+
+  // --- Horario (paso 3) ---
+  /// Duración total en minutos (60 h = 3600). La API la expone en horas.
+  totalMinutes     Int?             @map("total_minutes")
+  /// Regla de horario en hora CDMX (JSON validado, ver offers/schedule-rule.ts):
+  /// { weekdays: [6,7], startTime: "10:00", endTime: "13:00", excludedDates: ["2026-12-19"] }
+  scheduleRule     Json?            @map("schedule_rule")
+  /// Categoría de color por defecto de sus sesiones (HU-29).
+  calendarCategory CalendarCategory @default(TRAINING) @map("calendar_category")
+
+  // --- Sede (presencial; obligatoria en talleres y convocatorias) ---
+  venueName    String? @map("venue_name") @db.VarChar(160)
+  venueAddress String? @map("venue_address") @db.VarChar(300)
+  venueCity    String? @map("venue_city") @db.VarChar(120)
+  venueMapsUrl String? @map("venue_maps_url") @db.VarChar(500)
+  /// Cupo opcional ("Cupo agotado" al llenarse).
+  capacity     Int?
+
+  // --- Origen, precio y cuotas (paso 4) ---
+  isFree              Boolean @default(false) @map("is_free")
+  priceMxnCents       Int?    @map("price_mxn_cents")
+  priceUsdCents       Int?    @map("price_usd_cents")
+  installmentsEnabled Boolean @default(false) @map("installments_enabled")
+  /// 2–4 (BUSINESS_RULES.INSTALLMENTS_MIN/MAX).
+  installmentsMax     Int?    @map("installments_max")
+  /// Enlace opcional al curso en Moodle (origen MOODLE, HU-25).
+  moodleCourseUrl     String? @map("moodle_course_url") @db.VarChar(500)
+
+  // --- Beca (solo diplomados NAS) ---
+  scholarshipEnabled  Boolean            @default(false) @map("scholarship_enabled")
+  scholarshipLevels   ScholarshipLevel[] @map("scholarship_levels")
+  /// Ventana de la convocatoria de becas; si es null se usa la de inscripción.
+  scholarshipOpensAt  DateTime?          @map("scholarship_opens_at") @db.Timestamptz(3)
+  scholarshipClosesAt DateTime?          @map("scholarship_closes_at") @db.Timestamptz(3)
+
+  // --- Convocatoria (OPEN_CALL) ---
+  eligibilityText      String?  @map("eligibility_text") @db.Text
+  /// ISO-3166 alpha-2 elegibles; vacío = todos.
+  eligibleCountryCodes String[] @map("eligible_country_codes")
+  requiresTravel       Boolean  @default(false) @map("requires_travel")
+
+  // --- Asistencia y WhatsApp (pasos 6–7) — PRIVADOS: nunca en la ficha pública ---
+  attendanceWindowHours Int       @default(24) @map("attendance_window_hours")
+  whatsappGroupUrl      String?   @map("whatsapp_group_url") @db.VarChar(500)
+  whatsappVisibleFrom   DateTime? @map("whatsapp_visible_from") @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  teachers       OfferTeacher[]
+  modules        OfferModule[]
+  sessions       OfferSession[]
+  calendarEvents CalendarEvent[]
+
+  @@index([publicationStatus, startsAt])
+  @@index([publicTopic])
+  @@map("offers")
+}
+
+model Teacher {
+  id        String   @id @default(uuid()) @db.Uuid
+  /// Clave estable (seed / panel).
+  slug      String   @unique @db.VarChar(140)
+  fullName  String   @map("full_name") @db.VarChar(160)
+  /// Key de storage (o URL https absoluta) de la foto.
+  photoKey  String?  @map("photo_key") @db.VarChar(500)
+  bio       String?  @db.Text
+  cvUrl     String?  @map("cv_url") @db.VarChar(500)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  offers OfferTeacher[]
+
+  @@map("teachers")
+}
+
+model OfferTeacher {
+  offerId   String @map("offer_id") @db.Uuid
+  teacherId String @map("teacher_id") @db.Uuid
+  position  Int    @default(0)
+
+  offer   Offer   @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  teacher Teacher @relation(fields: [teacherId], references: [id], onDelete: Restrict)
+
+  @@id([offerId, teacherId])
+  @@index([teacherId])
+  @@map("offer_teachers")
+}
+
+/// Módulo del temario (HU-16) y contenedor de recursos (HU-28).
+model OfferModule {
+  id          String            @id @default(uuid()) @db.Uuid
+  offerId     String            @map("offer_id") @db.Uuid
+  /// Orden (1..n); la numeración "Módulo N" se deriva.
+  position    Int
+  title       String            @db.VarChar(120)
+  description String?           @db.Text
+  visibility  ContentVisibility @default(HIDDEN)
+  /// Publicación programada (null = inmediata al publicar).
+  publishAt   DateTime?         @map("publish_at") @db.Timestamptz(3)
+  createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  offer     Offer            @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  resources ModuleResource[]
+  sessions  OfferSession[]
+
+  @@index([offerId, position])
+  @@map("offer_modules")
+}
+
+/// Recurso de un módulo (HU-08 / HU-28): archivo en storage o enlace externo.
+model ModuleResource {
+  id            String             @id @default(uuid()) @db.Uuid
+  moduleId      String             @map("module_id") @db.Uuid
+  type          ModuleResourceType
+  title         String             @db.VarChar(200)
+  description   String?            @db.Text
+  /// Archivo en storage (privado; URL firmada solo para inscritos).
+  fileKey       String?            @map("file_key") @db.VarChar(500)
+  fileName      String?            @map("file_name") @db.VarChar(255)
+  mimeType      String?            @map("mime_type") @db.VarChar(120)
+  sizeBytes     Int?               @map("size_bytes")
+  /// Enlace externo (alternativa al archivo).
+  url           String?            @db.VarChar(1000)
+  /// Fecha de la actividad (ACTIVITY), dentro del periodo de la oferta.
+  activityDueAt DateTime?          @map("activity_due_at") @db.Timestamptz(3)
+  position      Int                @default(0)
+  visibility    ContentVisibility  @default(HIDDEN)
+  publishAt     DateTime?          @map("publish_at") @db.Timestamptz(3)
+  createdAt     DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  module OfferModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@index([moduleId, type, position])
+  @@map("module_resources")
+}
+
+/// Sesión de clase de una oferta (HU-10, 12, 18, 29, 30). Generada desde scheduleRule o editada a mano.
+model OfferSession {
+  id                    String           @id @default(uuid()) @db.Uuid
+  offerId               String           @map("offer_id") @db.Uuid
+  moduleId              String?          @map("module_id") @db.Uuid
+  startsAt              DateTime         @map("starts_at") @db.Timestamptz(3)
+  endsAt                DateTime         @map("ends_at") @db.Timestamptz(3)
+  /// Hereda Offer.calendarCategory; editable por sesión.
+  category              CalendarCategory @default(TRAINING)
+  status                SessionStatus    @default(SCHEDULED)
+  /// Enlace de participante (join_url). PRIVADO: solo inscritos, desde la ventana de HU-12.
+  joinUrl               String?          @map("join_url") @db.VarChar(1000)
+  /// Enlace de anfitrión (start_url). Solo panel; nunca al participante.
+  hostUrl               String?          @map("host_url") @db.VarChar(1000)
+  /// Grabación (enlace externo, HU-28). PRIVADO: solo inscritos.
+  recordingUrl          String?          @map("recording_url") @db.VarChar(1000)
+  recordingPublishedAt  DateTime?        @map("recording_published_at") @db.Timestamptz(3)
+  /// Override de la ventana de asistencia de la oferta (horas).
+  attendanceWindowHours Int?             @map("attendance_window_hours")
+  /// Reprogramación / cancelación (HU-29).
+  originalStartsAt      DateTime?        @map("original_starts_at") @db.Timestamptz(3)
+  changeReason          String?          @map("change_reason") @db.VarChar(500)
+  cancelledAt           DateTime?        @map("cancelled_at") @db.Timestamptz(3)
+  createdAt             DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  offer  Offer        @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  module OfferModule? @relation(fields: [moduleId], references: [id], onDelete: SetNull)
+
+  @@unique([offerId, startsAt])
+  @@index([startsAt])
+  @@map("offer_sessions")
+}
+
+/// Evento de calendario que no es una clase: eventos manuales y fechas importantes (HU-10, HU-29).
+model CalendarEvent {
+  id          String            @id @default(uuid()) @db.Uuid
+  kind        CalendarEventKind @default(MANUAL)
+  title       String            @db.VarChar(200)
+  description String?           @db.Text
+  category    CalendarCategory
+  audience    CalendarAudience  @default(ALL_REGISTERED)
+  /// Oferta relacionada (obligatoria si audience = OFFER_ENROLLED; enlace "Ver oferta").
+  offerId     String?           @map("offer_id") @db.Uuid
+  startsAt    DateTime          @map("starts_at") @db.Timestamptz(3)
+  endsAt      DateTime?         @map("ends_at") @db.Timestamptz(3)
+  allDay      Boolean           @default(false) @map("all_day")
+  location    String?           @db.VarChar(300)
+  /// Enlace de conexión (webinars). PRIVADO: solo la audiencia.
+  joinUrl     String?           @map("join_url") @db.VarChar(1000)
+  status      SessionStatus     @default(SCHEDULED)
+  createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  offer Offer? @relation(fields: [offerId], references: [id], onDelete: Cascade)
+
+  @@index([startsAt])
+  @@index([offerId, kind])
+  @@map("calendar_events")
+}

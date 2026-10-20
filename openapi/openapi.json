@@ -2083,6 +2083,499 @@
           "Contacto"
         ]
       }
+    },
+    "/api/v1/offers": {
+      "get": {
+        "description": "HU-15: ofertas PUBLICADAS (nunca borradores) con filtros combinables (AND): `type` (varios), `modality`, `status` (por defecto `ENROLLMENT_OPEN,UPCOMING`), `scholarship=true` (solo diplomados NAS con beca), `topic` (HU-34) y `q` (≥ 3 caracteres; nombre o docente, sin acentos). Orden: abiertas/próximas por inicio más cercano; cerradas y finalizadas al final. Costo en MXN o USD según el visitante (`pricing.currency`); Moodle → `EXTERNAL_ENROLLMENT` sin precio. Horario: regla en hora CDMX + `firstSession` en UTC. Pública con sesión OPCIONAL: con `Authorization: Bearer` válido se personaliza (moneda del país del perfil y estado \"Inscrito\"); un token ausente o vencido NO da 401, se responde como visitante.",
+        "operationId": "Offers_list",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Página (desde 1).",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "example": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "description": "Elementos por página.",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "type",
+            "required": false,
+            "in": "query",
+            "description": "Tipo(s): `?type=DIPLOMA,COURSE` o `?type=DIPLOMA&type=COURSE`.",
+            "schema": {
+              "example": [
+                "DIPLOMA",
+                "COURSE"
+              ],
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "DIPLOMA",
+                  "COURSE",
+                  "WORKSHOP",
+                  "EVENT",
+                  "OPEN_CALL"
+                ]
+              }
+            }
+          },
+          {
+            "name": "modality",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "ONLINE_LIVE",
+              "type": "string",
+              "enum": [
+                "ONLINE_LIVE",
+                "IN_PERSON"
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Estado(s) derivado(s). Por defecto `ENROLLMENT_OPEN,UPCOMING` (Inscripciones abiertas y Próximamente).",
+            "schema": {
+              "example": [
+                "ENROLLMENT_OPEN",
+                "UPCOMING"
+              ],
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "ENROLLMENT_OPEN",
+                  "UPCOMING",
+                  "ENROLLMENT_CLOSED",
+                  "FINISHED"
+                ]
+              }
+            }
+          },
+          {
+            "name": "scholarship",
+            "required": false,
+            "in": "query",
+            "description": "\"Con beca disponible\": solo diplomados NAS con beca habilitada.",
+            "schema": {
+              "example": true,
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "topic",
+            "required": false,
+            "in": "query",
+            "description": "Temática pública (HU-34): catálogo filtrado desde la página Itinerantes del Agua.",
+            "schema": {
+              "example": "CONSTRUCTED_WETLANDS",
+              "type": "string",
+              "enum": [
+                "ECOTECH_WATER_DIPLOMA",
+                "ECOPEDAGOGIES_DIPLOMA",
+                "WATER_APPRENTICES_SCHOOL",
+                "WATER_TREATMENT_SYSTEMS_INTRO",
+                "CONSTRUCTED_WETLANDS",
+                "DRY_TOILETS",
+                "WATER_HARVESTING",
+                "TRAVELING_WATER_LABS",
+                "TERRITORIAL_PRACTICES",
+                "FIELD_VISITS"
+              ]
+            }
+          },
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "description": "Búsqueda por nombre de la oferta o de la persona docente (sin distinguir acentos ni mayúsculas). Mínimo 3 caracteres.",
+            "schema": {
+              "minLength": 3,
+              "maxLength": 100,
+              "example": "humedales",
+              "type": "string"
+            }
+          },
+          {
+            "name": "tz",
+            "required": false,
+            "in": "query",
+            "description": "Zona IANA del navegador (`Intl.DateTimeFormat().resolvedOptions().timeZone`). Sin sesión define la moneda (zona de México → MXN; resto → USD). También se acepta el header `X-Timezone`. Con sesión manda el país del perfil.",
+            "schema": {
+              "example": "America/Mexico_City",
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-timezone",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Timezone",
+            "in": "header",
+            "description": "Alternativa al query `tz` (zona IANA del navegador) para estimar la moneda sin sesión.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "America/Mexico_City"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ofertas paginadas.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/OfferSummaryDto"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PaginationMetaDto"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error. `code` posibles: `VALIDATION_ERROR`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "summary": "VALIDATION_ERROR",
+                    "value": {
+                      "statusCode": 400,
+                      "code": "VALIDATION_ERROR",
+                      "message": "Los datos enviados no son válidos.",
+                      "details": [
+                        {
+                          "field": "email",
+                          "code": "IS_EMAIL",
+                          "message": "Debe ser un correo electrónico válido."
+                        }
+                      ],
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          },
+          {}
+        ],
+        "summary": "Catálogo de oferta formativa",
+        "tags": [
+          "Oferta formativa"
+        ]
+      }
+    },
+    "/api/v1/offers/availability": {
+      "get": {
+        "description": "HU-34: para cada temática literal del cliente (10 ítems en 3 grupos, en su orden) devuelve la etiqueta (`ENROLLMENT_OPEN` Inscripciones abiertas, `UPCOMING` Próximamente, `ENROLLMENT_CLOSED` Inscripciones cerradas, `OPEN_CALL` Programa por convocatoria, `NO_SCHEDULED_DATES` Sin fechas programadas) y el destino: ficha (una oferta vigente), catálogo filtrado (varias) o sin enlace (ninguna). Se resuelve con `Offer.publicTopic`, sin cambiar código al agregar ofertas.",
+        "operationId": "Offers_availability",
+        "parameters": [
+          {
+            "name": "topics",
+            "required": false,
+            "in": "query",
+            "description": "Temáticas a consultar (`?topics=A,B`). Por defecto, las 10 de HU-34 en su orden.",
+            "schema": {
+              "example": [
+                "ECOTECH_WATER_DIPLOMA",
+                "CONSTRUCTED_WETLANDS"
+              ],
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "ECOTECH_WATER_DIPLOMA",
+                  "ECOPEDAGOGIES_DIPLOMA",
+                  "WATER_APPRENTICES_SCHOOL",
+                  "WATER_TREATMENT_SYSTEMS_INTRO",
+                  "CONSTRUCTED_WETLANDS",
+                  "DRY_TOILETS",
+                  "WATER_HARVESTING",
+                  "TRAVELING_WATER_LABS",
+                  "TERRITORIAL_PRACTICES",
+                  "FIELD_VISITS"
+                ]
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TopicAvailabilityListDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error. `code` posibles: `VALIDATION_ERROR`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "summary": "VALIDATION_ERROR",
+                    "value": {
+                      "statusCode": 400,
+                      "code": "VALIDATION_ERROR",
+                      "message": "Los datos enviados no son válidos.",
+                      "details": [
+                        {
+                          "field": "email",
+                          "code": "IS_EMAIL",
+                          "message": "Debe ser un correo electrónico válido."
+                        }
+                      ],
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          },
+          {}
+        ],
+        "summary": "Disponibilidad por temática (página Itinerantes del Agua)",
+        "tags": [
+          "Oferta formativa"
+        ]
+      }
+    },
+    "/api/v1/offers/{slug}": {
+      "get": {
+        "description": "HU-16: ficha completa (docentes, \"¿Qué aprenderás?\", temario publicado, fechas, horario CDMX, costo en la moneda del visitante, \"hasta N cuotas\", bloque de beca con niveles y monto estimado, elegibilidad de convocatorias, cupo) y `actions`: los CTA calculados por el backend (`ENROLL_AND_PAY`, `PAY_IN_INSTALLMENTS`, `ENROLL_FREE`, `APPLY_SCHOLARSHIP`, `APPLY_OPEN_CALL`, `ACTIVATE_MOODLE_ACCESS`, `GO_TO_CLASSROOM`) con `enabled` y `reason`. Nunca expone el grupo de WhatsApp ni enlaces de sesión/grabación. Borrador, archivada o inexistente → 404 `OFFER_NOT_AVAILABLE`. Pública con sesión OPCIONAL: con `Authorization: Bearer` válido se personaliza (moneda del país del perfil y estado \"Inscrito\"); un token ausente o vencido NO da 401, se responde como visitante.",
+        "operationId": "Offers_detail",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "diplomado-en-ecotecnologias-del-agua",
+              "type": "string"
+            }
+          },
+          {
+            "name": "tz",
+            "required": false,
+            "in": "query",
+            "description": "Zona IANA del navegador (`Intl.DateTimeFormat().resolvedOptions().timeZone`). Sin sesión define la moneda (zona de México → MXN; resto → USD). También se acepta el header `X-Timezone`. Con sesión manda el país del perfil.",
+            "schema": {
+              "example": "America/Mexico_City",
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-timezone",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Timezone",
+            "in": "header",
+            "description": "Alternativa al query `tz` (zona IANA del navegador) para estimar la moneda sin sesión.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "America/Mexico_City"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OfferDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error. `code` posibles: `VALIDATION_ERROR`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "summary": "VALIDATION_ERROR",
+                    "value": {
+                      "statusCode": 400,
+                      "code": "VALIDATION_ERROR",
+                      "message": "Los datos enviados no son válidos.",
+                      "details": [
+                        {
+                          "field": "email",
+                          "code": "IS_EMAIL",
+                          "message": "Debe ser un correo electrónico válido."
+                        }
+                      ],
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error. `code` posibles: `OFFER_NOT_AVAILABLE`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "OFFER_NOT_AVAILABLE": {
+                    "summary": "OFFER_NOT_AVAILABLE",
+                    "value": {
+                      "statusCode": 404,
+                      "code": "OFFER_NOT_AVAILABLE",
+                      "message": "Esta oferta ya no está disponible.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          },
+          {}
+        ],
+        "summary": "Ficha de una oferta",
+        "tags": [
+          "Oferta formativa"
+        ]
+      }
     }
   },
   "info": {
@@ -2203,7 +2696,8 @@
               "AUTH_REFRESH_INVALID",
               "AUTH_RESET_TOKEN_INVALID",
               "AUTH_CURRENT_PASSWORD_INVALID",
-              "CONTACT_CAPTCHA_FAILED"
+              "CONTACT_CAPTCHA_FAILED",
+              "OFFER_NOT_AVAILABLE"
             ]
           },
           "message": {
@@ -3472,6 +3966,1241 @@
           "pageSize",
           "total",
           "totalPages"
+        ]
+      },
+      "PaginatedResponseDto": {
+        "type": "object",
+        "properties": {
+          "meta": {
+            "$ref": "#/components/schemas/PaginationMetaDto"
+          }
+        },
+        "required": [
+          "meta"
+        ]
+      },
+      "OfferDatesDto": {
+        "type": "object",
+        "properties": {
+          "enrollmentOpensAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "example": "2026-09-01T06:00:00.000Z",
+            "description": "Apertura de inscripciones (o de postulación en convocatorias)."
+          },
+          "enrollmentClosesAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "example": "2026-11-06T05:59:59.000Z",
+            "description": "Cierre de inscripciones (o de postulación)."
+          },
+          "startsAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "example": "2026-11-07T16:00:00.000Z"
+          },
+          "endsAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "example": "2027-01-31T19:00:00.000Z"
+          }
+        },
+        "required": [
+          "enrollmentOpensAt",
+          "enrollmentClosesAt",
+          "startsAt",
+          "endsAt"
+        ]
+      },
+      "SessionSlotDto": {
+        "type": "object",
+        "properties": {
+          "startsAt": {
+            "type": "string",
+            "example": "2026-11-07T16:00:00.000Z"
+          },
+          "endsAt": {
+            "type": "string",
+            "example": "2026-11-07T19:00:00.000Z"
+          }
+        },
+        "required": [
+          "startsAt",
+          "endsAt"
+        ]
+      },
+      "OfferScheduleDto": {
+        "type": "object",
+        "properties": {
+          "timezone": {
+            "type": "string",
+            "example": "America/Mexico_City",
+            "description": "Zona de la regla (hora oficial CDMX)."
+          },
+          "weekdays": {
+            "example": [
+              6,
+              7
+            ],
+            "description": "Días ISO: 1 = lunes … 7 = domingo.",
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "startTime": {
+            "type": "string",
+            "example": "10:00",
+            "description": "Hora de inicio en CDMX (HH:mm)."
+          },
+          "endTime": {
+            "type": "string",
+            "example": "13:00",
+            "description": "Hora de fin en CDMX (HH:mm)."
+          },
+          "firstSession": {
+            "nullable": true,
+            "description": "Primera sesión según la regla, en UTC: sirve para mostrar \"10:00 hora CDMX · 11:00 tu hora\" con `Intl` (HU-11). null si la oferta no tiene fecha de inicio.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SessionSlotDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "timezone",
+          "weekdays",
+          "startTime",
+          "endTime",
+          "firstSession"
+        ]
+      },
+      "OfferVenueSummaryDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Centro de Saberes del Agua"
+          },
+          "city": {
+            "type": "string",
+            "nullable": true,
+            "example": "Tepoztlán, Morelos"
+          }
+        },
+        "required": [
+          "name",
+          "city"
+        ]
+      },
+      "MoneyDto": {
+        "type": "object",
+        "properties": {
+          "amountCents": {
+            "type": "number",
+            "example": 1020000,
+            "description": "Centavos enteros."
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "MXN",
+              "USD"
+            ],
+            "example": "MXN"
+          }
+        },
+        "required": [
+          "amountCents",
+          "currency"
+        ]
+      },
+      "OfferInstallmentsDto": {
+        "type": "object",
+        "properties": {
+          "maxInstallments": {
+            "type": "number",
+            "example": 3,
+            "minimum": 2,
+            "maximum": 4,
+            "description": "\"Hasta N cuotas sin recargo\" (HU-16 / HU-24)."
+          }
+        },
+        "required": [
+          "maxInstallments"
+        ]
+      },
+      "OfferPricingDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "PAID",
+              "FREE",
+              "EXTERNAL_ENROLLMENT"
+            ],
+            "example": "PAID",
+            "description": "PAID: con costo; FREE: \"Gratuito\"; EXTERNAL_ENROLLMENT: origen Moodle (\"Inscripción externa\", sin precio)."
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "MXN",
+              "USD"
+            ],
+            "example": "MXN",
+            "description": "Moneda del visitante."
+          },
+          "currencySource": {
+            "type": "string",
+            "enum": [
+              "PROFILE",
+              "TIMEZONE",
+              "DEFAULT"
+            ],
+            "example": "TIMEZONE",
+            "description": "PROFILE: país del perfil; TIMEZONE: zona del navegador (sin sesión); DEFAULT: sin datos (USD)."
+          },
+          "price": {
+            "nullable": true,
+            "description": "Precio en `currency` (null si no es PAID o no hay precio en esa moneda).",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MoneyDto"
+              }
+            ]
+          },
+          "installments": {
+            "nullable": true,
+            "description": "Solo si la oferta permite cuotas.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OfferInstallmentsDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "currency",
+          "currencySource",
+          "price",
+          "installments"
+        ]
+      },
+      "ScholarshipBadgeDto": {
+        "type": "object",
+        "properties": {
+          "minPercent": {
+            "type": "number",
+            "example": 10
+          },
+          "maxPercent": {
+            "type": "number",
+            "example": 80
+          }
+        },
+        "required": [
+          "minPercent",
+          "maxPercent"
+        ]
+      },
+      "OfferSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "slug": {
+            "type": "string",
+            "example": "diplomado-en-ecotecnologias-del-agua",
+            "description": "Ruta /escuela/oferta/[slug]."
+          },
+          "name": {
+            "type": "string",
+            "example": "Diplomado en Ecotecnologías del Agua"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "DIPLOMA",
+              "COURSE",
+              "WORKSHOP",
+              "EVENT",
+              "OPEN_CALL"
+            ],
+            "example": "DIPLOMA"
+          },
+          "modality": {
+            "type": "string",
+            "enum": [
+              "ONLINE_LIVE",
+              "IN_PERSON"
+            ],
+            "example": "ONLINE_LIVE"
+          },
+          "origin": {
+            "type": "string",
+            "enum": [
+              "NAS",
+              "MOODLE"
+            ],
+            "example": "NAS"
+          },
+          "availability": {
+            "type": "string",
+            "enum": [
+              "ENROLLMENT_OPEN",
+              "UPCOMING",
+              "ENROLLMENT_CLOSED",
+              "FINISHED"
+            ],
+            "example": "ENROLLMENT_OPEN",
+            "description": "Estado derivado de publicación y fechas."
+          },
+          "openCallStatus": {
+            "type": "string",
+            "enum": [
+              "OPEN",
+              "UPCOMING",
+              "CLOSED"
+            ],
+            "nullable": true,
+            "example": null,
+            "description": "Solo convocatorias: estado de la postulación."
+          },
+          "summary": {
+            "type": "string",
+            "example": "Aprende a diseñar y construir ecotecnologías para cuidar, tratar y regenerar el agua."
+          },
+          "coverImageUrl": {
+            "type": "string",
+            "nullable": true,
+            "example": "https://cdn.example.com/offers/diplomado/portada.webp"
+          },
+          "cohortLabel": {
+            "type": "string",
+            "nullable": true,
+            "example": "Generación 2026–2027"
+          },
+          "publicTopic": {
+            "type": "string",
+            "enum": [
+              "ECOTECH_WATER_DIPLOMA",
+              "ECOPEDAGOGIES_DIPLOMA",
+              "WATER_APPRENTICES_SCHOOL",
+              "WATER_TREATMENT_SYSTEMS_INTRO",
+              "CONSTRUCTED_WETLANDS",
+              "DRY_TOILETS",
+              "WATER_HARVESTING",
+              "TRAVELING_WATER_LABS",
+              "TERRITORIAL_PRACTICES",
+              "FIELD_VISITS"
+            ],
+            "nullable": true,
+            "example": "ECOTECH_WATER_DIPLOMA"
+          },
+          "dates": {
+            "$ref": "#/components/schemas/OfferDatesDto"
+          },
+          "schedule": {
+            "nullable": true,
+            "description": "null si la oferta no tiene regla de horario.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OfferScheduleDto"
+              }
+            ]
+          },
+          "totalHours": {
+            "type": "number",
+            "nullable": true,
+            "example": 60
+          },
+          "venue": {
+            "nullable": true,
+            "description": "Solo presenciales.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OfferVenueSummaryDto"
+              }
+            ]
+          },
+          "pricing": {
+            "$ref": "#/components/schemas/OfferPricingDto"
+          },
+          "scholarship": {
+            "nullable": true,
+            "description": "Badge \"Beca 10%–80%\": solo diplomados NAS con beca.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ScholarshipBadgeDto"
+              }
+            ]
+          },
+          "teacherNames": {
+            "example": [
+              "Ana Solís Ríos",
+              "Tomás Ek Canché"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "enrolled": {
+            "type": "boolean",
+            "example": false,
+            "description": "Con sesión: inscripción activa → \"Inscrito\" y la tarjeta lleva al Aula (HU-17)."
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "type",
+          "modality",
+          "origin",
+          "availability",
+          "openCallStatus",
+          "summary",
+          "coverImageUrl",
+          "cohortLabel",
+          "publicTopic",
+          "dates",
+          "schedule",
+          "totalHours",
+          "venue",
+          "pricing",
+          "scholarship",
+          "teacherNames",
+          "enrolled"
+        ]
+      },
+      "TopicLinkDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "OFFER",
+              "CATALOG",
+              "NONE"
+            ],
+            "example": "OFFER"
+          },
+          "slug": {
+            "type": "string",
+            "nullable": true,
+            "example": "diplomado-en-ecotecnologias-del-agua",
+            "description": "kind = OFFER: slug de la ficha."
+          },
+          "catalogQuery": {
+            "type": "string",
+            "nullable": true,
+            "example": "topic=CONSTRUCTED_WETLANDS&status=ENROLLMENT_OPEN,UPCOMING,ENROLLMENT_CLOSED",
+            "description": "kind = CATALOG: query string para /escuela/oferta."
+          }
+        },
+        "required": [
+          "kind",
+          "slug",
+          "catalogQuery"
+        ]
+      },
+      "TopicAvailabilityDto": {
+        "type": "object",
+        "properties": {
+          "topic": {
+            "type": "string",
+            "enum": [
+              "ECOTECH_WATER_DIPLOMA",
+              "ECOPEDAGOGIES_DIPLOMA",
+              "WATER_APPRENTICES_SCHOOL",
+              "WATER_TREATMENT_SYSTEMS_INTRO",
+              "CONSTRUCTED_WETLANDS",
+              "DRY_TOILETS",
+              "WATER_HARVESTING",
+              "TRAVELING_WATER_LABS",
+              "TERRITORIAL_PRACTICES",
+              "FIELD_VISITS"
+            ],
+            "example": "ECOTECH_WATER_DIPLOMA"
+          },
+          "group": {
+            "type": "string",
+            "enum": [
+              "SPECIALIZED_TRAINING",
+              "ONLINE_COURSES_WORKSHOPS",
+              "HANDS_ON_LEARNING"
+            ],
+            "example": "SPECIALIZED_TRAINING"
+          },
+          "label": {
+            "type": "string",
+            "example": "Diplomado en Ecotecnologías del Agua",
+            "description": "Texto literal del cliente."
+          },
+          "availability": {
+            "type": "string",
+            "enum": [
+              "ENROLLMENT_OPEN",
+              "UPCOMING",
+              "ENROLLMENT_CLOSED",
+              "OPEN_CALL",
+              "NO_SCHEDULED_DATES"
+            ],
+            "example": "ENROLLMENT_OPEN"
+          },
+          "offerCount": {
+            "type": "number",
+            "example": 1,
+            "description": "Ofertas vigentes (publicadas, no finalizadas)."
+          },
+          "link": {
+            "$ref": "#/components/schemas/TopicLinkDto"
+          }
+        },
+        "required": [
+          "topic",
+          "group",
+          "label",
+          "availability",
+          "offerCount",
+          "link"
+        ]
+      },
+      "TopicAvailabilityListDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TopicAvailabilityDto"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "OfferDetailDatesDto": {
+        "type": "object",
+        "properties": {
+          "enrollmentOpensAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "example": "2026-09-01T06:00:00.000Z",
+            "description": "Apertura de inscripciones (o de postulación en convocatorias)."
+          },
+          "enrollmentClosesAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "example": "2026-11-06T05:59:59.000Z",
+            "description": "Cierre de inscripciones (o de postulación)."
+          },
+          "startsAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "example": "2026-11-07T16:00:00.000Z"
+          },
+          "endsAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "example": "2027-01-31T19:00:00.000Z"
+          },
+          "finalProjectDueAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "example": "2027-02-27T16:00:00.000Z",
+            "description": "Proyecto final (diplomados)."
+          }
+        },
+        "required": [
+          "enrollmentOpensAt",
+          "enrollmentClosesAt",
+          "startsAt",
+          "endsAt",
+          "finalProjectDueAt"
+        ]
+      },
+      "OfferVenueDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Centro de Saberes del Agua"
+          },
+          "city": {
+            "type": "string",
+            "nullable": true,
+            "example": "Tepoztlán, Morelos"
+          },
+          "address": {
+            "type": "string",
+            "nullable": true,
+            "example": "Camino a Amatlán s/n, Tepoztlán, Mor."
+          },
+          "mapsUrl": {
+            "type": "string",
+            "nullable": true,
+            "example": "https://maps.google.com/?q=Tepoztlan",
+            "description": "\"Cómo llegar\"."
+          }
+        },
+        "required": [
+          "name",
+          "city",
+          "address",
+          "mapsUrl"
+        ]
+      },
+      "TeacherDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fullName": {
+            "type": "string",
+            "example": "Ana Solís Ríos"
+          },
+          "photoUrl": {
+            "type": "string",
+            "nullable": true,
+            "example": "https://cdn.example.com/teachers/ana.webp"
+          },
+          "bio": {
+            "type": "string",
+            "nullable": true,
+            "example": "Ingeniera ambiental con 15 años en humedales construidos."
+          },
+          "cvUrl": {
+            "type": "string",
+            "nullable": true,
+            "example": "https://example.com/cv/ana-solis.pdf",
+            "description": "\"Ver CV\"."
+          }
+        },
+        "required": [
+          "id",
+          "fullName",
+          "photoUrl",
+          "bio",
+          "cvUrl"
+        ]
+      },
+      "OfferModuleDto": {
+        "type": "object",
+        "properties": {
+          "number": {
+            "type": "number",
+            "example": 3,
+            "description": "Número de módulo (1..n) en el temario publicado."
+          },
+          "title": {
+            "type": "string",
+            "example": "Humedales construidos"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "example": "Diseño y operación de humedales para aguas grises."
+          }
+        },
+        "required": [
+          "number",
+          "title",
+          "description"
+        ]
+      },
+      "AmountRangeDto": {
+        "type": "object",
+        "properties": {
+          "minAmountCents": {
+            "type": "number",
+            "example": 724200
+          },
+          "maxAmountCents": {
+            "type": "number",
+            "example": 816000
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "MXN",
+              "USD"
+            ],
+            "example": "MXN"
+          }
+        },
+        "required": [
+          "minAmountCents",
+          "maxAmountCents",
+          "currency"
+        ]
+      },
+      "ScholarshipLevelDto": {
+        "type": "object",
+        "properties": {
+          "level": {
+            "type": "string",
+            "enum": [
+              "AGUA_VIVA",
+              "RIOS_VIVOS",
+              "AGUAS_LIBRES",
+              "CENOTES_VIVOS",
+              "SPECIAL"
+            ],
+            "example": "AGUAS_LIBRES"
+          },
+          "label": {
+            "type": "string",
+            "example": "Aguas Libres"
+          },
+          "minPercent": {
+            "type": "number",
+            "example": 50
+          },
+          "maxPercent": {
+            "type": "number",
+            "example": 50,
+            "description": "Igual a minPercent salvo en Beca especial (71–80)."
+          },
+          "requiresInterview": {
+            "type": "boolean",
+            "example": false,
+            "description": "Más de 70%: entrevista por Zoom."
+          },
+          "estimatedScholarship": {
+            "nullable": true,
+            "description": "Monto estimado de la beca en la moneda del visitante.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AmountRangeDto"
+              }
+            ]
+          },
+          "estimatedBalance": {
+            "nullable": true,
+            "description": "Saldo estimado a pagar (\"el nivel final lo asigna el equipo\").",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AmountRangeDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "level",
+          "label",
+          "minPercent",
+          "maxPercent",
+          "requiresInterview",
+          "estimatedScholarship",
+          "estimatedBalance"
+        ]
+      },
+      "OfferScholarshipDto": {
+        "type": "object",
+        "properties": {
+          "minPercent": {
+            "type": "number",
+            "example": 10
+          },
+          "maxPercent": {
+            "type": "number",
+            "example": 80
+          },
+          "interviewRequiredAbovePercent": {
+            "type": "number",
+            "example": 70
+          },
+          "windowStatus": {
+            "type": "string",
+            "enum": [
+              "OPEN",
+              "UPCOMING",
+              "CLOSED"
+            ],
+            "example": "OPEN",
+            "description": "Convocatoria de becas."
+          },
+          "opensAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "example": "2026-09-01T06:00:00.000Z"
+          },
+          "closesAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "example": "2026-10-25T05:59:59.000Z"
+          },
+          "levels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScholarshipLevelDto"
+            }
+          }
+        },
+        "required": [
+          "minPercent",
+          "maxPercent",
+          "interviewRequiredAbovePercent",
+          "windowStatus",
+          "opensAt",
+          "closesAt",
+          "levels"
+        ]
+      },
+      "EligibleCountryDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "example": "GT"
+          },
+          "name": {
+            "type": "string",
+            "example": "Guatemala"
+          }
+        },
+        "required": [
+          "code",
+          "name"
+        ]
+      },
+      "OfferEligibilityDto": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "nullable": true,
+            "example": "Dirigida a mujeres lideresas de Centroamérica y México."
+          },
+          "countries": {
+            "description": "Vacío = sin restricción de país.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EligibleCountryDto"
+            }
+          },
+          "requiresTravel": {
+            "type": "boolean",
+            "example": true,
+            "description": "Requiere disponibilidad para viajar (asistencia presencial completa)."
+          }
+        },
+        "required": [
+          "text",
+          "countries",
+          "requiresTravel"
+        ]
+      },
+      "OfferCapacityDto": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "number",
+            "nullable": true,
+            "example": 25,
+            "description": "Cupo total (null = sin cupo)."
+          },
+          "soldOut": {
+            "type": "boolean",
+            "example": false,
+            "description": "\"Cupo agotado\"."
+          }
+        },
+        "required": [
+          "total",
+          "soldOut"
+        ]
+      },
+      "OfferViewerDto": {
+        "type": "object",
+        "properties": {
+          "authenticated": {
+            "type": "boolean",
+            "example": false
+          },
+          "enrolled": {
+            "type": "boolean",
+            "example": false,
+            "description": "\"Ya estás inscrito\"."
+          }
+        },
+        "required": [
+          "authenticated",
+          "enrolled"
+        ]
+      },
+      "OfferActionDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "ENROLL_AND_PAY",
+              "PAY_IN_INSTALLMENTS",
+              "ENROLL_FREE",
+              "APPLY_SCHOLARSHIP",
+              "APPLY_OPEN_CALL",
+              "ACTIVATE_MOODLE_ACCESS",
+              "GO_TO_CLASSROOM"
+            ],
+            "example": "ENROLL_AND_PAY"
+          },
+          "enabled": {
+            "type": "boolean",
+            "example": true
+          },
+          "primary": {
+            "type": "boolean",
+            "example": true,
+            "description": "Botón principal (máximo uno)."
+          },
+          "requiresLogin": {
+            "type": "boolean",
+            "example": false,
+            "description": "Sin sesión: llevar a login/registro y regresar a la ficha con la acción."
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "ENROLLMENT_NOT_OPEN_YET",
+              "ENROLLMENT_CLOSED",
+              "OFFER_FINISHED",
+              "SOLD_OUT",
+              "SCHOLARSHIP_NOT_OPEN_YET",
+              "SCHOLARSHIP_CLOSED",
+              "PRICE_NOT_AVAILABLE"
+            ],
+            "nullable": true,
+            "example": null,
+            "description": "Motivo si `enabled = false`."
+          },
+          "availableFrom": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "example": null,
+            "description": "Para *_NOT_OPEN_YET: cuándo se habilita."
+          }
+        },
+        "required": [
+          "type",
+          "enabled",
+          "primary",
+          "requiresLogin",
+          "reason",
+          "availableFrom"
+        ]
+      },
+      "OfferDetailDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "slug": {
+            "type": "string",
+            "example": "diplomado-en-ecotecnologias-del-agua",
+            "description": "Ruta /escuela/oferta/[slug]."
+          },
+          "name": {
+            "type": "string",
+            "example": "Diplomado en Ecotecnologías del Agua"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "DIPLOMA",
+              "COURSE",
+              "WORKSHOP",
+              "EVENT",
+              "OPEN_CALL"
+            ],
+            "example": "DIPLOMA"
+          },
+          "modality": {
+            "type": "string",
+            "enum": [
+              "ONLINE_LIVE",
+              "IN_PERSON"
+            ],
+            "example": "ONLINE_LIVE"
+          },
+          "origin": {
+            "type": "string",
+            "enum": [
+              "NAS",
+              "MOODLE"
+            ],
+            "example": "NAS"
+          },
+          "availability": {
+            "type": "string",
+            "enum": [
+              "ENROLLMENT_OPEN",
+              "UPCOMING",
+              "ENROLLMENT_CLOSED",
+              "FINISHED"
+            ],
+            "example": "ENROLLMENT_OPEN",
+            "description": "Estado derivado de publicación y fechas."
+          },
+          "openCallStatus": {
+            "type": "string",
+            "enum": [
+              "OPEN",
+              "UPCOMING",
+              "CLOSED"
+            ],
+            "nullable": true,
+            "example": null,
+            "description": "Solo convocatorias: estado de la postulación."
+          },
+          "summary": {
+            "type": "string",
+            "example": "Aprende a diseñar y construir ecotecnologías para cuidar, tratar y regenerar el agua."
+          },
+          "coverImageUrl": {
+            "type": "string",
+            "nullable": true,
+            "example": "https://cdn.example.com/offers/diplomado/portada.webp"
+          },
+          "cohortLabel": {
+            "type": "string",
+            "nullable": true,
+            "example": "Generación 2026–2027"
+          },
+          "publicTopic": {
+            "type": "string",
+            "enum": [
+              "ECOTECH_WATER_DIPLOMA",
+              "ECOPEDAGOGIES_DIPLOMA",
+              "WATER_APPRENTICES_SCHOOL",
+              "WATER_TREATMENT_SYSTEMS_INTRO",
+              "CONSTRUCTED_WETLANDS",
+              "DRY_TOILETS",
+              "WATER_HARVESTING",
+              "TRAVELING_WATER_LABS",
+              "TERRITORIAL_PRACTICES",
+              "FIELD_VISITS"
+            ],
+            "nullable": true,
+            "example": "ECOTECH_WATER_DIPLOMA"
+          },
+          "dates": {
+            "$ref": "#/components/schemas/OfferDetailDatesDto"
+          },
+          "schedule": {
+            "nullable": true,
+            "description": "null si la oferta no tiene regla de horario.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OfferScheduleDto"
+              }
+            ]
+          },
+          "totalHours": {
+            "type": "number",
+            "nullable": true,
+            "example": 60
+          },
+          "venue": {
+            "nullable": true,
+            "description": "Solo presenciales.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OfferVenueDto"
+              }
+            ]
+          },
+          "pricing": {
+            "$ref": "#/components/schemas/OfferPricingDto"
+          },
+          "scholarship": {
+            "nullable": true,
+            "description": "Badge \"Beca 10%–80%\": solo diplomados NAS con beca.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ScholarshipBadgeDto"
+              }
+            ]
+          },
+          "teacherNames": {
+            "example": [
+              "Ana Solís Ríos",
+              "Tomás Ek Canché"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "enrolled": {
+            "type": "boolean",
+            "example": false,
+            "description": "Con sesión: inscripción activa → \"Inscrito\" y la tarjeta lleva al Aula (HU-17)."
+          },
+          "description": {
+            "type": "string",
+            "example": "El diplomado recorre las principales ecotecnologías…"
+          },
+          "learningOutcomes": {
+            "example": [
+              "Diseñar un humedal construido",
+              "Dimensionar un sistema de captación"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "requirements": {
+            "type": "string",
+            "nullable": true,
+            "example": "Conexión estable a internet y disponibilidad sábados y domingos."
+          },
+          "carouselImageUrls": {
+            "description": "Carrusel de imágenes (URLs).",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sessionCount": {
+            "type": "number",
+            "example": 20,
+            "description": "Sesiones programadas (sin canceladas)."
+          },
+          "calendarCategory": {
+            "type": "string",
+            "enum": [
+              "TRAINING",
+              "TERRITORY",
+              "COMMUNITY",
+              "EVENTS",
+              "IMPORTANT_DATES"
+            ],
+            "example": "TRAINING"
+          },
+          "teachers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TeacherDto"
+            }
+          },
+          "modules": {
+            "description": "Temario: solo módulos publicados.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OfferModuleDto"
+            }
+          },
+          "scholarshipDetails": {
+            "nullable": true,
+            "description": "Bloque de beca: solo diplomados NAS con beca.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OfferScholarshipDto"
+              }
+            ]
+          },
+          "eligibility": {
+            "nullable": true,
+            "description": "Requisitos de elegibilidad (convocatorias).",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OfferEligibilityDto"
+              }
+            ]
+          },
+          "capacity": {
+            "$ref": "#/components/schemas/OfferCapacityDto"
+          },
+          "moodleCourseUrl": {
+            "type": "string",
+            "nullable": true,
+            "example": null,
+            "description": "Moodle: enlace informativo al curso."
+          },
+          "viewer": {
+            "$ref": "#/components/schemas/OfferViewerDto"
+          },
+          "actions": {
+            "description": "CTA calculados por el backend, en orden de jerarquía.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OfferActionDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "type",
+          "modality",
+          "origin",
+          "availability",
+          "openCallStatus",
+          "summary",
+          "coverImageUrl",
+          "cohortLabel",
+          "publicTopic",
+          "dates",
+          "schedule",
+          "totalHours",
+          "venue",
+          "pricing",
+          "scholarship",
+          "teacherNames",
+          "enrolled",
+          "description",
+          "learningOutcomes",
+          "requirements",
+          "carouselImageUrls",
+          "sessionCount",
+          "calendarCategory",
+          "teachers",
+          "modules",
+          "scholarshipDetails",
+          "eligibility",
+          "capacity",
+          "viewer",
+          "actions"
         ]
       }
     }

@@ -128,6 +128,12 @@ export const ERROR_CODES = {
     status: HttpStatus.BAD_REQUEST,
     message: 'No pudimos verificar que no eres un robot. Intenta de nuevo más tarde.',
   },
+
+  // --- Fase 02: Oferta formativa (HU-15, 16, 34) ---
+  OFFER_NOT_AVAILABLE: {
+    status: HttpStatus.NOT_FOUND,
+    message: 'Esta oferta ya no está disponible.',
+  },
 } as const satisfies Record<string, ErrorDefinition>;
 
 export type ErrorCode = keyof typeof ERROR_CODES;

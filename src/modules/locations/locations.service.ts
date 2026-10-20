@@ -80,6 +80,16 @@ export class LocationsService {
     });
   }
 
+  /** Nombres de varios países (código → nombre); los códigos desconocidos se omiten. */
+  async getCountryNames(codes: readonly string[]): Promise<Map<string, string>> {
+    if (codes.length === 0) return new Map();
+    const countries = await this.prisma.country.findMany({
+      where: { code: { in: codes.map((c) => c.toUpperCase()) } },
+      select: { code: true, name: true },
+    });
+    return new Map(countries.map((c) => [c.code, c.name]));
+  }
+
   async getCountryName(code: string): Promise<string> {
     const country = await this.prisma.country.findUnique({ where: { code } });
     return country?.name ?? code;

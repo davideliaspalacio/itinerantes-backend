@@ -73,7 +73,8 @@ municipios (catálogo INEGI, `prisma/data/mx-inegi-municipalities.json`).
 | `pnpm openapi:export` | Genera `openapi/openapi.json` sin conectarse a la BD |
 | `pnpm db:migrate` | `prisma migrate dev` (crea/aplica migraciones en dev; `-- --name faseXX_algo`) |
 | `pnpm db:deploy` | `prisma migrate deploy` (aplica migraciones pendientes; lo usa Railway) |
-| `pnpm db:seed` | Datos demo idempotentes (`prisma/seed.ts`) |
+| `pnpm db:seed` | Datos demo idempotentes (`prisma/seed.ts`): catálogos, usuarios demo y ofertas demo (`SEED_DEMO_DATA`) |
+| `pnpm build:seed` | Compila el seed a `dist/seed/` (lo usa la imagen Docker al arrancar) |
 | `pnpm db:reset` | Borra la BD de dev, re-aplica migraciones y corre el seed |
 | `pnpm db:studio` | Prisma Studio |
 

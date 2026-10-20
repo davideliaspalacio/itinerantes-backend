@@ -99,6 +99,11 @@ export const envSchema = z
     /** MinIO y Supabase Storage requieren path-style. */
     STORAGE_FORCE_PATH_STYLE: bool(true),
     STORAGE_SIGNED_URL_TTL_SECONDS: z.coerce.number().int().positive().default(900),
+    /**
+     * URL base pública para imágenes de difusión (portadas, carrusel, fotos de docentes), p. ej. un
+     * bucket público o CDN: `${STORAGE_PUBLIC_BASE_URL}/${key}`. Vacía = URL firmada de larga duración.
+     */
+    STORAGE_PUBLIC_BASE_URL: optionalString.pipe(z.url().optional()),
 
     // --- Stripe (Fase 05; opcionales por ahora) ---
     STRIPE_SECRET_KEY: optionalString,

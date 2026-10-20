@@ -10,7 +10,7 @@ agrega su guía específica en `docs/frontend/fase-XX-<nombre>.md`.
 | Este archivo | Convenciones generales de la API | Fase 00 ✔ |
 | [`errores.md`](errores.md) | Catálogo de códigos de error | Se amplía en cada fase |
 | [`fase-01-identidad.md`](fase-01-identidad.md) | Registro, OTP, login, recuperación, perfil, ubicaciones, zonas horarias, contacto | Fase 01 ✔ |
-| `fase-02-oferta.md` | Catálogo y ficha de ofertas | Fase 02 (pendiente) |
+| [`fase-02-oferta.md`](fase-02-oferta.md) | Catálogo, ficha (acciones/CTA, moneda, beca) y disponibilidad por temática (HU-34) | Fase 02 ✔ |
 | `fase-03-portal.md` | Mi formación, aula, calendario, notificaciones | Fase 03 (pendiente) |
 | `fase-04-postulaciones.md` | Becas y convocatorias | Fase 04 (pendiente) |
 | `fase-05-pagos.md` | Stripe, transferencias, cuotas, Mis pagos | Fase 05 (pendiente) |
@@ -64,6 +64,9 @@ Detalle completo (pantallas HU-02 a HU-05, HU-14): [`fase-01-identidad.md`](fase
 - `POST /api/v1/auth/logout { refreshToken }` → `204`.
 - Todas las rutas requieren token salvo las marcadas como públicas (en Scalar aparecen sin candado;
   en OpenAPI tienen `security: []`).
+- Algunas rutas públicas tienen **auth opcional** (desde Fase 02, p. ej. `GET /offers`): en OpenAPI
+  `security: [{ bearer: [] }, {}]`. Con token válido se personalizan; sin token o con token vencido
+  responden como visitante (nunca 401).
 - `401 UNAUTHORIZED` → intenta refresh una vez; si responde `AUTH_REFRESH_INVALID`, manda a login.
 - `403 AUTH_EMAIL_NOT_VERIFIED` en el login → pantalla de verificación OTP (HU-03).
 - `403 FORBIDDEN` → el usuario no tiene el rol/permiso.

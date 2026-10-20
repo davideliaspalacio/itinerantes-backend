@@ -65,10 +65,14 @@ export class StorageService implements OnModuleDestroy {
   private readonly client: S3Client;
   private readonly bucket: string;
   private readonly defaultTtl: number;
+  private readonly publicBaseUrl?: string;
 
   constructor(config: ConfigService<Env, true>) {
     this.bucket = config.get('STORAGE_BUCKET', { infer: true });
     this.defaultTtl = config.get('STORAGE_SIGNED_URL_TTL_SECONDS', { infer: true });
+    this.publicBaseUrl = config
+      .get('STORAGE_PUBLIC_BASE_URL', { infer: true })
+      ?.replace(/\/+$/, '');
     this.client = new S3Client({
       endpoint: config.get('STORAGE_ENDPOINT', { infer: true }),
       region: config.get('STORAGE_REGION', { infer: true }),
@@ -149,6 +153,22 @@ export class StorageService implements OnModuleDestroy {
     });
     const url = await getSignedUrl(this.client, command, { expiresIn });
     return { url, expiresAt: this.expiresAt(expiresIn) };
+  }
+
+  /**
+   * URL utilizable para una imagen de DIFUSIÓN pública (portada, carrusel, foto de docente):
+   * - Si el valor guardado ya es una URL `http(s)://` (CDN externo / datos demo), se devuelve igual.
+   * - Si existe STORAGE_PUBLIC_BASE_URL (bucket público / CDN): `${base}/${key}` (cacheable).
+   * - Si no: URL firmada de larga duración (`ttlSeconds`, máx. 7 días en SigV4).
+   * Nunca la uses para archivos privados (materiales, comprobantes): esos van con `getDownloadUrl`.
+   */
+  async getPublicUrl(keyOrUrl: string, ttlSeconds: number): Promise<string> {
+    if (/^https?:\/\//i.test(keyOrUrl)) return keyOrUrl;
+    const key = keyOrUrl.replace(/^\/+/, '');
+    if (this.publicBaseUrl) {
+      return `${this.publicBaseUrl}/${key.split('/').map(encodeURIComponent).join('/')}`;
+    }
+    return (await this.getDownloadUrl(key, { expiresInSeconds: ttlSeconds })).url;
   }
 
   /** URL firmada de subida (PUT directo desde el navegador). */

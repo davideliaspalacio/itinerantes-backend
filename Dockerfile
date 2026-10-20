@@ -19,7 +19,9 @@ COPY prisma ./prisma
 RUN pnpm install --frozen-lockfile
 COPY tsconfig.json tsconfig.build.json nest-cli.json ./
 COPY src ./src
-RUN pnpm build
+# App (dist/) + seed compilado (dist/seed/) para correrlo con node en producción.
+COPY tsconfig.seed.json ./
+RUN pnpm build && pnpm build:seed
 
 # ---------- prod-deps: solo dependencias de producción ----------
 FROM base AS prod-deps
@@ -37,8 +39,10 @@ COPY --from=prod-deps --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/dist ./dist
 COPY --chown=node:node package.json prisma.config.ts ./
 COPY --chown=node:node prisma ./prisma
+COPY --chown=node:node scripts/docker-entrypoint.sh ./scripts/docker-entrypoint.sh
 USER node
 EXPOSE 3000
-# tini reenvía SIGTERM para que Nest cierre limpio (enableShutdownHooks).
-ENTRYPOINT ["/sbin/tini", "--"]
+# tini reenvía SIGTERM para que Nest cierre limpio (enableShutdownHooks). El entrypoint aplica
+# migraciones y el seed seguro antes de arrancar (ver docs/DEPLOY.md); si fallan, no arranca.
+ENTRYPOINT ["/sbin/tini", "--", "/app/scripts/docker-entrypoint.sh"]
 CMD ["node", "dist/main"]

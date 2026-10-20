@@ -94,16 +94,17 @@ export const BUSINESS_RULES = {
   SCHOLARSHIP_MAX_PERCENT: 80,
   SCHOLARSHIP_INTERVIEW_REQUIRED_ABOVE_PERCENT: 70,
   /**
-   * Niveles de beca (pregunta abierta al cliente). "Beca especial": el comité asigna 71–80%
-   * tras la entrevista (Anexo A, HU-19).
+   * Niveles de beca (pregunta abierta al cliente; enum Prisma `ScholarshipLevel`). Los niveles fijos
+   * tienen min = max. "Beca especial": el comité asigna 71–80% tras la entrevista (Anexo A, HU-19).
+   * Cada oferta habilita un subconjunto (`Offer.scholarshipLevels`, HU-27).
    */
-  SCHOLARSHIP_LEVELS: [
-    { code: 'AGUA_VIVA', label: 'Agua Viva', percent: 10 },
-    { code: 'RIOS_VIVOS', label: 'Ríos Vivos', percent: 25 },
-    { code: 'AGUAS_LIBRES', label: 'Aguas Libres', percent: 50 },
-    { code: 'CENOTES_VIVOS', label: 'Cenotes Vivos', percent: 70 },
-    { code: 'SPECIAL', label: 'Beca especial', minPercent: 71, maxPercent: 80 },
-  ],
+  SCHOLARSHIP_LEVELS: {
+    AGUA_VIVA: { label: 'Agua Viva', minPercent: 10, maxPercent: 10 },
+    RIOS_VIVOS: { label: 'Ríos Vivos', minPercent: 25, maxPercent: 25 },
+    AGUAS_LIBRES: { label: 'Aguas Libres', minPercent: 50, maxPercent: 50 },
+    CENOTES_VIVOS: { label: 'Cenotes Vivos', minPercent: 70, maxPercent: 70 },
+    SPECIAL: { label: 'Beca especial', minPercent: 71, maxPercent: 80 },
+  },
   /** HU-20: respuestas abiertas de convocatoria, 300 a 2000 caracteres. */
   OPEN_CALL_ANSWER_MIN_LENGTH: 300,
   OPEN_CALL_ANSWER_MAX_LENGTH: 2000,
@@ -181,6 +182,18 @@ export const BUSINESS_RULES = {
   DIPLOMA_TOTAL_HOURS: 60,
   /** Reglas del cliente: un curso dura como máximo 9 h. */
   COURSE_MAX_HOURS: 9,
+  /** HU-27: ventana de asistencia configurable por oferta entre 1 y 72 h (default ATTENDANCE_WINDOW_HOURS). */
+  ATTENDANCE_WINDOW_MIN_HOURS: 1,
+  ATTENDANCE_WINDOW_MAX_HOURS: 72,
+  /** HU-15: el buscador del catálogo exige al menos 3 caracteres. */
+  OFFER_SEARCH_MIN_LENGTH: 3,
+  /** HU-16 / HU-27: resumen corto de la tarjeta del catálogo. */
+  OFFER_SUMMARY_MAX_LENGTH: 300,
+  /**
+   * Imágenes públicas (portadas, carrusel, fotos de docentes) cuando no hay STORAGE_PUBLIC_BASE_URL:
+   * URL firmada de larga duración (máximo de SigV4: 7 días).
+   */
+  PUBLIC_IMAGE_SIGNED_URL_TTL_SECONDS: 7 * 24 * 3600,
 
   // ---------------------------------------------------------------------------
   // Contacto (HU-38)

@@ -64,3 +64,15 @@ para la UI, p. ej. la hora de desbloqueo); ver la columna `meta`.
 | `AUTH_RESET_TOKEN_INVALID` | 400 | El enlace de recuperación expiró o ya se usó. Solicita un nuevo código. | — | Paso 3 de HU-05 con `resetToken` vencido/usado → volver al paso 1. |
 | `AUTH_CURRENT_PASSWORD_INVALID` | 400 | La contraseña actual es incorrecta. | — | Cambio de contraseña (HU-14). Error bajo `currentPassword`. |
 | `CONTACT_CAPTCHA_FAILED` | 400 | No pudimos verificar que no eres un robot. Intenta de nuevo más tarde. | — | Contacto (HU-38) con captcha activo y token inválido/ausente. |
+
+### Fase 02 — Oferta formativa
+
+Guía de pantallas: [`fase-02-oferta.md`](fase-02-oferta.md).
+
+| `code` | HTTP | Mensaje por defecto | `meta` | Cuándo ocurre / qué hacer en la UI |
+|---|---|---|---|---|
+| `OFFER_NOT_AVAILABLE` | 404 | Esta oferta ya no está disponible. | — | Ficha (HU-16) de una oferta inexistente, en borrador o archivada → "Esta oferta ya no está disponible" + enlace al catálogo. |
+
+Validación del catálogo (`400 VALIDATION_ERROR`): `q` con menos de 3 caracteres
+(`details[].field = "q"`, `code = "MIN_LENGTH"`); `type`, `status`, `modality`, `topic` o `topics`
+fuera del enum (`IS_ENUM` / `IS_IN`).

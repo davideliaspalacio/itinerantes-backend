@@ -23,7 +23,7 @@ Este documento es la referencia para cualquier persona (o agente) que agregue c�
 | Fechas | Luxon | Zonas IANA; hora oficial `America/Mexico_City` |
 | Pruebas | Jest + supertest; e2e contra Postgres de Docker | |
 | Paquetes | pnpm | |
-| Deploy | Railway (Dockerfile + `railway.json`, `prisma migrate deploy` antes de arrancar) | |
+| Deploy | Railway (Dockerfile + `railway.json`); el entrypoint de la imagen aplica `prisma migrate deploy` y el seed seguro antes de arrancar | Ver docs/DEPLOY.md |
 
 ## Estructura de carpetas
 
@@ -116,6 +116,7 @@ paginar (p. ej. `/locations/countries`) responden `{ "data": [ ... ] }` sin `met
 - Access token: JWT con `{ sub, email, roles, sid }` (`sid` = sesión = familia de refresh tokens). Lo valida `JwtAuthGuard` (APP_GUARD) y deja `request.user: AuthUser` (`@CurrentUser()`).
 - `POST /auth/refresh` rota el refresh token (el anterior queda invalidado). Reusar uno ya rotado revoca la familia completa. `rememberMe` alarga la vida del refresh (`JWT_REFRESH_REMEMBER_TTL_DAYS`).
 - Rutas protegidas por defecto (guards globales en `app.module.ts`: Throttler → JwtAuthGuard → RolesGuard); las públicas se marcan con `@Public()`.
+- Auth **opcional** (Fase 02): `@OptionalAuth()` hace la ruta pública pero, si llega un Bearer válido, deja `request.user` (`@CurrentUser()` puede ser `undefined`). Token ausente/vencido/inválido → se atiende como anónimo (nunca 401). OpenAPI: `security: [{ bearer: [] }, {}]`. Úsalo en páginas públicas que se personalizan con sesión (catálogo y ficha).
 - Roles (enum Prisma `Role`, ya declarado completo en Fase 01): `PARTICIPANT`, `SUPER_ADMIN`, `ACADEMIC_COORDINATOR`, `REVIEW_COMMITTEE`, `REVIEW_DECIDER`, `FOLLOW_UP`, `FINANCE`. Un usuario puede tener varios (`roles Role[]`). `@Roles(Role.X, ...)` exige al menos uno (403 si no). El panel (Fase 06) los usa; Fase 01 solo usa `PARTICIPANT` (y `SUPER_ADMIN` en el seed).
 - Límites estrictos por IP con `@ThrottleRule(BUSINESS_RULES.AUTH_THROTTLE.X)` (`common/decorators/throttle-rule.decorator.ts`). El almacenamiento del throttler es en memoria (una instancia).
 - Contraseñas: argon2id (`PasswordService` en `UsersModule`). OTP y refresh/reset tokens solo se guardan con hash.
@@ -134,7 +135,51 @@ paginar (p. ej. `/locations/countries`) responden `{ "data": [ ... ] }` sin `met
 - Prisma 7: la URL NO va en `schema.prisma`. El CLI la toma de `prisma.config.ts` (`DIRECT_URL` si existe, si no `DATABASE_URL`); la app usa `DATABASE_URL` con el driver adapter de `pg` en `PrismaService`. Importa tipos/enums de Prisma desde `src/generated/prisma/client`.
 - Producción: Postgres administrado (recomendado Supabase; alternativa Neon o Railway Postgres). Solo se usa `DATABASE_URL` (+ `DIRECT_URL` para migraciones si hay pooler).
 - Cada fase crea su migración con nombre descriptivo (`pnpm db:migrate --name fase01_identity`).
-- `prisma/seed.ts` crea datos demo idempotentes (ofertas de ejemplo como "Diplomado en Ecotecnologías del Agua", usuario demo, admin demo) para que el frontend tenga con qué integrar.
+- `prisma/seed.ts` es idempotente: catálogos de referencia (siempre), usuarios demo (nunca con `NODE_ENV=production`) y ofertas demo de Fase 02 (`SEED_DEMO_DATA`, por defecto solo fuera de producción). En producción corre compilado (`pnpm build:seed` → `dist/seed/prisma/seed.js`) desde `scripts/docker-entrypoint.sh` en cada arranque; cualquier seeder nuevo debe ser seguro de repetir en producción.
+
+## Oferta formativa (Fase 02)
+
+Módulo `src/modules/offers/`. Reglas puras en `policies/` (con pruebas unitarias):
+`offer-status` (estado derivado), `viewer-currency` (moneda), `schedule-rule` (regla de horario JSON
+validada con zod), `session-generation` (generación de sesiones HU-29 + festivos de México + reglas de
+horas), `important-dates`, `scholarship` (niveles y montos), `offer-actions` (CTA de la ficha),
+`catalog` (filtros/orden) y `public-topics` (temáticas HU-34).
+
+Decisiones de modelo (`prisma/schema.prisma`):
+
+- **Una fila `Offer` = una edición/cohorte** (fechas, precios, cupo propios). Una nueva generación se
+  crea duplicando la oferta (HU-27 "Duplicar"). Enrollment/Application/Payment (Fases 03–05) apuntan a
+  `Offer` (y la asistencia a `OfferSession`).
+- **Estado público derivado, nunca guardado**: `publicationStatus` (DRAFT/PUBLISHED/ARCHIVED) es lo
+  único persistido; "Inscripciones abiertas / Próximamente / cerradas / Finalizado" se calcula con
+  `deriveOfferAvailability(fechas, now)`. Para `OPEN_CALL`, `enrollmentOpensAt/ClosesAt` es la
+  ventana de **postulación**; la de becas es `scholarshipOpensAt/ClosesAt` (si es null, la de
+  inscripción).
+- Precios fijos por moneda en centavos (`priceMxnCents`, `priceUsdCents`; enum `Currency` para fases
+  futuras). `isFree` para gratuitas. Moodle no muestra precio.
+- Regla de horario en `Offer.scheduleRule` (JSON: `weekdays` ISO, `startTime`/`endTime` en hora CDMX,
+  `excludedDates`, `excludeMexicanHolidays`); duración total en `totalMinutes`.
+- **Sesiones vs. calendario**: `OfferSession` son las clases (generadas desde la regla o editadas una a
+  una; `joinUrl` de participante, `hostUrl` solo panel, `recordingUrl`, `status` SCHEDULED/CANCELLED,
+  `changeReason`, `originalStartsAt`, override de ventana de asistencia; única por `(offerId,
+  startsAt)`). `CalendarEvent` son eventos manuales (webinars, comunidad) y fechas importantes
+  automáticas (`kind`), con `audience` (ALL_REGISTERED / OFFER_ENROLLED). El calendario de Fase 03
+  une ambas fuentes filtrando por inscripción y audiencia. La grabación vive en la sesión (HU-08/28).
+- `OfferModule` y `ModuleResource` (PRESENTATION / PRE_READING / ACTIVITY) con `visibility`
+  HIDDEN/PUBLISHED + `publishAt` (publicación programada): visible si PUBLISHED y `publishAt` es null o
+  pasado. La ficha pública solo lista títulos/descripciones de módulos visibles; los recursos son de
+  inscritos (Fase 03).
+- Campos **privados** de la oferta (nunca en endpoints públicos): `whatsappGroupUrl`,
+  `whatsappVisibleFrom`, `attendanceWindowHours`, y de las sesiones `joinUrl`/`hostUrl`/`recordingUrl`.
+  El servicio público usa una lista blanca de columnas (`PUBLIC_OFFER_SELECT`).
+- Catálogo: se cargan las ofertas publicadas y se filtran/ordenan/paginan en memoria (decenas de
+  ofertas; el estado depende de `now` y la búsqueda ignora acentos). Si el volumen crece, mover el
+  estado a SQL (`CASE` sobre fechas) y la búsqueda a `unaccent`/`pg_trgm`.
+- Badge "Inscrito" y cupo: interfaz `OfferEnrollmentLookup` (token `OFFER_ENROLLMENT_LOOKUP`); Fase 02
+  registra `NoEnrollmentLookup` (nadie inscrito). La Fase 03 provee la implementación real.
+- Imágenes públicas (portada, carrusel, foto de docente): se guarda la key de storage (o una URL https
+  absoluta). `StorageService.getPublicUrl` devuelve `${STORAGE_PUBLIC_BASE_URL}/${key}` si existe esa
+  variable (bucket público/CDN, recomendado en prod) o una URL firmada de 7 días.
 
 ## Reglas de negocio configurables
 

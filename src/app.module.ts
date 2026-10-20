@@ -16,6 +16,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { ContactModule } from './modules/contact/contact.module';
 import { HealthModule } from './modules/health/health.module';
 import { LocationsModule } from './modules/locations/locations.module';
+import { OffersModule } from './modules/offers/offers.module';
 import { UsersModule } from './modules/users/users.module';
 
 @Module({
@@ -69,6 +70,7 @@ import { UsersModule } from './modules/users/users.module';
     UsersModule,
     AuthModule,
     ContactModule,
+    OffersModule,
   ],
   providers: [
     // Orden: rate limit → autenticación (respeta @Public()) → roles (@Roles()).

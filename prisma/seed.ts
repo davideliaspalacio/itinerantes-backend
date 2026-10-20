@@ -1,6 +1,12 @@
 /**
  * Seed de datos demo (idempotente). Uso: `pnpm db:seed` (también corre tras `pnpm db:reset`).
  *
+ * Producción (Railway): lo ejecuta `scripts/docker-entrypoint.sh` en cada arranque, después de
+ * `prisma migrate deploy`. Siempre siembra catálogos de referencia; los datos demo dependen de:
+ * - Usuarios demo: nunca con NODE_ENV=production.
+ * - Ofertas demo (Fase 02): SEED_DEMO_DATA=true|false (por defecto true fuera de producción y false en
+ *   producción).
+ *
  * Reglas para las fases:
  * - Usa SIEMPRE `upsert` (o `createMany({ skipDuplicates: true })`) con claves estables (email, slug),
  *   para poder correrlo N veces sin duplicar.
@@ -13,8 +19,12 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { PrismaPg } from '@prisma/adapter-pg';
 import * as argon2 from 'argon2';
-import { PrismaClient, Role, UserStatus } from '../src/generated/prisma/client';
+import { Prisma, PrismaClient, Role, UserStatus } from '../src/generated/prisma/client';
+import { buildImportantDates } from '../src/modules/offers/policies/important-dates.policy';
+import { cdmxDate, parseScheduleRule } from '../src/modules/offers/policies/schedule-rule';
+import { generateSessions } from '../src/modules/offers/policies/session-generation.policy';
 import { COUNTRIES } from './data/countries';
+import { DEMO_OFFERS, DEMO_TEACHERS } from './data/demo-offers';
 
 type Seeder = (prisma: PrismaClient) => Promise<void>;
 
@@ -117,9 +127,116 @@ async function seedDemoUsers(prisma: PrismaClient): Promise<void> {
   console.log(`  ${DEMO_USERS.length} usuarios demo (ver README).`);
 }
 
+/** ¿Sembrar datos demo de oferta? SEED_DEMO_DATA explícito, o por defecto solo fuera de producción. */
+function demoDataEnabled(): boolean {
+  const flag = process.env.SEED_DEMO_DATA?.trim().toLowerCase();
+  if (flag === 'true' || flag === '1') return true;
+  if (flag === 'false' || flag === '0') return false;
+  return process.env.NODE_ENV !== 'production';
+}
+
+/**
+ * Fase 02: docentes y ofertas demo (diplomado, curso, taller, evento, 2 convocatorias, Moodle,
+ * una finalizada y un borrador) con módulos, sesiones generadas (HU-29) y fechas importantes.
+ * Idempotente: upsert por slug; sesiones únicas por (oferta, inicio).
+ */
+async function seedDemoOffers(prisma: PrismaClient): Promise<void> {
+  if (!demoDataEnabled()) {
+    console.log('  SEED_DEMO_DATA desactivado: se omiten las ofertas demo.');
+    return;
+  }
+  const teacherIds = new Map<string, string>();
+  for (const { slug, ...data } of DEMO_TEACHERS) {
+    const teacher = await prisma.teacher.upsert({
+      where: { slug },
+      create: { slug, ...data },
+      update: data,
+    });
+    teacherIds.set(slug, teacher.id);
+  }
+
+  let sessionCount = 0;
+  for (const demo of DEMO_OFFERS) {
+    const { slug, scheduleRule, ...fields } = demo.data;
+    const rule = scheduleRule ? parseScheduleRule(scheduleRule) : null;
+    const data = { ...fields, scheduleRule: rule ?? Prisma.DbNull };
+    const offer = await prisma.offer.upsert({
+      where: { slug },
+      create: { slug, ...data },
+      update: data,
+    });
+
+    await prisma.offerTeacher.deleteMany({ where: { offerId: offer.id } });
+    await prisma.offerTeacher.createMany({
+      data: demo.teacherSlugs.map((teacherSlug, position) => ({
+        offerId: offer.id,
+        teacherId: teacherIds.get(teacherSlug)!,
+        position,
+      })),
+    });
+
+    const moduleIds: string[] = [];
+    for (const [index, module] of demo.modules.entries()) {
+      const position = index + 1;
+      const existing = await prisma.offerModule.findFirst({
+        where: { offerId: offer.id, position },
+      });
+      const moduleData = { ...module, visibility: 'PUBLISHED' as const, publishAt: null };
+      const saved = existing
+        ? await prisma.offerModule.update({ where: { id: existing.id }, data: moduleData })
+        : await prisma.offerModule.create({ data: { offerId: offer.id, position, ...moduleData } });
+      moduleIds.push(saved.id);
+    }
+    await prisma.offerModule.deleteMany({
+      where: { offerId: offer.id, position: { gt: demo.modules.length } },
+    });
+
+    if (demo.generateSessions && rule && offer.startsAt && offer.endsAt) {
+      const generated = generateSessions({
+        rule,
+        startDate: cdmxDate(offer.startsAt),
+        endDate: cdmxDate(offer.endsAt),
+        moduleCount: moduleIds.length || undefined,
+      });
+      const result = await prisma.offerSession.createMany({
+        data: generated.sessions.map((session) => ({
+          offerId: offer.id,
+          moduleId: session.moduleIndex !== undefined ? moduleIds[session.moduleIndex] : null,
+          startsAt: session.startsAt,
+          endsAt: session.endsAt,
+          category: offer.calendarCategory,
+          // PRIVADO: join_url de participante (demo).
+          joinUrl:
+            offer.modality === 'ONLINE_LIVE' ? 'https://zoom.us/j/0000000000?pwd=demo' : null,
+        })),
+        skipDuplicates: true,
+      });
+      sessionCount += result.count;
+    }
+
+    await prisma.calendarEvent.deleteMany({
+      where: { offerId: offer.id, kind: { not: 'MANUAL' } },
+    });
+    if (offer.publicationStatus === 'PUBLISHED') {
+      await prisma.calendarEvent.createMany({
+        data: buildImportantDates(offer).map((date) => ({
+          ...date,
+          offerId: offer.id,
+          category: 'IMPORTANT_DATES' as const,
+          allDay: false,
+        })),
+      });
+    }
+  }
+  console.log(
+    `  ${DEMO_TEACHERS.length} docentes, ${DEMO_OFFERS.length} ofertas demo, ${sessionCount} sesiones nuevas.`,
+  );
+}
+
 const seeders: Array<[name: string, run: Seeder]> = [
   ['Fase 01 — ubicaciones', seedLocations],
   ['Fase 01 — usuarios demo', seedDemoUsers],
+  ['Fase 02 — ofertas demo', seedDemoOffers],
 ];
 
 async function main(): Promise<void> {
