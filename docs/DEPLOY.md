@@ -81,10 +81,15 @@ MAIL_DRIVER=resend
 RESEND_API_KEY=re_...
 MAIL_FROM="Escuela Itinerante del Agua <no-reply@<dominio-verificado>>"
 MAIL_TEAM_INBOX=<buzón del equipo>
+CONTACT_INBOX_EMAIL=<buzón que recibe Contacto>       # si falta, se usa MAIL_TEAM_INBOX
+IP_HASH_SECRET=<openssl rand -base64 32>            # HMAC de IPs de Contacto
+TURNSTILE_SECRET_KEY=                               # opcional: activa el captcha de Contacto
 STORAGE_ENDPOINT=... STORAGE_REGION=... STORAGE_BUCKET=... STORAGE_ACCESS_KEY_ID=... STORAGE_SECRET_ACCESS_KEY=...
 ```
 
-   `PORT` lo inyecta Railway (la app lo lee). La lista completa y documentada está en `.env.example`;
+   `PORT` lo inyecta Railway (la app lo lee). Los catálogos (países, estados y municipios) se cargan
+   con `pnpm db:seed` (idempotente); en `NODE_ENV=production` el seed **no** crea usuarios demo.
+    La lista completa y documentada está en `.env.example`;
    si falta una variable obligatoria la app no arranca y el log indica cuál.
 3. **Networking → Generate Domain** (o dominio propio con CNAME).
 4. Verifica: `curl https://<dominio>/api/v1/health` y `.../api/v1/health/ready` (este último consulta la BD).

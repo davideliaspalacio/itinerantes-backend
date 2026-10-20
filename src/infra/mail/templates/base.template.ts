@@ -9,6 +9,10 @@ export interface EmailLayoutOptions {
   preheader?: string;
   /** Párrafos de contenido (texto plano; se escapan). */
   paragraphs: string[];
+  /** Valor destacado en grande tras los párrafos (p. ej. un código OTP). */
+  highlight?: string;
+  /** Párrafos que van después del valor destacado. */
+  afterHighlight?: string[];
   /** Botón de acción opcional. */
   action?: { label: string; url: string };
   /** Nota al pie (p. ej. "Si no solicitaste este correo, ignóralo."). */
@@ -29,12 +33,18 @@ export function escapeHtml(value: string): string {
 
 /** Devuelve `{ html, text }` listos para `MailService.send`. */
 export function renderEmail(options: EmailLayoutOptions): { html: string; text: string } {
-  const paragraphsHtml = options.paragraphs
-    .map(
-      (p) =>
-        `<p style="margin:0 0 16px;font-size:16px;line-height:24px;color:#1f2933;">${escapeHtml(p)}</p>`,
-    )
-    .join('');
+  const toParagraphs = (items: string[] = []): string =>
+    items
+      .map(
+        (p) =>
+          `<p style="margin:0 0 16px;font-size:16px;line-height:24px;color:#1f2933;">${escapeHtml(p)}</p>`,
+      )
+      .join('');
+  const highlightHtml = options.highlight
+    ? `<p style="margin:8px 0 24px;font-size:32px;line-height:40px;letter-spacing:8px;font-weight:700;font-family:'Courier New',monospace;color:#102a43;background:#f3f6f8;border-radius:6px;padding:12px 16px;text-align:center;">${escapeHtml(options.highlight)}</p>`
+    : '';
+  const paragraphsHtml =
+    toParagraphs(options.paragraphs) + highlightHtml + toParagraphs(options.afterHighlight);
 
   const actionHtml = options.action
     ? `<table role="presentation" cellspacing="0" cellpadding="0" style="margin:8px 0 24px;"><tr><td style="border-radius:6px;background:${BRAND_COLOR};">
@@ -69,6 +79,8 @@ export function renderEmail(options: EmailLayoutOptions): { html: string; text: 
     options.title,
     '',
     ...options.paragraphs,
+    ...(options.highlight ? ['', options.highlight, ''] : []),
+    ...(options.afterHighlight ?? []),
     ...(options.action ? ['', `${options.action.label}: ${options.action.url}`] : []),
     '',
     options.footerNote ?? '',

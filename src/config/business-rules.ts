@@ -39,6 +39,35 @@ export const BUSINESS_RULES = {
   LOGIN_MAX_ATTEMPTS: 5,
   /** HU-04: duración del bloqueo temporal de login (supuesto). */
   LOGIN_LOCKOUT_MINUTES: 15,
+  /** HU-02: longitud máxima de contraseña (evita hashes de cuerpos enormes). */
+  PASSWORD_MAX_LENGTH: 128,
+  /** HU-02: nombre completo, solo letras (con tildes/ñ) y espacios. */
+  FULL_NAME_MAX_LENGTH: 120,
+  /** HU-02 (supuesto): username de 3 a 30 caracteres: letras, números, punto y guion bajo. */
+  USERNAME_MIN_LENGTH: 3,
+  USERNAME_MAX_LENGTH: 30,
+  /** HU-05 paso 2 → 3: vida del resetToken de un solo uso emitido al verificar el OTP. */
+  PASSWORD_RESET_TOKEN_TTL_MINUTES: 10,
+  /**
+   * HU-05: "si el correo no corresponde a ninguna cuenta, el sistema informa que no existe".
+   * Lo pide el cliente, pero permite enumerar cuentas (riesgo documentado en
+   * docs/frontend/fase-01-identidad.md). En `false`, la API responde igual exista o no la cuenta.
+   * (revealUnknownEmailOnReset)
+   */
+  REVEAL_UNKNOWN_EMAIL_ON_RESET: true,
+  /**
+   * Límites de peticiones por IP (además del global). `ttlSeconds` es la ventana.
+   * Se aplican con @Throttle en los endpoints de auth.
+   */
+  AUTH_THROTTLE: {
+    REGISTER: { limit: 10, ttlSeconds: 3600 },
+    LOGIN: { limit: 10, ttlSeconds: 60 },
+    OTP_VERIFY: { limit: 10, ttlSeconds: 60 },
+    OTP_SEND: { limit: 5, ttlSeconds: 60 },
+    PASSWORD_RESET: { limit: 10, ttlSeconds: 60 },
+    REFRESH: { limit: 30, ttlSeconds: 60 },
+    AVAILABILITY: { limit: 60, ttlSeconds: 60 },
+  },
 
   // ---------------------------------------------------------------------------
   // Portal del participante (Fase 03)
@@ -158,6 +187,10 @@ export const BUSINESS_RULES = {
   // ---------------------------------------------------------------------------
   CONTACT_MESSAGE_MIN_LENGTH: 10,
   CONTACT_MESSAGE_MAX_LENGTH: 2000,
+  /** HU-38: nombre del remitente, mínimo 3 caracteres. */
+  CONTACT_NAME_MIN_LENGTH: 3,
+  /** HU-38: máximo 5 envíos por IP por hora. */
+  CONTACT_THROTTLE: { limit: 5, ttlSeconds: 3600 },
 
   // ---------------------------------------------------------------------------
   // Paginación (convención de la API)

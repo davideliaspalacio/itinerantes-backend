@@ -1,12 +1,13 @@
 import { SetMetadata } from '@nestjs/common';
+import type { Role } from '../../generated/prisma/client';
 
 export const ROLES_KEY = 'roles';
 
 /**
  * Roles permitidos para un endpoint (el usuario necesita AL MENOS uno). Lo aplica el RolesGuard
- * (Fase 01/06). Cuando exista el enum Prisma `Role`, cambia el tipo de `string` a `Role`.
+ * global. Sin @Roles basta con estar autenticado.
  *
- * @example @Roles('SUPER_ADMIN', 'FINANCE')
+ * @example @Roles(Role.SUPER_ADMIN, Role.FINANCE)
  */
-export const Roles = (...roles: string[]): MethodDecorator & ClassDecorator =>
+export const Roles = (...roles: Role[]): MethodDecorator & ClassDecorator =>
   SetMetadata(ROLES_KEY, roles);

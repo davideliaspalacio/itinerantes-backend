@@ -18,6 +18,7 @@ export interface ErrorResponseBody {
   code: ErrorCode;
   message: string;
   details?: ErrorDetail[];
+  meta?: Record<string, unknown>;
   requestId: string;
 }
 
@@ -26,6 +27,7 @@ interface NormalizedError {
   code: ErrorCode;
   message: string;
   details?: ErrorDetail[];
+  meta?: Record<string, unknown>;
 }
 
 /** Status HTTP → código genérico del catálogo (para HttpException que no son AppException). */
@@ -105,6 +107,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       code: normalized.code,
       message: normalized.message,
       ...(normalized.details?.length ? { details: normalized.details } : {}),
+      ...(normalized.meta ? { meta: normalized.meta } : {}),
       requestId,
     };
 
@@ -137,6 +140,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
         code: exception.code,
         message: (exception.getResponse() as { message: string }).message,
         details: exception.details,
+        meta: exception.meta,
       };
     }
 

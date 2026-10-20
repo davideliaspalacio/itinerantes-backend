@@ -115,3 +115,11 @@ export function formatMoney({ amountCents, currency }: Money, locale = 'es-MX'):
   }).format(amountCents / 100);
   return `$${formatted} ${currency}`;
 }
+
+/**
+ * Moneda de cobro según el país del perfil (HU-14, HU-22): México → MXN; resto → USD.
+ * Afecta solo pagos nuevos; nunca convierte montos existentes.
+ */
+export function currencyForCountry(countryCode: string | null | undefined): Currency {
+  return countryCode?.toUpperCase() === BUSINESS_RULES.MXN_COUNTRY_CODE ? 'MXN' : 'USD';
+}

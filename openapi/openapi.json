@@ -69,6 +69,2020 @@
           "Health"
         ]
       }
+    },
+    "/api/v1/locations/countries": {
+      "get": {
+        "description": "HU-02 / HU-14: selector de país con México y Centroamérica primero. Incluye el indicativo sugerido (`phoneCode`), la longitud válida del teléfono y si el país tiene lista de estados (`hasDivisions`); si no, estado y municipio se capturan como texto libre.",
+        "operationId": "Locations_countries",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CountryListResponseDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [],
+        "summary": "Países",
+        "tags": [
+          "Catálogos"
+        ]
+      }
+    },
+    "/api/v1/locations/countries/{code}/divisions": {
+      "get": {
+        "description": "HU-02 / HU-14: segundo nivel de la cascada. Lista vacía si el país no tiene catálogo (usa texto libre). `hasMunicipalities` indica si el municipio se elige de lista.",
+        "operationId": "Locations_divisions",
+        "parameters": [
+          {
+            "name": "code",
+            "required": true,
+            "in": "path",
+            "description": "ISO-3166 alpha-2.",
+            "schema": {
+              "example": "MX",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DivisionListResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error. `code` posibles: `NOT_FOUND`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "summary": "NOT_FOUND",
+                    "value": {
+                      "statusCode": 404,
+                      "code": "NOT_FOUND",
+                      "message": "El recurso solicitado no existe.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [],
+        "summary": "Estados / departamentos de un país",
+        "tags": [
+          "Catálogos"
+        ]
+      }
+    },
+    "/api/v1/locations/divisions/{id}/municipalities": {
+      "get": {
+        "description": "HU-02 / HU-14: tercer nivel de la cascada. México: catálogo INEGI (2,478 municipios). Lista vacía si el estado no tiene catálogo (usa texto libre).",
+        "operationId": "Locations_municipalities",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MunicipalityListResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error. `code` posibles: `NOT_FOUND`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "summary": "NOT_FOUND",
+                    "value": {
+                      "statusCode": 404,
+                      "code": "NOT_FOUND",
+                      "message": "El recurso solicitado no existe.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [],
+        "summary": "Municipios de un estado",
+        "tags": [
+          "Catálogos"
+        ]
+      }
+    },
+    "/api/v1/timezones": {
+      "get": {
+        "description": "HU-02 / HU-11 / HU-14: zonas IANA sugeridas (con etiqueta, país y offset actual) y la tabla \"Ver en otros países\" (CDMX, Centroamérica, Bogotá/Lima, Santiago, Buenos Aires, Madrid). El backend no convierte horarios: todas las fechas viajan en UTC y la hora oficial de las actividades es `America/Mexico_City`; el frontend convierte con `Intl`. Se acepta cualquier zona IANA válida aunque no esté en la lista.",
+        "operationId": "Locations_timezones",
+        "parameters": [
+          {
+            "name": "at",
+            "required": false,
+            "in": "query",
+            "description": "Instante (ISO 8601) para calcular los offsets (horario de verano). Por defecto, ahora.",
+            "schema": {
+              "example": "2026-11-07T16:00:00.000Z",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimezonesResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error. `code` posibles: `VALIDATION_ERROR`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "summary": "VALIDATION_ERROR",
+                    "value": {
+                      "statusCode": 400,
+                      "code": "VALIDATION_ERROR",
+                      "message": "Los datos enviados no son válidos.",
+                      "details": [
+                        {
+                          "field": "email",
+                          "code": "IS_EMAIL",
+                          "message": "Debe ser un correo electrónico válido."
+                        }
+                      ],
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [],
+        "summary": "Zonas horarias",
+        "tags": [
+          "Catálogos"
+        ]
+      }
+    },
+    "/api/v1/me": {
+      "get": {
+        "description": "HU-14: datos del usuario autenticado. `currency` es calculado (MX → MXN; resto → USD) y define la moneda de los pagos nuevos. Username y correo son de solo lectura.",
+        "operationId": "Me_getMe",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserProfileDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error. `code` posibles: `UNAUTHORIZED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "UNAUTHORIZED": {
+                    "summary": "UNAUTHORIZED",
+                    "value": {
+                      "statusCode": 401,
+                      "code": "UNAUTHORIZED",
+                      "message": "Necesitas iniciar sesión para continuar.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Mi perfil",
+        "tags": [
+          "Perfil"
+        ]
+      },
+      "patch": {
+        "description": "HU-14 \"Datos personales\": nombre, teléfono, ubicación (completa: país + estado + municipio, misma lógica que HU-02) y zona horaria. Solo se modifican los campos enviados. Username y correo no son editables (enviarlos → 400 `UNKNOWN_FIELD`). Cambiar de país cambia la moneda de los pagos nuevos, sin afectar pagos hechos.",
+        "operationId": "Me_updateMe",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProfileRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserProfileDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error. `code` posibles: `VALIDATION_ERROR`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "summary": "VALIDATION_ERROR",
+                    "value": {
+                      "statusCode": 400,
+                      "code": "VALIDATION_ERROR",
+                      "message": "Los datos enviados no son válidos.",
+                      "details": [
+                        {
+                          "field": "email",
+                          "code": "IS_EMAIL",
+                          "message": "Debe ser un correo electrónico válido."
+                        }
+                      ],
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error. `code` posibles: `UNAUTHORIZED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "UNAUTHORIZED": {
+                    "summary": "UNAUTHORIZED",
+                    "value": {
+                      "statusCode": 401,
+                      "code": "UNAUTHORIZED",
+                      "message": "Necesitas iniciar sesión para continuar.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Actualizar mi perfil",
+        "tags": [
+          "Perfil"
+        ]
+      }
+    },
+    "/api/v1/me/timezone": {
+      "patch": {
+        "description": "HU-11 \"Usar siempre esta zona\" y HU-14 pestaña \"Zona horaria\". Acepta cualquier zona IANA válida.",
+        "operationId": "Me_updateTimezone",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTimezoneRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserProfileDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error. `code` posibles: `VALIDATION_ERROR`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "summary": "VALIDATION_ERROR",
+                    "value": {
+                      "statusCode": 400,
+                      "code": "VALIDATION_ERROR",
+                      "message": "Los datos enviados no son válidos.",
+                      "details": [
+                        {
+                          "field": "email",
+                          "code": "IS_EMAIL",
+                          "message": "Debe ser un correo electrónico válido."
+                        }
+                      ],
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error. `code` posibles: `UNAUTHORIZED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "UNAUTHORIZED": {
+                    "summary": "UNAUTHORIZED",
+                    "value": {
+                      "statusCode": 401,
+                      "code": "UNAUTHORIZED",
+                      "message": "Necesitas iniciar sesión para continuar.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Guardar mi zona horaria",
+        "tags": [
+          "Perfil"
+        ]
+      }
+    },
+    "/api/v1/auth/register": {
+      "post": {
+        "description": "HU-02: crea la cuenta en estado `PENDING_VERIFICATION` y envía un OTP al correo (HU-03). Ubicación en cascada (ver /locations): ids de catálogo cuando el país/estado tiene lista; texto libre si no. El teléfono se valida contra la longitud del indicativo. Contraseña: mínimo 8 caracteres con al menos una letra y un número. La respuesta trae `otp.expiresAt` y `otp.resendAvailableAt` para la cuenta regresiva.",
+        "operationId": "Auth_register",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegisterResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error. `code` posibles: `VALIDATION_ERROR`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "summary": "VALIDATION_ERROR",
+                    "value": {
+                      "statusCode": 400,
+                      "code": "VALIDATION_ERROR",
+                      "message": "Los datos enviados no son válidos.",
+                      "details": [
+                        {
+                          "field": "email",
+                          "code": "IS_EMAIL",
+                          "message": "Debe ser un correo electrónico válido."
+                        }
+                      ],
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error. `code` posibles: `AUTH_EMAIL_ALREADY_REGISTERED`, `AUTH_USERNAME_TAKEN`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "AUTH_EMAIL_ALREADY_REGISTERED": {
+                    "summary": "AUTH_EMAIL_ALREADY_REGISTERED",
+                    "value": {
+                      "statusCode": 409,
+                      "code": "AUTH_EMAIL_ALREADY_REGISTERED",
+                      "message": "Ya existe una cuenta con este correo.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  },
+                  "AUTH_USERNAME_TAKEN": {
+                    "summary": "AUTH_USERNAME_TAKEN",
+                    "value": {
+                      "statusCode": 409,
+                      "code": "AUTH_USERNAME_TAKEN",
+                      "message": "Ese nombre de usuario ya está en uso.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [],
+        "summary": "Registro",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/availability": {
+      "get": {
+        "description": "HU-02: validación en línea (\"ya está registrado\"). Envía `email`, `username` o ambos. `valid` indica formato correcto; `available`, que además no está registrado.",
+        "operationId": "Auth_availability",
+        "parameters": [
+          {
+            "name": "email",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "maria.nunez@example.com",
+              "type": "string"
+            }
+          },
+          {
+            "name": "username",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "mariajose",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AvailabilityResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error. `code` posibles: `VALIDATION_ERROR`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "summary": "VALIDATION_ERROR",
+                    "value": {
+                      "statusCode": 400,
+                      "code": "VALIDATION_ERROR",
+                      "message": "Los datos enviados no son válidos.",
+                      "details": [
+                        {
+                          "field": "email",
+                          "code": "IS_EMAIL",
+                          "message": "Debe ser un correo electrónico válido."
+                        }
+                      ],
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [],
+        "summary": "Disponibilidad de correo / username",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/verify-email": {
+      "post": {
+        "description": "HU-03: activa la cuenta. Código de 6 dígitos; vence en 10 min; reenvío cada 30 s; 5 intentos fallidos consecutivos → bloqueo de 15 min. Errores con `meta`: `AUTH_OTP_INVALID` → `attemptsRemaining`; `AUTH_OTP_LOCKED` → `lockedUntil`; `AUTH_OTP_EXPIRED` → `resendAvailableAt`. Tras el éxito, redirige al login (no inicia sesión).",
+        "operationId": "Auth_verifyEmail",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyEmailRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerifyEmailResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error. `code` posibles: `VALIDATION_ERROR`, `AUTH_OTP_INVALID`, `AUTH_OTP_EXPIRED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "summary": "VALIDATION_ERROR",
+                    "value": {
+                      "statusCode": 400,
+                      "code": "VALIDATION_ERROR",
+                      "message": "Los datos enviados no son válidos.",
+                      "details": [
+                        {
+                          "field": "email",
+                          "code": "IS_EMAIL",
+                          "message": "Debe ser un correo electrónico válido."
+                        }
+                      ],
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  },
+                  "AUTH_OTP_INVALID": {
+                    "summary": "AUTH_OTP_INVALID",
+                    "value": {
+                      "statusCode": 400,
+                      "code": "AUTH_OTP_INVALID",
+                      "message": "El código es incorrecto.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  },
+                  "AUTH_OTP_EXPIRED": {
+                    "summary": "AUTH_OTP_EXPIRED",
+                    "value": {
+                      "statusCode": 400,
+                      "code": "AUTH_OTP_EXPIRED",
+                      "message": "El código expiró o ya no es válido. Solicita uno nuevo.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error. `code` posibles: `AUTH_ACCOUNT_DISABLED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "AUTH_ACCOUNT_DISABLED": {
+                    "summary": "AUTH_ACCOUNT_DISABLED",
+                    "value": {
+                      "statusCode": 403,
+                      "code": "AUTH_ACCOUNT_DISABLED",
+                      "message": "Tu cuenta está deshabilitada. Contacta al equipo de la Escuela.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error. `code` posibles: `AUTH_ALREADY_VERIFIED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "AUTH_ALREADY_VERIFIED": {
+                    "summary": "AUTH_ALREADY_VERIFIED",
+                    "value": {
+                      "statusCode": 409,
+                      "code": "AUTH_ALREADY_VERIFIED",
+                      "message": "Tu correo ya está verificado. Inicia sesión.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `AUTH_OTP_LOCKED`, `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "AUTH_OTP_LOCKED": {
+                    "summary": "AUTH_OTP_LOCKED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "AUTH_OTP_LOCKED",
+                      "message": "Demasiados intentos con el código. Espera antes de intentarlo de nuevo.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  },
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [],
+        "summary": "Verificar correo con OTP",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/otp/resend": {
+      "post": {
+        "description": "HU-03 / HU-05: envía un código nuevo e invalida el anterior. Código de 6 dígitos; vence en 10 min; reenvío cada 30 s; 5 intentos fallidos consecutivos → bloqueo de 15 min. Dentro del cooldown → `AUTH_OTP_COOLDOWN` con `meta.resendAvailableAt`. Con `purpose: PASSWORD_RESET` se comporta igual que POST /auth/password/forgot.",
+        "operationId": "Auth_resendOtp",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResendOtpRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OtpDeliveryDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error. `code` posibles: `VALIDATION_ERROR`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "summary": "VALIDATION_ERROR",
+                    "value": {
+                      "statusCode": 400,
+                      "code": "VALIDATION_ERROR",
+                      "message": "Los datos enviados no son válidos.",
+                      "details": [
+                        {
+                          "field": "email",
+                          "code": "IS_EMAIL",
+                          "message": "Debe ser un correo electrónico válido."
+                        }
+                      ],
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error. `code` posibles: `AUTH_ACCOUNT_DISABLED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "AUTH_ACCOUNT_DISABLED": {
+                    "summary": "AUTH_ACCOUNT_DISABLED",
+                    "value": {
+                      "statusCode": 403,
+                      "code": "AUTH_ACCOUNT_DISABLED",
+                      "message": "Tu cuenta está deshabilitada. Contacta al equipo de la Escuela.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error. `code` posibles: `AUTH_ACCOUNT_NOT_FOUND`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "AUTH_ACCOUNT_NOT_FOUND": {
+                    "summary": "AUTH_ACCOUNT_NOT_FOUND",
+                    "value": {
+                      "statusCode": 404,
+                      "code": "AUTH_ACCOUNT_NOT_FOUND",
+                      "message": "No existe una cuenta con ese correo.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error. `code` posibles: `AUTH_ALREADY_VERIFIED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "AUTH_ALREADY_VERIFIED": {
+                    "summary": "AUTH_ALREADY_VERIFIED",
+                    "value": {
+                      "statusCode": 409,
+                      "code": "AUTH_ALREADY_VERIFIED",
+                      "message": "Tu correo ya está verificado. Inicia sesión.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `AUTH_OTP_COOLDOWN`, `AUTH_OTP_LOCKED`, `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "AUTH_OTP_COOLDOWN": {
+                    "summary": "AUTH_OTP_COOLDOWN",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "AUTH_OTP_COOLDOWN",
+                      "message": "Espera un momento antes de solicitar un nuevo código.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  },
+                  "AUTH_OTP_LOCKED": {
+                    "summary": "AUTH_OTP_LOCKED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "AUTH_OTP_LOCKED",
+                      "message": "Demasiados intentos con el código. Espera antes de intentarlo de nuevo.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  },
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [],
+        "summary": "Reenviar código OTP",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "description": "HU-04: correo + contraseña. Credenciales incorrectas → mensaje genérico `AUTH_INVALID_CREDENTIALS`. 5 fallos consecutivos → `AUTH_LOGIN_LOCKED` por 15 min (`meta.lockedUntil`). Cuenta sin verificar (contraseña correcta) → 403 `AUTH_EMAIL_NOT_VERIFIED`: redirige a HU-03; se reenvía el OTP solo si el cooldown lo permite (`meta.otpSent`, `meta.expiresAt`, `meta.resendAvailableAt`). `rememberMe` alarga la vida del refresh token.",
+        "operationId": "Auth_login",
+        "parameters": [
+          {
+            "name": "user-agent",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error. `code` posibles: `VALIDATION_ERROR`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "summary": "VALIDATION_ERROR",
+                    "value": {
+                      "statusCode": 400,
+                      "code": "VALIDATION_ERROR",
+                      "message": "Los datos enviados no son válidos.",
+                      "details": [
+                        {
+                          "field": "email",
+                          "code": "IS_EMAIL",
+                          "message": "Debe ser un correo electrónico válido."
+                        }
+                      ],
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error. `code` posibles: `AUTH_INVALID_CREDENTIALS`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "AUTH_INVALID_CREDENTIALS": {
+                    "summary": "AUTH_INVALID_CREDENTIALS",
+                    "value": {
+                      "statusCode": 401,
+                      "code": "AUTH_INVALID_CREDENTIALS",
+                      "message": "Correo o contraseña incorrectos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error. `code` posibles: `AUTH_EMAIL_NOT_VERIFIED`, `AUTH_ACCOUNT_DISABLED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "AUTH_EMAIL_NOT_VERIFIED": {
+                    "summary": "AUTH_EMAIL_NOT_VERIFIED",
+                    "value": {
+                      "statusCode": 403,
+                      "code": "AUTH_EMAIL_NOT_VERIFIED",
+                      "message": "Debes verificar tu correo antes de iniciar sesión.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  },
+                  "AUTH_ACCOUNT_DISABLED": {
+                    "summary": "AUTH_ACCOUNT_DISABLED",
+                    "value": {
+                      "statusCode": 403,
+                      "code": "AUTH_ACCOUNT_DISABLED",
+                      "message": "Tu cuenta está deshabilitada. Contacta al equipo de la Escuela.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `AUTH_LOGIN_LOCKED`, `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "AUTH_LOGIN_LOCKED": {
+                    "summary": "AUTH_LOGIN_LOCKED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "AUTH_LOGIN_LOCKED",
+                      "message": "Demasiados intentos fallidos. Intenta de nuevo más tarde.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  },
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [],
+        "summary": "Iniciar sesión",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "description": "Rota el refresh token: devuelve un par nuevo y el anterior queda invalidado. Reusar un refresh ya rotado revoca toda la sesión (detección de robo). Haz un solo refresh a la vez.",
+        "operationId": "Auth_refresh",
+        "parameters": [
+          {
+            "name": "user-agent",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenPairDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error. `code` posibles: `VALIDATION_ERROR`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "summary": "VALIDATION_ERROR",
+                    "value": {
+                      "statusCode": 400,
+                      "code": "VALIDATION_ERROR",
+                      "message": "Los datos enviados no son válidos.",
+                      "details": [
+                        {
+                          "field": "email",
+                          "code": "IS_EMAIL",
+                          "message": "Debe ser un correo electrónico válido."
+                        }
+                      ],
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error. `code` posibles: `AUTH_REFRESH_INVALID`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "AUTH_REFRESH_INVALID": {
+                    "summary": "AUTH_REFRESH_INVALID",
+                    "value": {
+                      "statusCode": 401,
+                      "code": "AUTH_REFRESH_INVALID",
+                      "message": "Tu sesión expiró. Inicia sesión de nuevo.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [],
+        "summary": "Renovar tokens",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "description": "Revoca la sesión del refresh token enviado. Idempotente (204 aunque ya esté revocado). No requiere access token. El frontend borra los tokens guardados.",
+        "operationId": "Auth_logout",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LogoutRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Sesión cerrada."
+          },
+          "400": {
+            "description": "Error. `code` posibles: `VALIDATION_ERROR`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "summary": "VALIDATION_ERROR",
+                    "value": {
+                      "statusCode": 400,
+                      "code": "VALIDATION_ERROR",
+                      "message": "Los datos enviados no son válidos.",
+                      "details": [
+                        {
+                          "field": "email",
+                          "code": "IS_EMAIL",
+                          "message": "Debe ser un correo electrónico válido."
+                        }
+                      ],
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [],
+        "summary": "Cerrar sesión",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/password/forgot": {
+      "post": {
+        "description": "HU-05: envía un OTP al correo. Código de 6 dígitos; vence en 10 min; reenvío cada 30 s; 5 intentos fallidos consecutivos → bloqueo de 15 min. Correo sin cuenta → 404 `AUTH_ACCOUNT_NOT_FOUND` (lo pide la HU; configurable con `BUSINESS_RULES.REVEAL_UNKNOWN_EMAIL_ON_RESET`, riesgo de enumeración documentado).",
+        "operationId": "Auth_forgotPassword",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForgotPasswordRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OtpDeliveryDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error. `code` posibles: `VALIDATION_ERROR`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "summary": "VALIDATION_ERROR",
+                    "value": {
+                      "statusCode": 400,
+                      "code": "VALIDATION_ERROR",
+                      "message": "Los datos enviados no son válidos.",
+                      "details": [
+                        {
+                          "field": "email",
+                          "code": "IS_EMAIL",
+                          "message": "Debe ser un correo electrónico válido."
+                        }
+                      ],
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error. `code` posibles: `AUTH_ACCOUNT_DISABLED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "AUTH_ACCOUNT_DISABLED": {
+                    "summary": "AUTH_ACCOUNT_DISABLED",
+                    "value": {
+                      "statusCode": 403,
+                      "code": "AUTH_ACCOUNT_DISABLED",
+                      "message": "Tu cuenta está deshabilitada. Contacta al equipo de la Escuela.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error. `code` posibles: `AUTH_ACCOUNT_NOT_FOUND`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "AUTH_ACCOUNT_NOT_FOUND": {
+                    "summary": "AUTH_ACCOUNT_NOT_FOUND",
+                    "value": {
+                      "statusCode": 404,
+                      "code": "AUTH_ACCOUNT_NOT_FOUND",
+                      "message": "No existe una cuenta con ese correo.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `AUTH_OTP_COOLDOWN`, `AUTH_OTP_LOCKED`, `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "AUTH_OTP_COOLDOWN": {
+                    "summary": "AUTH_OTP_COOLDOWN",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "AUTH_OTP_COOLDOWN",
+                      "message": "Espera un momento antes de solicitar un nuevo código.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  },
+                  "AUTH_OTP_LOCKED": {
+                    "summary": "AUTH_OTP_LOCKED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "AUTH_OTP_LOCKED",
+                      "message": "Demasiados intentos con el código. Espera antes de intentarlo de nuevo.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  },
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [],
+        "summary": "Recuperar contraseña — paso 1 (enviar código)",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/password/verify-otp": {
+      "post": {
+        "description": "HU-05: valida el OTP y devuelve un `resetToken` de un solo uso que vence en 10 min. Mismos errores y bloqueo que HU-03.",
+        "operationId": "Auth_verifyResetOtp",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyResetOtpRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResetTokenResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error. `code` posibles: `VALIDATION_ERROR`, `AUTH_OTP_INVALID`, `AUTH_OTP_EXPIRED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "summary": "VALIDATION_ERROR",
+                    "value": {
+                      "statusCode": 400,
+                      "code": "VALIDATION_ERROR",
+                      "message": "Los datos enviados no son válidos.",
+                      "details": [
+                        {
+                          "field": "email",
+                          "code": "IS_EMAIL",
+                          "message": "Debe ser un correo electrónico válido."
+                        }
+                      ],
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  },
+                  "AUTH_OTP_INVALID": {
+                    "summary": "AUTH_OTP_INVALID",
+                    "value": {
+                      "statusCode": 400,
+                      "code": "AUTH_OTP_INVALID",
+                      "message": "El código es incorrecto.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  },
+                  "AUTH_OTP_EXPIRED": {
+                    "summary": "AUTH_OTP_EXPIRED",
+                    "value": {
+                      "statusCode": 400,
+                      "code": "AUTH_OTP_EXPIRED",
+                      "message": "El código expiró o ya no es válido. Solicita uno nuevo.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error. `code` posibles: `AUTH_ACCOUNT_NOT_FOUND`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "AUTH_ACCOUNT_NOT_FOUND": {
+                    "summary": "AUTH_ACCOUNT_NOT_FOUND",
+                    "value": {
+                      "statusCode": 404,
+                      "code": "AUTH_ACCOUNT_NOT_FOUND",
+                      "message": "No existe una cuenta con ese correo.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `AUTH_OTP_LOCKED`, `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "AUTH_OTP_LOCKED": {
+                    "summary": "AUTH_OTP_LOCKED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "AUTH_OTP_LOCKED",
+                      "message": "Demasiados intentos con el código. Espera antes de intentarlo de nuevo.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  },
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [],
+        "summary": "Recuperar contraseña — paso 2 (verificar código)",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/password/reset": {
+      "post": {
+        "description": "HU-05: guarda la nueva contraseña (mismas reglas que HU-02; `confirmPassword` debe coincidir → `details[].code = PASSWORD_MISMATCH`). Invalida el OTP, cierra todas las sesiones y desbloquea el login. Después, redirige al login.",
+        "operationId": "Auth_resetPassword",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetPasswordRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Contraseña actualizada."
+          },
+          "400": {
+            "description": "Error. `code` posibles: `VALIDATION_ERROR`, `AUTH_RESET_TOKEN_INVALID`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "summary": "VALIDATION_ERROR",
+                    "value": {
+                      "statusCode": 400,
+                      "code": "VALIDATION_ERROR",
+                      "message": "Los datos enviados no son válidos.",
+                      "details": [
+                        {
+                          "field": "email",
+                          "code": "IS_EMAIL",
+                          "message": "Debe ser un correo electrónico válido."
+                        }
+                      ],
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  },
+                  "AUTH_RESET_TOKEN_INVALID": {
+                    "summary": "AUTH_RESET_TOKEN_INVALID",
+                    "value": {
+                      "statusCode": 400,
+                      "code": "AUTH_RESET_TOKEN_INVALID",
+                      "message": "El enlace de recuperación expiró o ya se usó. Solicita un nuevo código.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error. `code` posibles: `AUTH_ACCOUNT_DISABLED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "AUTH_ACCOUNT_DISABLED": {
+                    "summary": "AUTH_ACCOUNT_DISABLED",
+                    "value": {
+                      "statusCode": 403,
+                      "code": "AUTH_ACCOUNT_DISABLED",
+                      "message": "Tu cuenta está deshabilitada. Contacta al equipo de la Escuela.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [],
+        "summary": "Recuperar contraseña — paso 3 (nueva contraseña)",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/me/password": {
+      "post": {
+        "description": "HU-14 \"Seguridad\": valida la contraseña actual y que la nueva cumpla las reglas de HU-02 (`confirmPassword` debe coincidir). Cierra las demás sesiones; la actual sigue activa.",
+        "operationId": "AccountSecurity_changePassword",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Contraseña actualizada."
+          },
+          "400": {
+            "description": "Error. `code` posibles: `VALIDATION_ERROR`, `AUTH_CURRENT_PASSWORD_INVALID`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "summary": "VALIDATION_ERROR",
+                    "value": {
+                      "statusCode": 400,
+                      "code": "VALIDATION_ERROR",
+                      "message": "Los datos enviados no son válidos.",
+                      "details": [
+                        {
+                          "field": "email",
+                          "code": "IS_EMAIL",
+                          "message": "Debe ser un correo electrónico válido."
+                        }
+                      ],
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  },
+                  "AUTH_CURRENT_PASSWORD_INVALID": {
+                    "summary": "AUTH_CURRENT_PASSWORD_INVALID",
+                    "value": {
+                      "statusCode": 400,
+                      "code": "AUTH_CURRENT_PASSWORD_INVALID",
+                      "message": "La contraseña actual es incorrecta.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error. `code` posibles: `UNAUTHORIZED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "UNAUTHORIZED": {
+                    "summary": "UNAUTHORIZED",
+                    "value": {
+                      "statusCode": 401,
+                      "code": "UNAUTHORIZED",
+                      "message": "Necesitas iniciar sesión para continuar.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Cambiar mi contraseña",
+        "tags": [
+          "Perfil"
+        ]
+      }
+    },
+    "/api/v1/contact-messages": {
+      "post": {
+        "description": "HU-38 / HU-01: formulario único (página Contacto y landing, distinguidos por `origin`). Con `subject = DESIGN_CONSULTING` son obligatorios `projectType`, `projectLocation` y `service`; con otro asunto se ignoran. Anti-spam: honeypot `website` (si llega con texto se descarta en silencio con la misma respuesta 201), máximo 5 envíos por IP por hora (429 `RATE_LIMITED`) y captcha Cloudflare Turnstile opcional (`captchaToken`; solo se exige si el backend tiene TURNSTILE_SECRET_KEY). Queda registrado con estado `NEW`; se envía acuse al visitante y aviso al buzón del equipo.",
+        "operationId": "Contact_create",
+        "parameters": [
+          {
+            "name": "user-agent",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateContactMessageRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactMessageResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error. `code` posibles: `VALIDATION_ERROR`, `CONTACT_CAPTCHA_FAILED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "summary": "VALIDATION_ERROR",
+                    "value": {
+                      "statusCode": 400,
+                      "code": "VALIDATION_ERROR",
+                      "message": "Los datos enviados no son válidos.",
+                      "details": [
+                        {
+                          "field": "email",
+                          "code": "IS_EMAIL",
+                          "message": "Debe ser un correo electrónico válido."
+                        }
+                      ],
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  },
+                  "CONTACT_CAPTCHA_FAILED": {
+                    "summary": "CONTACT_CAPTCHA_FAILED",
+                    "value": {
+                      "statusCode": 400,
+                      "code": "CONTACT_CAPTCHA_FAILED",
+                      "message": "No pudimos verificar que no eres un robot. Intenta de nuevo más tarde.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [],
+        "summary": "Enviar mensaje de Contacto",
+        "tags": [
+          "Contacto"
+        ]
+      }
     }
   },
   "info": {
@@ -173,7 +2187,23 @@
               "BUSINESS_RULE_VIOLATION",
               "RATE_LIMITED",
               "INTERNAL_ERROR",
-              "SERVICE_UNAVAILABLE"
+              "SERVICE_UNAVAILABLE",
+              "AUTH_EMAIL_ALREADY_REGISTERED",
+              "AUTH_USERNAME_TAKEN",
+              "AUTH_INVALID_CREDENTIALS",
+              "AUTH_EMAIL_NOT_VERIFIED",
+              "AUTH_ACCOUNT_DISABLED",
+              "AUTH_LOGIN_LOCKED",
+              "AUTH_ACCOUNT_NOT_FOUND",
+              "AUTH_ALREADY_VERIFIED",
+              "AUTH_OTP_INVALID",
+              "AUTH_OTP_EXPIRED",
+              "AUTH_OTP_LOCKED",
+              "AUTH_OTP_COOLDOWN",
+              "AUTH_REFRESH_INVALID",
+              "AUTH_RESET_TOKEN_INVALID",
+              "AUTH_CURRENT_PASSWORD_INVALID",
+              "CONTACT_CAPTCHA_FAILED"
             ]
           },
           "message": {
@@ -187,6 +2217,14 @@
             "items": {
               "$ref": "#/components/schemas/ErrorDetailDto"
             }
+          },
+          "meta": {
+            "type": "object",
+            "additionalProperties": true,
+            "example": {
+              "lockedUntil": "2026-11-07T16:15:00.000Z"
+            },
+            "description": "Datos extra para la UI según el `code` (p. ej. `lockedUntil`, `resendAvailableAt`, `attemptsRemaining`). Ausente si no aplica."
           },
           "requestId": {
             "type": "string",
@@ -238,6 +2276,1174 @@
           "status",
           "checks",
           "timestamp"
+        ]
+      },
+      "CountryDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "example": "MX",
+            "description": "ISO-3166 alpha-2."
+          },
+          "name": {
+            "type": "string",
+            "example": "México"
+          },
+          "phoneCode": {
+            "type": "string",
+            "example": "+52",
+            "description": "Indicativo sugerido para el teléfono."
+          },
+          "phoneMinLength": {
+            "type": "number",
+            "example": 10,
+            "description": "Longitud mínima del número (sin indicativo)."
+          },
+          "phoneMaxLength": {
+            "type": "number",
+            "example": 10,
+            "description": "Longitud máxima del número (sin indicativo)."
+          },
+          "hasDivisions": {
+            "type": "boolean",
+            "example": true,
+            "description": "true → el estado se elige de GET /locations/countries/{code}/divisions; false → texto libre."
+          },
+          "divisionLabel": {
+            "type": "string",
+            "example": "Estado",
+            "description": "Etiqueta del primer nivel en la UI."
+          },
+          "municipalityLabel": {
+            "type": "string",
+            "example": "Municipio",
+            "description": "Etiqueta del segundo nivel en la UI."
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "MXN",
+              "USD"
+            ],
+            "example": "MXN",
+            "description": "Moneda de cobro para residentes del país (MX → MXN; resto → USD)."
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "phoneCode",
+          "phoneMinLength",
+          "phoneMaxLength",
+          "hasDivisions",
+          "divisionLabel",
+          "municipalityLabel",
+          "currency"
+        ]
+      },
+      "CountryListResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "description": "México y Centroamérica primero.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CountryDto"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "DivisionDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "3f6c1f0e-8a7b-4c1e-9f0a-2d8b6e4c1a7f"
+          },
+          "code": {
+            "type": "string",
+            "example": "09",
+            "description": "Clave oficial (INEGI para México)."
+          },
+          "name": {
+            "type": "string",
+            "example": "Ciudad de México"
+          },
+          "hasMunicipalities": {
+            "type": "boolean",
+            "example": true,
+            "description": "true → el municipio se elige de GET /locations/divisions/{id}/municipalities; false → texto libre."
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name",
+          "hasMunicipalities"
+        ]
+      },
+      "DivisionListResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DivisionDto"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "MunicipalityDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "9b2d4c1e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+          },
+          "code": {
+            "type": "string",
+            "example": "003",
+            "description": "Clave oficial (INEGI para México)."
+          },
+          "name": {
+            "type": "string",
+            "example": "Coyoacán"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name"
+        ]
+      },
+      "MunicipalityListResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MunicipalityDto"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "TimezoneDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "America/Bogota",
+            "description": "Zona IANA (valor a guardar)."
+          },
+          "label": {
+            "type": "string",
+            "example": "Bogotá (Colombia)",
+            "description": "Etiqueta para el selector."
+          },
+          "countryCode": {
+            "type": "string",
+            "nullable": true,
+            "example": "CO",
+            "description": "País (ISO alpha-2) para buscar por país."
+          },
+          "utcOffset": {
+            "type": "string",
+            "example": "-05:00",
+            "description": "Offset UTC en el instante consultado."
+          },
+          "offsetMinutes": {
+            "type": "number",
+            "example": -300,
+            "description": "Offset en minutos (para ordenar/calcular)."
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "countryCode",
+          "utcOffset",
+          "offsetMinutes"
+        ]
+      },
+      "ReferenceTimezoneDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "America/Bogota"
+          },
+          "label": {
+            "type": "string",
+            "example": "Bogotá / Lima"
+          },
+          "utcOffset": {
+            "type": "string",
+            "example": "-05:00"
+          },
+          "offsetMinutes": {
+            "type": "number",
+            "example": -300
+          },
+          "isOfficial": {
+            "type": "boolean",
+            "example": false,
+            "description": "true en la fila de referencia (CDMX)."
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "utcOffset",
+          "offsetMinutes",
+          "isOfficial"
+        ]
+      },
+      "TimezonesResponseDto": {
+        "type": "object",
+        "properties": {
+          "officialTimezone": {
+            "type": "string",
+            "example": "America/Mexico_City",
+            "description": "Hora oficial de las actividades (CDMX). Todas las fechas de la API viajan en UTC."
+          },
+          "defaultTimezone": {
+            "type": "string",
+            "example": "America/Mexico_City",
+            "description": "Zona a usar si el navegador no permite detectarla (HU-02, HU-11)."
+          },
+          "at": {
+            "type": "string",
+            "example": "2026-11-07T16:00:00.000Z",
+            "description": "Instante usado para offsets."
+          },
+          "zones": {
+            "description": "Zonas sugeridas para el selector.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimezoneDto"
+            }
+          },
+          "referenceZones": {
+            "description": "Tabla \"Ver en otros países\" (HU-11): CDMX de referencia y ciudades del público.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReferenceTimezoneDto"
+            }
+          }
+        },
+        "required": [
+          "officialTimezone",
+          "defaultTimezone",
+          "at",
+          "zones",
+          "referenceZones"
+        ]
+      },
+      "PhoneResponseDto": {
+        "type": "object",
+        "properties": {
+          "countryCode": {
+            "type": "string",
+            "example": "+52"
+          },
+          "number": {
+            "type": "string",
+            "example": "5512345678"
+          }
+        },
+        "required": [
+          "countryCode",
+          "number"
+        ]
+      },
+      "LocationResponseDto": {
+        "type": "object",
+        "properties": {
+          "countryCode": {
+            "type": "string",
+            "example": "MX"
+          },
+          "countryName": {
+            "type": "string",
+            "example": "México"
+          },
+          "divisionId": {
+            "type": "string",
+            "nullable": true,
+            "example": "3f6c1f0e-8a7b-4c1e-9f0a-2d8b6e4c1a7f",
+            "description": "Id de catálogo; null si se capturó como texto libre."
+          },
+          "divisionName": {
+            "type": "string",
+            "example": "Ciudad de México"
+          },
+          "municipalityId": {
+            "type": "string",
+            "nullable": true,
+            "example": "9b2d4c1e-5b7d-4c1e-9f0a-2d8b6e4c1a7f",
+            "description": "Id de catálogo; null si se capturó como texto libre."
+          },
+          "municipalityName": {
+            "type": "string",
+            "example": "Coyoacán"
+          }
+        },
+        "required": [
+          "countryCode",
+          "countryName",
+          "divisionId",
+          "divisionName",
+          "municipalityId",
+          "municipalityName"
+        ]
+      },
+      "Role": {
+        "type": "string",
+        "enum": [
+          "PARTICIPANT",
+          "SUPER_ADMIN",
+          "ACADEMIC_COORDINATOR",
+          "REVIEW_COMMITTEE",
+          "REVIEW_DECIDER",
+          "FOLLOW_UP",
+          "FINANCE"
+        ]
+      },
+      "UserStatus": {
+        "type": "string",
+        "enum": [
+          "PENDING_VERIFICATION",
+          "ACTIVE",
+          "DISABLED"
+        ]
+      },
+      "UserProfileDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "a3c1e2f4-5b6d-4e7f-8a9b-0c1d2e3f4a5b"
+          },
+          "fullName": {
+            "type": "string",
+            "example": "María José Núñez"
+          },
+          "username": {
+            "type": "string",
+            "example": "mariajose",
+            "description": "No editable."
+          },
+          "email": {
+            "type": "string",
+            "example": "maria.nunez@example.com",
+            "description": "No editable."
+          },
+          "phone": {
+            "$ref": "#/components/schemas/PhoneResponseDto"
+          },
+          "location": {
+            "$ref": "#/components/schemas/LocationResponseDto"
+          },
+          "timezone": {
+            "type": "string",
+            "example": "America/Mexico_City",
+            "description": "Zona IANA (HU-11)."
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "MXN",
+              "USD"
+            ],
+            "example": "MXN",
+            "description": "Calculado: moneda de los pagos nuevos según el país (MX → MXN; resto → USD)."
+          },
+          "roles": {
+            "type": "array",
+            "example": [
+              "PARTICIPANT"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/Role"
+            }
+          },
+          "status": {
+            "example": "ACTIVE",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UserStatus"
+              }
+            ]
+          },
+          "emailVerifiedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "example": "2026-11-07T16:00:00.000Z"
+          },
+          "lastLoginAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "example": "2026-11-07T16:00:00.000Z"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-07T16:00:00.000Z"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-07T16:00:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "fullName",
+          "username",
+          "email",
+          "phone",
+          "location",
+          "timezone",
+          "currency",
+          "roles",
+          "status",
+          "emailVerifiedAt",
+          "lastLoginAt",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "PhoneDto": {
+        "type": "object",
+        "properties": {
+          "countryCode": {
+            "type": "string",
+            "example": "+52",
+            "description": "Indicativo con \"+\" (ver `phoneCode` del país)."
+          },
+          "number": {
+            "type": "string",
+            "example": "5512345678",
+            "description": "Solo dígitos, sin indicativo. Se ignoran espacios y guiones. La longitud se valida contra el país del indicativo (`phoneMinLength`/`phoneMaxLength`)."
+          }
+        },
+        "required": [
+          "countryCode",
+          "number"
+        ]
+      },
+      "LocationInputDto": {
+        "type": "object",
+        "properties": {
+          "countryCode": {
+            "type": "string",
+            "example": "MX",
+            "description": "ISO-3166 alpha-2 (ver GET /locations/countries)."
+          },
+          "divisionId": {
+            "type": "string",
+            "example": "3f6c1f0e-8a7b-4c1e-9f0a-2d8b6e4c1a7f",
+            "description": "Id del estado/departamento (países con lista)."
+          },
+          "divisionName": {
+            "type": "string",
+            "example": "Antioquia",
+            "description": "Estado/departamento/provincia en texto libre (países sin lista)."
+          },
+          "municipalityId": {
+            "type": "string",
+            "example": "9b2d4c1e-5b7d-4c1e-9f0a-2d8b6e4c1a7f",
+            "description": "Id del municipio (estados con lista)."
+          },
+          "municipalityName": {
+            "type": "string",
+            "example": "Medellín",
+            "description": "Municipio/ciudad en texto libre (cuando no hay lista)."
+          }
+        },
+        "required": [
+          "countryCode"
+        ]
+      },
+      "UpdateProfileRequestDto": {
+        "type": "object",
+        "properties": {
+          "fullName": {
+            "type": "string",
+            "example": "María José Núñez",
+            "maxLength": 120,
+            "description": "Solo letras (con tildes o ñ) y espacios."
+          },
+          "phone": {
+            "$ref": "#/components/schemas/PhoneDto"
+          },
+          "location": {
+            "description": "Ubicación completa.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LocationInputDto"
+              }
+            ]
+          },
+          "timezone": {
+            "type": "string",
+            "example": "America/Mexico_City",
+            "description": "Zona horaria IANA (ver GET /timezones). Por defecto America/Mexico_City."
+          }
+        }
+      },
+      "UpdateTimezoneRequestDto": {
+        "type": "object",
+        "properties": {
+          "timezone": {
+            "type": "string",
+            "example": "America/Mexico_City",
+            "description": "Zona horaria IANA (ver GET /timezones). Por defecto America/Mexico_City."
+          }
+        },
+        "required": [
+          "timezone"
+        ]
+      },
+      "RegisterRequestDto": {
+        "type": "object",
+        "properties": {
+          "fullName": {
+            "type": "string",
+            "example": "María José Núñez",
+            "maxLength": 120,
+            "description": "Solo letras (con tildes o ñ) y espacios."
+          },
+          "username": {
+            "type": "string",
+            "example": "mariajose",
+            "pattern": "^[a-z0-9._]{3,30}$",
+            "description": "De 3 a 30 caracteres: letras, números, punto o guion bajo. Se guarda en minúsculas. Único y no editable."
+          },
+          "email": {
+            "type": "string",
+            "example": "maria.nunez@example.com",
+            "description": "Se normaliza a minúsculas y sin espacios."
+          },
+          "password": {
+            "type": "string",
+            "example": "Agua2026segura",
+            "minLength": 8,
+            "maxLength": 128,
+            "format": "password",
+            "description": "Mínimo 8 caracteres, al menos una letra y un número."
+          },
+          "phone": {
+            "$ref": "#/components/schemas/PhoneDto"
+          },
+          "location": {
+            "$ref": "#/components/schemas/LocationInputDto"
+          },
+          "timezone": {
+            "type": "string",
+            "example": "America/Mexico_City",
+            "description": "Zona horaria IANA (ver GET /timezones). Por defecto America/Mexico_City."
+          }
+        },
+        "required": [
+          "fullName",
+          "username",
+          "email",
+          "password",
+          "phone",
+          "location",
+          "timezone"
+        ]
+      },
+      "OtpDeliveryDto": {
+        "type": "object",
+        "properties": {
+          "maskedEmail": {
+            "type": "string",
+            "example": "m***@example.com",
+            "description": "Correo de destino enmascarado."
+          },
+          "codeLength": {
+            "type": "number",
+            "example": 6,
+            "description": "Número de dígitos (casillas)."
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-07T16:10:00.000Z",
+            "description": "Vencimiento del código."
+          },
+          "resendAvailableAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-07T16:00:30.000Z",
+            "description": "Desde cuándo se puede pedir otro código (\"Reenviar en 00:30\")."
+          }
+        },
+        "required": [
+          "maskedEmail",
+          "codeLength",
+          "expiresAt",
+          "resendAvailableAt"
+        ]
+      },
+      "RegisterResponseDto": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "example": "a3c1e2f4-5b6d-4e7f-8a9b-0c1d2e3f4a5b"
+          },
+          "email": {
+            "type": "string",
+            "example": "maria.nunez@example.com"
+          },
+          "status": {
+            "example": "PENDING_VERIFICATION",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UserStatus"
+              }
+            ]
+          },
+          "otp": {
+            "$ref": "#/components/schemas/OtpDeliveryDto"
+          }
+        },
+        "required": [
+          "userId",
+          "email",
+          "status",
+          "otp"
+        ]
+      },
+      "FieldAvailabilityDto": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "example": "mariajose",
+            "description": "Valor normalizado que se evaluó."
+          },
+          "valid": {
+            "type": "boolean",
+            "example": true,
+            "description": "Formato válido."
+          },
+          "available": {
+            "type": "boolean",
+            "example": true,
+            "description": "Formato válido y no registrado."
+          }
+        },
+        "required": [
+          "value",
+          "valid",
+          "available"
+        ]
+      },
+      "AvailabilityResponseDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "$ref": "#/components/schemas/FieldAvailabilityDto"
+          },
+          "username": {
+            "$ref": "#/components/schemas/FieldAvailabilityDto"
+          }
+        }
+      },
+      "VerifyEmailRequestDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "maria.nunez@example.com",
+            "description": "Se normaliza a minúsculas y sin espacios."
+          },
+          "code": {
+            "type": "string",
+            "example": "482913",
+            "pattern": "^\\d{6}$",
+            "description": "Código de 6 dígitos recibido por correo."
+          }
+        },
+        "required": [
+          "email",
+          "code"
+        ]
+      },
+      "VerifyEmailResponseDto": {
+        "type": "object",
+        "properties": {
+          "verified": {
+            "type": "boolean",
+            "example": true
+          },
+          "email": {
+            "type": "string",
+            "example": "maria.nunez@example.com"
+          }
+        },
+        "required": [
+          "verified",
+          "email"
+        ]
+      },
+      "OtpPurpose": {
+        "type": "string",
+        "enum": [
+          "EMAIL_VERIFICATION",
+          "PASSWORD_RESET"
+        ],
+        "description": "`EMAIL_VERIFICATION` (HU-03) o `PASSWORD_RESET` (HU-05)."
+      },
+      "ResendOtpRequestDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "maria.nunez@example.com",
+            "description": "Se normaliza a minúsculas y sin espacios."
+          },
+          "purpose": {
+            "example": "EMAIL_VERIFICATION",
+            "description": "`EMAIL_VERIFICATION` (HU-03) o `PASSWORD_RESET` (HU-05).",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OtpPurpose"
+              }
+            ]
+          }
+        },
+        "required": [
+          "email",
+          "purpose"
+        ]
+      },
+      "LoginRequestDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "participante@example.com"
+          },
+          "password": {
+            "type": "string",
+            "example": "Agua2026segura",
+            "format": "password"
+          },
+          "rememberMe": {
+            "type": "boolean",
+            "example": false,
+            "default": false,
+            "description": "\"Recordarme\": alarga la vida del refresh token en este dispositivo."
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ]
+      },
+      "LoginResponseDto": {
+        "type": "object",
+        "properties": {
+          "accessToken": {
+            "type": "string",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+          },
+          "tokenType": {
+            "type": "string",
+            "example": "Bearer"
+          },
+          "expiresIn": {
+            "type": "number",
+            "example": 900,
+            "description": "Segundos de vida del accessToken."
+          },
+          "accessTokenExpiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-07T16:15:00.000Z"
+          },
+          "refreshToken": {
+            "type": "string",
+            "example": "q5V3n8x1b0pY7mKkz2c4dWJ9eH6tA1sLrUoG3fQ8yZw"
+          },
+          "refreshTokenExpiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-14T16:00:00.000Z",
+            "description": "7 días (30 con \"Recordarme\"). Cada refresh lo renueva."
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserProfileDto"
+          }
+        },
+        "required": [
+          "accessToken",
+          "tokenType",
+          "expiresIn",
+          "accessTokenExpiresAt",
+          "refreshToken",
+          "refreshTokenExpiresAt",
+          "user"
+        ]
+      },
+      "RefreshRequestDto": {
+        "type": "object",
+        "properties": {
+          "refreshToken": {
+            "type": "string",
+            "example": "q5V3n8x1b0pY7mKkz2c4dWJ9eH6tA1sLrUoG3fQ8yZw"
+          }
+        },
+        "required": [
+          "refreshToken"
+        ]
+      },
+      "TokenPairDto": {
+        "type": "object",
+        "properties": {
+          "accessToken": {
+            "type": "string",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+          },
+          "tokenType": {
+            "type": "string",
+            "example": "Bearer"
+          },
+          "expiresIn": {
+            "type": "number",
+            "example": 900,
+            "description": "Segundos de vida del accessToken."
+          },
+          "accessTokenExpiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-07T16:15:00.000Z"
+          },
+          "refreshToken": {
+            "type": "string",
+            "example": "q5V3n8x1b0pY7mKkz2c4dWJ9eH6tA1sLrUoG3fQ8yZw"
+          },
+          "refreshTokenExpiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-14T16:00:00.000Z",
+            "description": "7 días (30 con \"Recordarme\"). Cada refresh lo renueva."
+          }
+        },
+        "required": [
+          "accessToken",
+          "tokenType",
+          "expiresIn",
+          "accessTokenExpiresAt",
+          "refreshToken",
+          "refreshTokenExpiresAt"
+        ]
+      },
+      "LogoutRequestDto": {
+        "type": "object",
+        "properties": {
+          "refreshToken": {
+            "type": "string",
+            "example": "q5V3n8x1b0pY7mKkz2c4dWJ9eH6tA1sLrUoG3fQ8yZw"
+          }
+        },
+        "required": [
+          "refreshToken"
+        ]
+      },
+      "ForgotPasswordRequestDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "maria.nunez@example.com",
+            "description": "Se normaliza a minúsculas y sin espacios."
+          }
+        },
+        "required": [
+          "email"
+        ]
+      },
+      "VerifyResetOtpRequestDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "maria.nunez@example.com",
+            "description": "Se normaliza a minúsculas y sin espacios."
+          },
+          "code": {
+            "type": "string",
+            "example": "482913",
+            "pattern": "^\\d{6}$",
+            "description": "Código de 6 dígitos recibido por correo."
+          }
+        },
+        "required": [
+          "email",
+          "code"
+        ]
+      },
+      "ResetTokenResponseDto": {
+        "type": "object",
+        "properties": {
+          "resetToken": {
+            "type": "string",
+            "example": "Zr0x9H2bQe4cT7uV1yL3nM8pK5sD6fG0aJ2wE4rT6yU",
+            "description": "Envíalo en POST /auth/password/reset. Un solo uso."
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-07T16:10:00.000Z"
+          }
+        },
+        "required": [
+          "resetToken",
+          "expiresAt"
+        ]
+      },
+      "ResetPasswordRequestDto": {
+        "type": "object",
+        "properties": {
+          "resetToken": {
+            "type": "string",
+            "example": "Zr0x9H2bQe4cT7uV1yL3nM8pK5sD6fG0aJ2wE4rT6yU",
+            "description": "Token devuelto por POST /auth/password/verify-otp (un solo uso, vida corta)."
+          },
+          "newPassword": {
+            "type": "string",
+            "example": "Agua2026segura",
+            "minLength": 8,
+            "maxLength": 128,
+            "format": "password",
+            "description": "Mínimo 8 caracteres, al menos una letra y un número."
+          },
+          "confirmPassword": {
+            "type": "string",
+            "example": "Agua2026segura",
+            "format": "password"
+          }
+        },
+        "required": [
+          "resetToken",
+          "newPassword",
+          "confirmPassword"
+        ]
+      },
+      "ChangePasswordRequestDto": {
+        "type": "object",
+        "properties": {
+          "currentPassword": {
+            "type": "string",
+            "example": "Agua2026segura",
+            "format": "password"
+          },
+          "newPassword": {
+            "type": "string",
+            "example": "NuevaClave2027",
+            "minLength": 8,
+            "maxLength": 128,
+            "format": "password",
+            "description": "Mínimo 8 caracteres, al menos una letra y un número."
+          },
+          "confirmPassword": {
+            "type": "string",
+            "example": "NuevaClave2027",
+            "format": "password"
+          }
+        },
+        "required": [
+          "currentPassword",
+          "newPassword",
+          "confirmPassword"
+        ]
+      },
+      "ContactSubject": {
+        "type": "string",
+        "enum": [
+          "SCHOOL",
+          "DESIGN_CONSULTING",
+          "REGENERATIVE_TECH_HAWA",
+          "SCHOLARSHIPS_CALLS",
+          "OTHER"
+        ]
+      },
+      "ContactProjectType": {
+        "type": "string",
+        "enum": [
+          "HOUSEHOLD",
+          "COMMERCIAL",
+          "COLLECTIVE",
+          "PRODUCTIVE",
+          "OTHER"
+        ],
+        "description": "Obligatorio si subject = DESIGN_CONSULTING (se ignora con otro asunto)."
+      },
+      "ContactService": {
+        "type": "string",
+        "enum": [
+          "WASTEWATER_TREATMENT_DESIGN",
+          "RAINWATER_HARVESTING_DESIGN",
+          "INFILTRATION_REHYDRATION_DESIGN",
+          "WATER_RESILIENCE_DIAGNOSTICS",
+          "TECHNOLOGY_IMPLEMENTATION_ADVICE",
+          "NOT_SURE"
+        ],
+        "description": "Servicio de interés (o NOT_SURE). Obligatorio si subject = DESIGN_CONSULTING."
+      },
+      "ContactOrigin": {
+        "type": "string",
+        "enum": [
+          "CONTACT_PAGE",
+          "LANDING",
+          "DESIGN_CONSULTING_PAGE",
+          "REGENERATIVE_TECH_PAGE",
+          "ABOUT_PAGE"
+        ],
+        "description": "Canal de origen (LANDING desde la landing HU-01)."
+      },
+      "CreateContactMessageRequestDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Lucía Hernández",
+            "minLength": 3
+          },
+          "email": {
+            "type": "string",
+            "example": "lucia@example.com"
+          },
+          "organization": {
+            "type": "string",
+            "example": "Cooperativa Agua Viva"
+          },
+          "phone": {
+            "description": "Teléfono / WhatsApp con indicativo.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PhoneDto"
+              }
+            ]
+          },
+          "subject": {
+            "example": "SCHOOL",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ContactSubject"
+              }
+            ]
+          },
+          "projectType": {
+            "description": "Obligatorio si subject = DESIGN_CONSULTING (se ignora con otro asunto).",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ContactProjectType"
+              }
+            ]
+          },
+          "projectLocation": {
+            "type": "string",
+            "example": "San Cristóbal de las Casas, Chiapas",
+            "description": "Ubicación del proyecto. Obligatorio si subject = DESIGN_CONSULTING."
+          },
+          "service": {
+            "description": "Servicio de interés (o NOT_SURE). Obligatorio si subject = DESIGN_CONSULTING.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ContactService"
+              }
+            ]
+          },
+          "message": {
+            "type": "string",
+            "example": "Hola, quisiera información sobre el próximo Diplomado en Ecotecnologías del Agua.",
+            "minLength": 10,
+            "maxLength": 2000
+          },
+          "privacyAccepted": {
+            "type": "boolean",
+            "example": true,
+            "description": "Debe ser true (política de datos aceptada)."
+          },
+          "origin": {
+            "example": "CONTACT_PAGE",
+            "description": "Canal de origen (LANDING desde la landing HU-01).",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ContactOrigin"
+              }
+            ]
+          },
+          "website": {
+            "type": "string",
+            "example": "",
+            "description": "Honeypot: campo oculto que debe ir vacío o ausente. Si viene con texto el mensaje se descarta en silencio (la respuesta es igual a la de éxito)."
+          },
+          "captchaToken": {
+            "type": "string",
+            "example": "0.AAAAAAAAAAAAAAAAAAAAAA...",
+            "description": "Token de Cloudflare Turnstile. Obligatorio solo si el backend tiene el captcha activo."
+          }
+        },
+        "required": [
+          "name",
+          "email",
+          "subject",
+          "message",
+          "privacyAccepted",
+          "origin"
+        ]
+      },
+      "ContactStatus": {
+        "type": "string",
+        "enum": [
+          "NEW"
+        ]
+      },
+      "ContactMessageResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "c1d2e3f4-5b6d-4e7f-8a9b-0c1d2e3f4a5b"
+          },
+          "status": {
+            "example": "NEW",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ContactStatus"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-07T16:00:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "createdAt"
         ]
       },
       "PaginationMetaDto": {

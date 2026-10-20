@@ -61,7 +61,11 @@ export const envSchema = z
 
     // --- Auth (se usa desde la Fase 01) ---
     JWT_ACCESS_SECRET: z.string().min(32, 'Debe tener al menos 32 caracteres'),
-    JWT_ACCESS_TTL: z.string().default('15m'),
+    /** Vida del token de acceso: segundos o número con unidad s/m/h/d (`900`, `15m`, `1h`). */
+    JWT_ACCESS_TTL: z
+      .string()
+      .regex(/^\d+[smhd]?$/, 'Formato: número de segundos o con unidad s/m/h/d (p. ej. 15m)')
+      .default('15m'),
     /** Vida del refresh token (días) sin / con "recordarme". */
     JWT_REFRESH_TTL_DAYS: z.coerce.number().int().positive().default(7),
     JWT_REFRESH_REMEMBER_TTL_DAYS: z.coerce.number().int().positive().default(30),
@@ -69,8 +73,16 @@ export const envSchema = z
     // --- Correo ---
     MAIL_DRIVER: z.enum(['console', 'smtp', 'resend']).default('console'),
     MAIL_FROM: z.string().default('Escuela Itinerante del Agua <no-reply@example.com>'),
-    /** Buzón del equipo (p. ej. notificaciones de Contacto, HU-38). */
+    /** Buzón del equipo para notificaciones internas generales. */
     MAIL_TEAM_INBOX: optionalString,
+    /** Buzón que recibe los mensajes de Contacto (HU-38). Si falta, se usa MAIL_TEAM_INBOX. */
+    CONTACT_INBOX_EMAIL: optionalString,
+
+    // --- Anti-spam / privacidad ---
+    /** Clave secreta de Cloudflare Turnstile. Si falta, la verificación de captcha está desactivada. */
+    TURNSTILE_SECRET_KEY: optionalString,
+    /** Secreto para el HMAC de IPs guardadas (Contacto). Si falta, se deriva de JWT_ACCESS_SECRET. */
+    IP_HASH_SECRET: optionalString,
     SMTP_HOST: z.string().default('localhost'),
     SMTP_PORT: z.coerce.number().int().positive().default(1025),
     SMTP_SECURE: bool(false),

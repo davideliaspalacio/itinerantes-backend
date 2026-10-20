@@ -22,4 +22,248 @@ datasource db {
   provider = "postgresql"
 }
 
-// Fase 00: sin modelos de dominio todavía. La Fase 01 agrega User, etc.
+// =============================================================================
+// Fase 01 — Identidad (HU-02, 03, 04, 05, 14) y ubicaciones
+// =============================================================================
+
+/// Roles del sistema. Se declaran todos desde la Fase 01 para no migrar el enum después.
+/// Fase 01 solo usa PARTICIPANT (y SUPER_ADMIN en el seed); el resto se usa en la Fase 06.
+enum Role {
+  PARTICIPANT
+  SUPER_ADMIN
+  ACADEMIC_COORDINATOR
+  REVIEW_COMMITTEE
+  REVIEW_DECIDER
+  FOLLOW_UP
+  FINANCE
+}
+
+enum UserStatus {
+  /// Registrada, falta validar el correo con OTP (HU-03).
+  PENDING_VERIFICATION
+  ACTIVE
+  DISABLED
+}
+
+enum OtpPurpose {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}
+
+model User {
+  id                  String     @id @default(uuid()) @db.Uuid
+  fullName            String     @map("full_name") @db.VarChar(120)
+  /// Único, guardado en minúsculas. No editable (HU-14).
+  username            String     @unique @db.VarChar(30)
+  /// Único, normalizado: minúsculas y sin espacios. No editable (HU-14).
+  email               String     @unique @db.VarChar(254)
+  /// Indicativo con "+", p. ej. "+52".
+  phoneCountryCode    String     @map("phone_country_code") @db.VarChar(5)
+  /// Solo dígitos, sin indicativo.
+  phoneNumber         String     @map("phone_number") @db.VarChar(15)
+  /// ISO-3166 alpha-2. Define la moneda (MX → MXN, resto → USD).
+  countryCode         String     @map("country_code") @db.Char(2)
+  /// Estado/departamento/provincia: id de catálogo (si el país tiene lista) o texto libre.
+  divisionId          String?    @map("division_id") @db.Uuid
+  divisionName        String     @map("division_name") @db.VarChar(100)
+  /// Municipio/ciudad: id de catálogo (si el estado tiene lista) o texto libre.
+  municipalityId      String?    @map("municipality_id") @db.Uuid
+  municipalityName    String     @map("municipality_name") @db.VarChar(100)
+  /// Zona IANA (HU-11).
+  timezone            String     @db.VarChar(64)
+  passwordHash        String     @map("password_hash")
+  status              UserStatus @default(PENDING_VERIFICATION)
+  roles               Role[]     @default([PARTICIPANT])
+  emailVerifiedAt     DateTime?  @map("email_verified_at") @db.Timestamptz(3)
+  /// Intentos de login fallidos consecutivos (HU-04). Se reinicia al entrar o al bloquear.
+  failedLoginAttempts Int        @default(0) @map("failed_login_attempts")
+  /// Bloqueo temporal de login por intentos (HU-04).
+  loginLockedUntil    DateTime?  @map("login_locked_until") @db.Timestamptz(3)
+  lastLoginAt         DateTime?  @map("last_login_at") @db.Timestamptz(3)
+  createdAt           DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  country       Country        @relation(fields: [countryCode], references: [code])
+  division      AdminDivision? @relation(fields: [divisionId], references: [id])
+  municipality  Municipality?  @relation(fields: [municipalityId], references: [id])
+  otpCodes      OtpCode[]
+  refreshTokens RefreshToken[]
+
+  @@map("users")
+}
+
+/// Código OTP de 6 dígitos (HU-03, HU-05). Solo se guarda el hash.
+model OtpCode {
+  id                  String     @id @default(uuid()) @db.Uuid
+  userId              String     @map("user_id") @db.Uuid
+  purpose             OtpPurpose
+  codeHash            String     @map("code_hash")
+  expiresAt           DateTime   @map("expires_at") @db.Timestamptz(3)
+  /// Intentos fallidos consecutivos (se arrastran al reenviar mientras no haya bloqueo).
+  attempts            Int        @default(0)
+  /// Bloqueo temporal tras agotar intentos (HU-03).
+  lockedUntil         DateTime?  @map("locked_until") @db.Timestamptz(3)
+  /// HU-05 paso 2: código verificado; emite un resetToken de un solo uso.
+  verifiedAt          DateTime?  @map("verified_at") @db.Timestamptz(3)
+  resetTokenHash      String?    @unique @map("reset_token_hash")
+  resetTokenExpiresAt DateTime?  @map("reset_token_expires_at") @db.Timestamptz(3)
+  /// Usado con éxito (verificación de correo o reset completado).
+  consumedAt          DateTime?  @map("consumed_at") @db.Timestamptz(3)
+  /// Invalidado por reenvío, bloqueo o reset.
+  invalidatedAt       DateTime?  @map("invalidated_at") @db.Timestamptz(3)
+  createdAt           DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose, createdAt])
+  @@map("otp_codes")
+}
+
+/// Refresh token opaco y rotativo (solo hash). Todos los de una sesión comparten familyId:
+/// reusar uno ya rotado revoca la familia completa (detección de robo).
+model RefreshToken {
+  id           String    @id @default(uuid()) @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  familyId     String    @map("family_id") @db.Uuid
+  tokenHash    String    @unique @map("token_hash")
+  rememberMe   Boolean   @default(false) @map("remember_me")
+  expiresAt    DateTime  @map("expires_at") @db.Timestamptz(3)
+  revokedAt    DateTime? @map("revoked_at") @db.Timestamptz(3)
+  /// Token que lo reemplazó al rotar (null si se revocó por logout/reuso/reset).
+  replacedById String?   @map("replaced_by_id") @db.Uuid
+  userAgent    String?   @map("user_agent") @db.VarChar(255)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([familyId])
+  @@map("refresh_tokens")
+}
+
+// --- Ubicaciones (HU-02 / HU-14): País → Estado → Municipio --------------------
+
+model Country {
+  /// ISO-3166 alpha-2.
+  code              String @id @db.Char(2)
+  name              String @db.VarChar(80)
+  /// Indicativo telefónico con "+", p. ej. "+52".
+  phoneCode         String @map("phone_code") @db.VarChar(5)
+  /// Longitud válida del número nacional (sin indicativo).
+  phoneMinLength    Int    @map("phone_min_length")
+  phoneMaxLength    Int    @map("phone_max_length")
+  /// Etiqueta del primer nivel en la UI: "Estado", "Departamento", "Provincia"...
+  divisionLabel     String @map("division_label") @db.VarChar(40)
+  /// Etiqueta del segundo nivel: "Municipio", "Ciudad"...
+  municipalityLabel String @map("municipality_label") @db.VarChar(40)
+  /// Orden en el selector (México y Centroamérica primero).
+  sortOrder         Int    @map("sort_order")
+
+  divisions AdminDivision[]
+  users     User[]
+
+  @@map("countries")
+}
+
+model AdminDivision {
+  id          String @id @default(uuid()) @db.Uuid
+  countryCode String @map("country_code") @db.Char(2)
+  /// Clave oficial (INEGI cve_ent para México).
+  code        String @db.VarChar(10)
+  name        String @db.VarChar(100)
+
+  country        Country        @relation(fields: [countryCode], references: [code])
+  municipalities Municipality[]
+  users          User[]
+
+  @@unique([countryCode, code])
+  @@map("admin_divisions")
+}
+
+model Municipality {
+  id         String @id @default(uuid()) @db.Uuid
+  divisionId String @map("division_id") @db.Uuid
+  /// Clave oficial (INEGI cve_mun para México).
+  code       String @db.VarChar(10)
+  name       String @db.VarChar(100)
+
+  division AdminDivision @relation(fields: [divisionId], references: [id], onDelete: Cascade)
+  users    User[]
+
+  @@unique([divisionId, code])
+  @@map("municipalities")
+}
+
+// =============================================================================
+// Fase 01 — Contacto público (HU-38 / HU-01)
+// =============================================================================
+
+enum ContactSubject {
+  /// "Escuela"
+  SCHOOL
+  /// "Diseño y asesoría" (pide datos del proyecto)
+  DESIGN_CONSULTING
+  /// "Tecnologías regenerativas – HAWA"
+  REGENERATIVE_TECH_HAWA
+  /// "Becas y convocatorias"
+  SCHOLARSHIPS_CALLS
+  /// "Otro"
+  OTHER
+}
+
+enum ContactOrigin {
+  CONTACT_PAGE
+  LANDING
+  DESIGN_CONSULTING_PAGE
+  REGENERATIVE_TECH_PAGE
+  ABOUT_PAGE
+}
+
+enum ContactStatus {
+  NEW
+}
+
+/// Tipo de proyecto (HU-35: domiciliario, comercial, colectivo, productivo).
+enum ContactProjectType {
+  HOUSEHOLD
+  COMMERCIAL
+  COLLECTIVE
+  PRODUCTIVE
+  OTHER
+}
+
+/// Servicio de interés (los 5 de HU-35) o "Aún no lo sé".
+enum ContactService {
+  WASTEWATER_TREATMENT_DESIGN
+  RAINWATER_HARVESTING_DESIGN
+  INFILTRATION_REHYDRATION_DESIGN
+  WATER_RESILIENCE_DIAGNOSTICS
+  TECHNOLOGY_IMPLEMENTATION_ADVICE
+  NOT_SURE
+}
+
+model ContactMessage {
+  id                String              @id @default(uuid()) @db.Uuid
+  name              String              @db.VarChar(120)
+  email             String              @db.VarChar(254)
+  organization      String?             @db.VarChar(150)
+  phoneCountryCode  String?             @map("phone_country_code") @db.VarChar(5)
+  phoneNumber       String?             @map("phone_number") @db.VarChar(15)
+  subject           ContactSubject
+  /// Solo con subject = DESIGN_CONSULTING.
+  projectType       ContactProjectType? @map("project_type")
+  projectLocation   String?             @map("project_location") @db.VarChar(150)
+  service           ContactService?
+  message           String              @db.VarChar(2000)
+  privacyAcceptedAt DateTime            @map("privacy_accepted_at") @db.Timestamptz(3)
+  origin            ContactOrigin
+  status            ContactStatus       @default(NEW)
+  /// HMAC-SHA256 de la IP (nunca la IP en claro).
+  ipHash            String?             @map("ip_hash") @db.VarChar(64)
+  userAgent         String?             @map("user_agent") @db.VarChar(255)
+  createdAt         DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([createdAt])
+  @@map("contact_messages")
+}

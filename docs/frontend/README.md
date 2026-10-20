@@ -9,7 +9,7 @@ agrega su guía específica en `docs/frontend/fase-XX-<nombre>.md`.
 |---|---|---|
 | Este archivo | Convenciones generales de la API | Fase 00 ✔ |
 | [`errores.md`](errores.md) | Catálogo de códigos de error | Se amplía en cada fase |
-| `fase-01-identidad.md` | Registro, OTP, login, recuperación, perfil, contacto | Fase 01 (pendiente) |
+| [`fase-01-identidad.md`](fase-01-identidad.md) | Registro, OTP, login, recuperación, perfil, ubicaciones, zonas horarias, contacto | Fase 01 ✔ |
 | `fase-02-oferta.md` | Catálogo y ficha de ofertas | Fase 02 (pendiente) |
 | `fase-03-portal.md` | Mi formación, aula, calendario, notificaciones | Fase 03 (pendiente) |
 | `fase-04-postulaciones.md` | Becas y convocatorias | Fase 04 (pendiente) |
@@ -52,16 +52,22 @@ Regenera los tipos cada vez que el backend publique una fase (el commit `feat(fa
 
 ## Autenticación
 
-> Se completa en la **Fase 01**. Resumen del contrato acordado (docs/ARCHITECTURE.md):
+Detalle completo (pantallas HU-02 a HU-05, HU-14): [`fase-01-identidad.md`](fase-01-identidad.md).
 
-- `POST /api/v1/auth/login` → `{ accessToken, refreshToken, expiresIn, user }`.
-- Enviar `Authorization: Bearer <accessToken>` en cada petición protegida.
-- `POST /api/v1/auth/refresh` con el refresh token → nuevo par de tokens. El refresh anterior queda
-  **invalidado** (rotación): guarda siempre el último.
+- `POST /api/v1/auth/login { email, password, rememberMe? }` →
+  `{ accessToken, tokenType, expiresIn, accessTokenExpiresAt, refreshToken, refreshTokenExpiresAt, user }`.
+- Enviar `Authorization: Bearer <accessToken>` en cada petición protegida. El access token dura
+  15 min (`expiresIn` en segundos).
+- `POST /api/v1/auth/refresh { refreshToken }` → par nuevo. El refresh anterior queda **invalidado**
+  (rotación): guarda siempre el último y haz **un solo refresh a la vez**; reusar un refresh ya
+  rotado cierra la sesión completa. Vida del refresh: 7 días (30 con "Recordarme").
+- `POST /api/v1/auth/logout { refreshToken }` → `204`.
 - Todas las rutas requieren token salvo las marcadas como públicas (en Scalar aparecen sin candado;
   en OpenAPI tienen `security: []`).
-- `401 UNAUTHORIZED` → intenta refresh una vez; si falla, manda a login.
+- `401 UNAUTHORIZED` → intenta refresh una vez; si responde `AUTH_REFRESH_INVALID`, manda a login.
+- `403 AUTH_EMAIL_NOT_VERIFIED` en el login → pantalla de verificación OTP (HU-03).
 - `403 FORBIDDEN` → el usuario no tiene el rol/permiso.
+- Recursos del usuario autenticado: `GET/PATCH /api/v1/me`, `PATCH /me/timezone`, `POST /me/password`.
 
 ## Formato de error (único en toda la API)
 
@@ -83,6 +89,7 @@ Regenera los tipos cada vez que el backend publique una fase (el commit `feat(fa
 | `code` | **Estable.** Decide la UI con esto (no con `message`). Catálogo: [`errores.md`](errores.md). |
 | `message` | Texto en español, apto para mostrar como fallback genérico. |
 | `details` | Opcional. Errores por campo: pinta `details[].message` bajo el input `details[].field` (ruta con puntos para anidados: `address.city`, `items.0.qty`). |
+| `meta` | Opcional. Datos extra para la UI según el `code` (p. ej. `lockedUntil`, `resendAvailableAt`, `attemptsRemaining`). Ver [`errores.md`](errores.md). |
 | `requestId` | Muéstralo en errores 5xx ("Código de soporte: …"). También llega en el header `X-Request-Id`. |
 
 Códigos de campo (`details[].code`) comunes: `REQUIRED`, `IS_EMAIL`, `MIN_LENGTH`, `MAX_LENGTH`,

@@ -37,6 +37,15 @@ export class ErrorResponseDto {
   })
   details?: ErrorDetailDto[];
 
+  @ApiPropertyOptional({
+    type: 'object',
+    additionalProperties: true,
+    example: { lockedUntil: '2026-11-07T16:15:00.000Z' },
+    description:
+      'Datos extra para la UI según el `code` (p. ej. `lockedUntil`, `resendAvailableAt`, `attemptsRemaining`). Ausente si no aplica.',
+  })
+  meta?: Record<string, unknown>;
+
   @ApiProperty({
     example: '3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f',
     description:

@@ -12,7 +12,7 @@ Este documento es la referencia para cualquier persona (o agente) que agregue c�
 | Validación | class-validator + class-transformer (DTOs) | Se integra con @nestjs/swagger: un DTO = validación + documentación |
 | Config | `@nestjs/config` + validación con zod al arrancar | Falla rápido si falta una variable |
 | Docs API | `@nestjs/swagger` (OpenAPI 3.1) + Scalar UI | `/docs` (UI) y `/docs/openapi.json` (JSON), fuera del prefijo `/api/v1`. Export versionado en `openapi/openapi.json` |
-| Auth | JWT de acceso (corto) + refresh token opaco rotativo guardado con hash en BD | Sin dependencia de proveedor externo |
+| Auth | JWT de acceso (corto, `@nestjs/jwt` 11, HS256) + refresh token opaco rotativo guardado con hash en BD | Sin dependencia de proveedor externo. `@nestjs/jwt` 12 es solo-ESM y Jest no lo carga: se fija la 11 |
 | Hash | argon2 | Recomendado para contraseñas |
 | Logs | nestjs-pino | JSON estructurado con requestId |
 | Seguridad | helmet, CORS por lista blanca, @nestjs/throttler | Rate limit en login/OTP/contacto |
@@ -37,12 +37,12 @@ src/
   common/                 # transversal, sin lógica de negocio
     errors/               # AppException + catálogo de códigos de error (error-codes.ts)
     filters/              # filtro global de excepciones -> formato de error único
-    guards/ decorators/   # JwtAuthGuard, RolesGuard (Fase 01), @Public(), @CurrentUser(), @Roles()
+    guards/ decorators/   # JwtAuthGuard, RolesGuard, @Public(), @CurrentUser(), @Roles(), @ThrottleRule()
     swagger/              # @ApiErrorResponses(...codes), @ApiPaginatedResponse(Item)
     dto/                  # PaginationQueryDto, PaginatedResponseDto, ErrorResponseDto
     utils/                # time (CDMX <-> UTC), money, slug, etc.
   infra/                  # adaptadores a servicios externos
-    prisma/  mail/  storage/  stripe/
+    prisma/  mail/  storage/  captcha/ (Turnstile)  stripe/
   modules/                # un módulo por dominio
     <dominio>/
       <dominio>.module.ts
@@ -87,7 +87,8 @@ Reglas:
 ```json
 { "data": [ ... ], "meta": { "page": 1, "pageSize": 20, "total": 57, "totalPages": 3 } }
 ```
-Un recurso individual se devuelve como objeto plano (sin envoltorio).
+Un recurso individual se devuelve como objeto plano (sin envoltorio). Los catálogos pequeños sin
+paginar (p. ej. `/locations/countries`) responden `{ "data": [ ... ] }` sin `meta`.
 
 ### Formato de error (único en toda la API)
 
@@ -97,6 +98,7 @@ Un recurso individual se devuelve como objeto plano (sin envoltorio).
   "code": "AUTH_EMAIL_ALREADY_REGISTERED",
   "message": "El correo ya está registrado.",
   "details": [{ "field": "email", "code": "ALREADY_EXISTS", "message": "..." }],
+  "meta": { "lockedUntil": "2026-11-07T16:15:00.000Z" },
   "requestId": "b1f..."
 }
 ```
@@ -104,15 +106,19 @@ Un recurso individual se devuelve como objeto plano (sin envoltorio).
 - Los códigos viven en `src/common/errors/error-codes.ts` y se listan en `docs/frontend/errores.md`.
 - Errores de validación de DTO → `400` con `code: "VALIDATION_ERROR"` y `details` por campo.
 - `details` es opcional: se omite cuando no hay errores por campo. `requestId` siempre está (también en el header `X-Request-Id`).
+- `meta` es opcional (desde Fase 01): datos para la UI según el `code` (`lockedUntil`, `resendAvailableAt`, `attemptsRemaining`...). Se pasa con `new AppException(code, { meta })`. Nunca datos sensibles.
 - Códigos genéricos del catálogo: `VALIDATION_ERROR`, `BAD_REQUEST`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND` (también rutas inexistentes), `CONFLICT`, `PAYLOAD_TOO_LARGE`, `BUSINESS_RULE_VIOLATION` (422), `RATE_LIMITED`, `INTERNAL_ERROR`, `SERVICE_UNAVAILABLE`. Los de dominio llevan prefijo (`AUTH_*`, `OFFER_*`...).
 - Lanzar errores con `new AppException('<CODE>', { message?, details? })`. El filtro global también traduce errores de Prisma (P2002 → 409 `CONFLICT` con `details[].code = ALREADY_EXISTS`, P2025 → 404, P2003 → 409) y del throttler (429).
 
 ## Autenticación y roles
 
-- `POST /auth/login` → `{ accessToken, refreshToken, expiresIn, user }`. Acceso por header `Authorization: Bearer <token>`.
-- `POST /auth/refresh` rota el refresh token (el anterior queda invalidado). `rememberMe` alarga la vida del refresh.
-- Rutas protegidas por defecto (guard global); las públicas se marcan con `@Public()`.
-- Roles (enum `Role`): `PARTICIPANT` (Fase 01); en Fase 06 se agregan los del panel (`SUPER_ADMIN`, `ACADEMIC_COORDINATOR`, `REVIEW_COMMITTEE`, `REVIEW_DECIDER`, `FOLLOW_UP`, `FINANCE`). Un usuario puede tener varios roles.
+- `POST /auth/login` → `{ accessToken, tokenType, expiresIn, accessTokenExpiresAt, refreshToken, refreshTokenExpiresAt, user }`. Acceso por header `Authorization: Bearer <token>`.
+- Access token: JWT con `{ sub, email, roles, sid }` (`sid` = sesión = familia de refresh tokens). Lo valida `JwtAuthGuard` (APP_GUARD) y deja `request.user: AuthUser` (`@CurrentUser()`).
+- `POST /auth/refresh` rota el refresh token (el anterior queda invalidado). Reusar uno ya rotado revoca la familia completa. `rememberMe` alarga la vida del refresh (`JWT_REFRESH_REMEMBER_TTL_DAYS`).
+- Rutas protegidas por defecto (guards globales en `app.module.ts`: Throttler → JwtAuthGuard → RolesGuard); las públicas se marcan con `@Public()`.
+- Roles (enum Prisma `Role`, ya declarado completo en Fase 01): `PARTICIPANT`, `SUPER_ADMIN`, `ACADEMIC_COORDINATOR`, `REVIEW_COMMITTEE`, `REVIEW_DECIDER`, `FOLLOW_UP`, `FINANCE`. Un usuario puede tener varios (`roles Role[]`). `@Roles(Role.X, ...)` exige al menos uno (403 si no). El panel (Fase 06) los usa; Fase 01 solo usa `PARTICIPANT` (y `SUPER_ADMIN` en el seed).
+- Límites estrictos por IP con `@ThrottleRule(BUSINESS_RULES.AUTH_THROTTLE.X)` (`common/decorators/throttle-rule.decorator.ts`). El almacenamiento del throttler es en memoria (una instancia).
+- Contraseñas: argon2id (`PasswordService` en `UsersModule`). OTP y refresh/reset tokens solo se guardan con hash.
 - Nunca revelar si un recurso ajeno existe: acceso a recursos de otro usuario → `404` o `403` según la HU.
 
 ## Documentación para el frontend
@@ -137,6 +143,7 @@ Un recurso individual se devuelve como objeto plano (sin envoltorio).
 ## Pruebas
 
 - Unitarias para reglas puras (cálculo de saldo, generación de sesiones, % de progreso, transiciones de estado).
+- e2e: para leer correos (OTP) sobrescribe el driver: `createTestApp({ customize: (b) => b.overrideProvider(MAIL_DRIVER).useValue(new MailCapture()) })` (`test/utils/mail-capture.ts`). Helpers de identidad en `test/utils/identity.ts` (`createVerifiedUser`, `login`, `randomIp` para aislar el throttler con `X-Forwarded-For`). El global-setup aplica migraciones **y el seed** a `eia_test`.
 - e2e por endpoint principal con supertest contra BD de prueba (`.env.test` → `eia_test`; `test/setup/global-setup.ts` aplica `prisma migrate deploy`; se resetea con `prisma migrate reset --force` o truncado). Usa `createTestApp()` (`test/utils/create-test-app.ts`), que aplica la misma configuración HTTP que producción.
 - `pnpm test:e2e` corre Jest con `--experimental-vm-modules` (Prisma 7 carga su query compiler con `import()` dinámico).
 - `pnpm test`, `pnpm test:e2e`, `pnpm lint`, `pnpm build` deben pasar antes de cerrar una fase.

@@ -37,7 +37,7 @@ Los supuestos pendientes de confirmar con el cliente (plazos de 7 días, mora a 
 | Fase | Estado |
 |---|---|
 | 00 | hecho |
-| 01 | pendiente |
+| 01 | hecho |
 | 02 | pendiente |
 | 03 | pendiente |
 | 04 | pendiente |

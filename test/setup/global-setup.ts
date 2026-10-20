@@ -3,7 +3,8 @@ import { resolve } from 'node:path';
 import { config } from 'dotenv';
 
 /**
- * Prepara la BD de pruebas (eia_test del docker-compose) aplicando las migraciones existentes.
+ * Prepara la BD de pruebas (eia_test del docker-compose) aplicando las migraciones existentes y el
+ * seed idempotente (catálogos de ubicación y usuarios demo, que las e2e usan).
  * Requiere `docker compose up -d`. Para empezar de cero: `pnpm test:e2e:reset` (ver README).
  */
 export default function globalSetup(): void {
@@ -27,11 +28,12 @@ export default function globalSetup(): void {
   for (let attempt = 1; ; attempt++) {
     try {
       execSync('pnpm exec prisma migrate deploy', { cwd: root, env, stdio: 'pipe' });
+      execSync('pnpm exec prisma db seed', { cwd: root, env, stdio: 'pipe' });
       return;
     } catch (error) {
       if (attempt >= 3) {
         const output = (error as { stdout?: Buffer; stderr?: Buffer }).stderr?.toString() ?? '';
-        throw new Error(`prisma migrate deploy falló en la BD de pruebas:\n${output}`, {
+        throw new Error(`prisma migrate deploy / db seed falló en la BD de pruebas:\n${output}`, {
           cause: error,
         });
       }

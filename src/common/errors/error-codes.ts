@@ -61,7 +61,73 @@ export const ERROR_CODES = {
     message: 'El servicio no está disponible temporalmente.',
   },
 
-  // --- Fase 01 (Identidad) agrega aquí sus códigos AUTH_* / USER_* ---
+  // --- Fase 01: Identidad (HU-02, 03, 04, 05, 14) ---
+  AUTH_EMAIL_ALREADY_REGISTERED: {
+    status: HttpStatus.CONFLICT,
+    message: 'Ya existe una cuenta con este correo.',
+  },
+  AUTH_USERNAME_TAKEN: {
+    status: HttpStatus.CONFLICT,
+    message: 'Ese nombre de usuario ya está en uso.',
+  },
+  AUTH_INVALID_CREDENTIALS: {
+    status: HttpStatus.UNAUTHORIZED,
+    message: 'Correo o contraseña incorrectos.',
+  },
+  AUTH_EMAIL_NOT_VERIFIED: {
+    status: HttpStatus.FORBIDDEN,
+    message: 'Debes verificar tu correo antes de iniciar sesión.',
+  },
+  AUTH_ACCOUNT_DISABLED: {
+    status: HttpStatus.FORBIDDEN,
+    message: 'Tu cuenta está deshabilitada. Contacta al equipo de la Escuela.',
+  },
+  AUTH_LOGIN_LOCKED: {
+    status: HttpStatus.TOO_MANY_REQUESTS,
+    message: 'Demasiados intentos fallidos. Intenta de nuevo más tarde.',
+  },
+  AUTH_ACCOUNT_NOT_FOUND: {
+    status: HttpStatus.NOT_FOUND,
+    message: 'No existe una cuenta con ese correo.',
+  },
+  AUTH_ALREADY_VERIFIED: {
+    status: HttpStatus.CONFLICT,
+    message: 'Tu correo ya está verificado. Inicia sesión.',
+  },
+  AUTH_OTP_INVALID: {
+    status: HttpStatus.BAD_REQUEST,
+    message: 'El código es incorrecto.',
+  },
+  AUTH_OTP_EXPIRED: {
+    status: HttpStatus.BAD_REQUEST,
+    message: 'El código expiró o ya no es válido. Solicita uno nuevo.',
+  },
+  AUTH_OTP_LOCKED: {
+    status: HttpStatus.TOO_MANY_REQUESTS,
+    message: 'Demasiados intentos con el código. Espera antes de intentarlo de nuevo.',
+  },
+  AUTH_OTP_COOLDOWN: {
+    status: HttpStatus.TOO_MANY_REQUESTS,
+    message: 'Espera un momento antes de solicitar un nuevo código.',
+  },
+  AUTH_REFRESH_INVALID: {
+    status: HttpStatus.UNAUTHORIZED,
+    message: 'Tu sesión expiró. Inicia sesión de nuevo.',
+  },
+  AUTH_RESET_TOKEN_INVALID: {
+    status: HttpStatus.BAD_REQUEST,
+    message: 'El enlace de recuperación expiró o ya se usó. Solicita un nuevo código.',
+  },
+  AUTH_CURRENT_PASSWORD_INVALID: {
+    status: HttpStatus.BAD_REQUEST,
+    message: 'La contraseña actual es incorrecta.',
+  },
+
+  // --- Fase 01: Contacto (HU-38) ---
+  CONTACT_CAPTCHA_FAILED: {
+    status: HttpStatus.BAD_REQUEST,
+    message: 'No pudimos verificar que no eres un robot. Intenta de nuevo más tarde.',
+  },
 } as const satisfies Record<string, ErrorDefinition>;
 
 export type ErrorCode = keyof typeof ERROR_CODES;
@@ -75,6 +141,12 @@ export const FIELD_ERROR_CODES = {
   INVALID: 'INVALID',
   REQUIRED: 'REQUIRED',
   UNKNOWN_FIELD: 'UNKNOWN_FIELD',
+  /** La confirmación no coincide con la nueva contraseña. */
+  PASSWORD_MISMATCH: 'PASSWORD_MISMATCH',
+  /** País / estado / municipio que no existe o no corresponde al nivel superior. */
+  INVALID_LOCATION: 'INVALID_LOCATION',
+  /** Longitud del teléfono no válida para el indicativo. */
+  INVALID_PHONE: 'INVALID_PHONE',
 } as const;
 
 export function getErrorDefinition(code: ErrorCode): ErrorDefinition {

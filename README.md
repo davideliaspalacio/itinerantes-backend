@@ -40,8 +40,20 @@ pnpm dev
 
 - API: <http://localhost:3000/api/v1> (p. ej. `GET /api/v1/health`)
 - Documentación (Scalar): <http://localhost:3000/docs> · JSON: <http://localhost:3000/docs/openapi.json>
-- Correos de desarrollo (Mailpit): <http://localhost:8025>
+- Correos de desarrollo (Mailpit): <http://localhost:8025> (OTP de registro/recuperación, acuses de Contacto)
 - Consola de MinIO: <http://localhost:9001> (usuario `eia`, clave `eia-secret-key`; buckets `eia-dev` y `eia-test`)
+
+### Usuarios demo (solo desarrollo / pruebas)
+
+`pnpm db:seed` crea (o restablece) estas cuentas verificadas. **No** se crean con `NODE_ENV=production`.
+
+| Rol | Correo | Contraseña |
+|---|---|---|
+| Participante (`PARTICIPANT`) | `participante@example.com` | `Demo12345` |
+| Admin (`SUPER_ADMIN`) | `admin@example.com` | `Admin12345` |
+
+El seed también carga los países (LatAm + España + EE. UU.), los 32 estados de México y sus 2,478
+municipios (catálogo INEGI, `prisma/data/mx-inegi-municipalities.json`).
 
 > Puertos ocupados: `POSTGRES_PORT=5435 docker compose up -d` (y ajusta `DATABASE_URL`). Ver
 > `docker-compose.yml`.
@@ -80,14 +92,14 @@ src/
     errors/             # AppException, error-codes.ts, validación → details
     filters/            # filtro global → formato de error único
     decorators/         # @Public(), @CurrentUser(), @Roles()
-    guards/             # (Fase 01) JwtAuthGuard, RolesGuard
+    guards/             # JwtAuthGuard, RolesGuard (globales)
     swagger/            # @ApiErrorResponses(), @ApiPaginatedResponse()
     dto/                # PaginationQueryDto, PaginatedResponseDto, ErrorResponseDto
     utils/              # time (CDMX ↔ UTC), money (centavos), slug
-  infra/                # adaptadores externos: prisma/, mail/, storage/, stripe/ (Fase 05)
-  modules/              # un módulo por dominio (health/ por ahora)
+  infra/                # adaptadores externos: prisma/, mail/, storage/, captcha/, stripe/ (Fase 05)
+  modules/              # un módulo por dominio: health, auth, users (/me), locations (+ /timezones), contact
   generated/prisma/     # cliente Prisma generado (no versionado)
-prisma/                 # schema.prisma, migrations/, seed.ts  (+ prisma.config.ts en la raíz)
+prisma/                 # schema.prisma, migrations/, seed.ts, data/ (catálogos)  (+ prisma.config.ts en la raíz)
 test/                   # e2e + helpers (createTestApp)
 scripts/                # export-openapi.ts
 openapi/openapi.json    # contrato versionado

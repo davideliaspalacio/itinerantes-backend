@@ -3,6 +3,7 @@ allowBuilds:
   '@prisma/engines': true
   prisma: true
   unrs-resolver: true
+  argon2: true
   '@parcel/watcher': false
   '@scarf/scarf': false
 minimumReleaseAgeExclude:

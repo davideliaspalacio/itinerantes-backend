@@ -1,14 +1,22 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
+import { JwtModule } from '@nestjs/jwt';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { LoggerModule } from 'nestjs-pino';
 import { Env, validateEnv } from './config/env.schema';
+import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
+import { RolesGuard } from './common/guards/roles.guard';
 import { buildLoggerParams } from './config/logger.config';
+import { CaptchaModule } from './infra/captcha/captcha.module';
 import { MailModule } from './infra/mail/mail.module';
 import { PrismaModule } from './infra/prisma/prisma.module';
 import { StorageModule } from './infra/storage/storage.module';
+import { AuthModule } from './modules/auth/auth.module';
+import { ContactModule } from './modules/contact/contact.module';
 import { HealthModule } from './modules/health/health.module';
+import { LocationsModule } from './modules/locations/locations.module';
+import { UsersModule } from './modules/users/users.module';
 
 @Module({
   imports: [
@@ -38,19 +46,35 @@ import { HealthModule } from './modules/health/health.module';
         },
       ],
     }),
+    // JWT de acceso (global: lo usa el JwtAuthGuard global y TokensService).
+    JwtModule.registerAsync({
+      global: true,
+      inject: [ConfigService],
+      useFactory: (config: ConfigService<Env, true>) => ({
+        secret: config.get('JWT_ACCESS_SECRET', { infer: true }),
+        signOptions: { algorithm: 'HS256' },
+        verifyOptions: { algorithms: ['HS256'] },
+      }),
+    }),
 
     // Infraestructura (global)
     PrismaModule,
     MailModule,
     StorageModule,
+    CaptchaModule,
 
     // Dominio
     HealthModule,
+    LocationsModule,
+    UsersModule,
+    AuthModule,
+    ContactModule,
   ],
   providers: [
+    // Orden: rate limit → autenticación (respeta @Public()) → roles (@Roles()).
     { provide: APP_GUARD, useClass: ThrottlerGuard },
-    // Fase 01: agregar aquí { provide: APP_GUARD, useClass: JwtAuthGuard } y RolesGuard
-    // (respetando @Public() vía IS_PUBLIC_KEY).
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: RolesGuard },
   ],
 })
 export class AppModule {}

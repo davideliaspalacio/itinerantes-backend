@@ -1,13 +1,16 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
+import type { Role } from '../../generated/prisma/client';
 
 /**
- * Usuario autenticado que el guard JWT (Fase 01) coloca en `request.user`.
- * La Fase 01 debe ajustar esta interfaz al payload real del token.
+ * Usuario autenticado que el JwtAuthGuard coloca en `request.user` (payload del access token).
  */
 export interface AuthUser {
+  /** Id del usuario (claim `sub`). */
   id: string;
   email: string;
-  roles: string[];
+  roles: Role[];
+  /** Id de la sesión (familia de refresh tokens) que emitió el token (claim `sid`). */
+  sessionId: string;
 }
 
 /**

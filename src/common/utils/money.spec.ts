@@ -1,5 +1,6 @@
 import {
   addMoney,
+  currencyForCountry,
   applyPercentDiscount,
   formatMoney,
   fromCents,
@@ -53,5 +54,18 @@ describe('money utils', () => {
 
   it('formatMoney', () => {
     expect(formatMoney(money(1020000, 'MXN'))).toBe('$10,200.00 MXN');
+  });
+});
+
+describe('currencyForCountry (HU-14)', () => {
+  it('México paga en MXN', () => {
+    expect(currencyForCountry('MX')).toBe('MXN');
+    expect(currencyForCountry('mx')).toBe('MXN');
+  });
+
+  it('el resto de países paga en USD', () => {
+    expect(currencyForCountry('CO')).toBe('USD');
+    expect(currencyForCountry('ES')).toBe('USD');
+    expect(currencyForCountry(undefined)).toBe('USD');
   });
 });

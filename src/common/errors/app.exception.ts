@@ -15,6 +15,11 @@ export interface AppExceptionOptions {
   /** Sobrescribe el mensaje por defecto del catálogo. */
   message?: string;
   details?: ErrorDetail[];
+  /**
+   * Datos extra para la UI (p. ej. `{ lockedUntil }`, `{ resendAvailableAt }`). Se exponen tal cual
+   * en `meta` de la respuesta: nunca pongas aquí información sensible.
+   */
+  meta?: Record<string, unknown>;
   /** Sobrescribe el status HTTP del catálogo (raro; prefiere definir otro código). */
   status?: HttpStatus;
   /** Causa original (se registra en logs, nunca se expone). */
@@ -36,14 +41,18 @@ export interface AppExceptionOptions {
 export class AppException extends HttpException {
   readonly code: ErrorCode;
   readonly details?: ErrorDetail[];
+  readonly meta?: Record<string, unknown>;
 
   constructor(code: ErrorCode, options: AppExceptionOptions = {}) {
     const definition = ERROR_CODES[code];
     const status = options.status ?? definition.status;
     const message = options.message ?? definition.message;
-    super({ code, message, details: options.details }, status, { cause: options.cause });
+    super({ code, message, details: options.details, meta: options.meta }, status, {
+      cause: options.cause,
+    });
     this.code = code;
     this.details = options.details;
+    this.meta = options.meta;
   }
 
   // Atajos para los casos más comunes.
