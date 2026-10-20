@@ -1,0 +1,278 @@
+{
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/v1/health": {
+      "get": {
+        "description": "Indica que el proceso está vivo. No consulta dependencias. Lo usa Railway como healthcheck.",
+        "operationId": "Health_liveness",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [],
+        "summary": "Liveness",
+        "tags": [
+          "Health"
+        ]
+      }
+    },
+    "/api/v1/health/ready": {
+      "get": {
+        "description": "Verifica que la API puede atender peticiones (ping a la base de datos).",
+        "operationId": "Health_readiness",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessResponseDto"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error. `code` posibles: `SERVICE_UNAVAILABLE`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "SERVICE_UNAVAILABLE": {
+                    "summary": "SERVICE_UNAVAILABLE",
+                    "value": {
+                      "statusCode": 503,
+                      "code": "SERVICE_UNAVAILABLE",
+                      "message": "El servicio no está disponible temporalmente.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [],
+        "summary": "Readiness",
+        "tags": [
+          "Health"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "Escuela Itinerante del Agua — API",
+    "description": "API REST de la plataforma eLearning **Escuela Itinerante del Agua** (sitio público, portal del participante y panel administrativo).\n\n## Autenticación\nLas rutas son **protegidas por defecto**. Envía el token de acceso en el header\n`Authorization: Bearer <accessToken>`. El token se obtiene con `POST /api/v1/auth/login` y se renueva con\n`POST /api/v1/auth/refresh` (Fase 01). Las rutas públicas se indican en cada operación (sin candado).\n\n## Formato de error (único en toda la API)\n```json\n{\n  \"statusCode\": 400,\n  \"code\": \"VALIDATION_ERROR\",\n  \"message\": \"Los datos enviados no son válidos.\",\n  \"details\": [{ \"field\": \"email\", \"code\": \"IS_EMAIL\", \"message\": \"Debe ser un correo electrónico válido.\" }],\n  \"requestId\": \"3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f\"\n}\n```\n- Usa `code` (estable) para decidir qué mostrar; `message` es un texto en español apto para mostrar.\n- `details` (opcional) trae errores por campo para pintar en el formulario.\n- `requestId` también llega en el header `X-Request-Id`; inclúyelo al reportar un problema.\n- Códigos HTTP: 400 validación, 401 sin sesión, 403 sin permiso, 404 no existe, 409 conflicto,\n  422 regla de negocio, 429 demasiadas solicitudes, 5xx error del servidor.\n\n## Paginación\nLos listados aceptan `?page=1&pageSize=20` (máx. 100) y responden\n`{ \"data\": [...], \"meta\": { \"page\": 1, \"pageSize\": 20, \"total\": 57, \"totalPages\": 3 } }`.\nUn recurso individual se devuelve como objeto plano.\n\n## Fechas\nTodas las fechas son **ISO 8601 en UTC** (`2026-11-07T16:00:00.000Z`). El frontend las convierte a la zona\ndel usuario. La hora oficial de las actividades es `America/Mexico_City` (CDMX, UTC−6).\n\n## Dinero\nMontos en **centavos enteros** con su moneda: `{ \"amountCents\": 1020000, \"currency\": \"MXN\" }` = $10,200.00 MXN.\nMonedas: `MXN` y `USD` (nunca se suman ni convierten).\n\n## Enums\nValores en inglés `SCREAMING_SNAKE_CASE` (p. ej. `PENDING_PAYMENT`). Las guías en `docs/frontend/` incluyen la\ntabla enum → texto en español.\n\n## Rate limiting\nLímite global por IP; endpoints sensibles (login, OTP, contacto) tienen límites más estrictos. Al excederlo: `429`\ncon `code: \"RATE_LIMITED\"`.",
+    "version": "0.1.0",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [
+    {
+      "url": "http://localhost:3000"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http",
+        "description": "Token de acceso obtenido en POST /api/v1/auth/login."
+      }
+    },
+    "schemas": {
+      "HealthResponseDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "ok",
+            "enum": [
+              "ok"
+            ]
+          },
+          "version": {
+            "type": "string",
+            "example": "0.1.0",
+            "description": "Versión de la API."
+          },
+          "uptimeSeconds": {
+            "type": "number",
+            "example": 1234,
+            "description": "Segundos desde que arrancó el proceso."
+          },
+          "timestamp": {
+            "type": "string",
+            "example": "2026-11-07T16:00:00.000Z",
+            "description": "Hora del servidor (UTC)."
+          }
+        },
+        "required": [
+          "status",
+          "version",
+          "uptimeSeconds",
+          "timestamp"
+        ]
+      },
+      "ErrorDetailDto": {
+        "type": "object",
+        "properties": {
+          "field": {
+            "type": "string",
+            "example": "email",
+            "description": "Campo afectado (ruta con puntos si es anidado)."
+          },
+          "code": {
+            "type": "string",
+            "example": "IS_EMAIL",
+            "description": "Código estable del error de campo."
+          },
+          "message": {
+            "type": "string",
+            "example": "Debe ser un correo electrónico válido."
+          }
+        },
+        "required": [
+          "field",
+          "code",
+          "message"
+        ]
+      },
+      "ErrorResponseDto": {
+        "type": "object",
+        "properties": {
+          "statusCode": {
+            "type": "number",
+            "example": 400,
+            "description": "Status HTTP (repetido en el cuerpo)."
+          },
+          "code": {
+            "type": "string",
+            "example": "VALIDATION_ERROR",
+            "description": "Código estable para decidir qué mostrar en el frontend. Catálogo en docs/frontend/errores.md.",
+            "enum": [
+              "VALIDATION_ERROR",
+              "BAD_REQUEST",
+              "UNAUTHORIZED",
+              "FORBIDDEN",
+              "NOT_FOUND",
+              "CONFLICT",
+              "PAYLOAD_TOO_LARGE",
+              "BUSINESS_RULE_VIOLATION",
+              "RATE_LIMITED",
+              "INTERNAL_ERROR",
+              "SERVICE_UNAVAILABLE"
+            ]
+          },
+          "message": {
+            "type": "string",
+            "example": "Los datos enviados no son válidos.",
+            "description": "Mensaje en español."
+          },
+          "details": {
+            "description": "Errores por campo (validación, duplicados). Ausente si no aplica.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ErrorDetailDto"
+            }
+          },
+          "requestId": {
+            "type": "string",
+            "example": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f",
+            "description": "Identificador de la petición (header `X-Request-Id`). Inclúyelo al reportar errores."
+          }
+        },
+        "required": [
+          "statusCode",
+          "code",
+          "message",
+          "requestId"
+        ]
+      },
+      "ReadinessChecksDto": {
+        "type": "object",
+        "properties": {
+          "database": {
+            "type": "string",
+            "example": "up",
+            "enum": [
+              "up"
+            ]
+          }
+        },
+        "required": [
+          "database"
+        ]
+      },
+      "ReadinessResponseDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "ok",
+            "enum": [
+              "ok"
+            ]
+          },
+          "checks": {
+            "$ref": "#/components/schemas/ReadinessChecksDto"
+          },
+          "timestamp": {
+            "type": "string",
+            "example": "2026-11-07T16:00:00.000Z"
+          }
+        },
+        "required": [
+          "status",
+          "checks",
+          "timestamp"
+        ]
+      },
+      "PaginationMetaDto": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "number",
+            "example": 1
+          },
+          "pageSize": {
+            "type": "number",
+            "example": 20
+          },
+          "total": {
+            "type": "number",
+            "example": 57,
+            "description": "Total de elementos que cumplen el filtro."
+          },
+          "totalPages": {
+            "type": "number",
+            "example": 3
+          }
+        },
+        "required": [
+          "page",
+          "pageSize",
+          "total",
+          "totalPages"
+        ]
+      }
+    }
+  },
+  "security": [
+    {
+      "bearer": []
+    }
+  ]
+}

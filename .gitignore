@@ -1,0 +1,26 @@
+# Dependencias y build
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Cliente Prisma generado (se regenera con `prisma generate`)
+src/generated/
+
+# Entorno (nunca commitear secretos)
+.env
+.env.*
+!.env.example
+!.env.test
+
+# Logs / SO / IDE
+*.log
+npm-debug.log*
+pnpm-debug.log*
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Ajenos al proyecto
+excalidraw.log

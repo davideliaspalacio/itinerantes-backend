@@ -1,0 +1,25 @@
+// Esquema Prisma — Escuela Itinerante del Agua
+//
+// El esquema crece por fase (ver docs/ROADMAP.md). Convenciones (docs/ARCHITECTURE.md):
+//  - IDs UUID:          id String @id @default(uuid()) @db.Uuid
+//  - camelCase en TS, snake_case en BD: usa @map("campo") y @@map("tabla_en_plural")
+//  - Fechas en UTC:     DateTime @db.Timestamptz(3)
+//  - Dinero en centavos: Int (amountCents) + moneda (enum Currency)
+//  - Enums en SCREAMING_SNAKE_CASE (inglés)
+//
+// La URL de conexión NO va aquí: Prisma 7 la lee de prisma.config.ts (CLI/migraciones)
+// y PrismaService la pasa en tiempo de ejecución mediante el driver adapter de pg.
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  // CommonJS + imports sin extensión: compatible con nest build, ts-node y Jest.
+  moduleFormat        = "cjs"
+  importFileExtension = ""
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Fase 00: sin modelos de dominio todavía. La Fase 01 agrega User, etc.
