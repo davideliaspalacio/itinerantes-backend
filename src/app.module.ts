@@ -21,6 +21,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { CalendarModule } from './modules/calendar/calendar.module';
 import { ClassroomModule } from './modules/classroom/classroom.module';
 import { ContactModule } from './modules/contact/contact.module';
+import { SiteModule } from './modules/site/site.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { EnrollmentsModule } from './modules/enrollments/enrollments.module';
 import { HealthModule } from './modules/health/health.module';
@@ -88,6 +89,7 @@ import { UsersModule } from './modules/users/users.module';
     UsersModule,
     AuthModule,
     ContactModule,
+    SiteModule,
     OffersModule,
     // Fase 03 — Portal del participante
     NotificationsModule,

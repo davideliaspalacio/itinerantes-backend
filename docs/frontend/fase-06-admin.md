@@ -64,6 +64,7 @@ Fuente única: `src/config/permissions.ts` (`GET /admin/roles` la devuelve con t
 | `payments.manage` | Validar/rechazar, reintentar, mora, suspender/restablecer, cancelar plan, reembolsar (33) | ✔ | | | | | ✔ |
 | `users.manage` | Roles y estado de las cuentas del equipo | ✔ | | | | | |
 | `audit.read` | Registro de auditoría | ✔ | | | | | |
+| `site.write` | Cifras de la landing (`/admin/site/metrics`) | ✔ | | | | | |
 
 Reglas de las HU que resuelve la matriz:
 - HU-31: "integrante sin permiso de decisión… puede evaluar y comentar, pero no ve Registrar decisión"

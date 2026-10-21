@@ -171,3 +171,11 @@ GET /api/v1/<recurso>?page=1&pageSize=20&<filtros>
 - **Archivos**: se suben/descargan con URLs firmadas temporales (S3). La fase correspondiente documenta
   el flujo (pedir URL → `PUT` del archivo con el `Content-Type` indicado → confirmar).
 - **Salud**: `GET /api/v1/health` (vivo) y `GET /api/v1/health/ready` (BD disponible).
+
+## Cifras de la landing (sitio público)
+
+`GET /api/v1/site/metrics` (público, sin token, caché 5 min) devuelve las cifras de impacto de la
+landing ("+3,000,000 L de agua revitaliza", "1,800+ personas formadas", "12+ territorios…",
+"250+ jóvenes capacitados") con `key`, `label`, `value`, `prefix`, `suffix` y `display` (listo para
+pintar). Usa `value` si animas el contador. SUPER_ADMIN las edita con
+`PATCH /api/v1/admin/site/metrics/{key}` (permiso `site.write`).

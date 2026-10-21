@@ -4808,6 +4808,247 @@
         ]
       }
     },
+    "/api/v1/site/metrics": {
+      "get": {
+        "description": "HU-01. Público, sin token. Devuelve las cifras visibles (\"+3,000,000 L de agua revitaliza\", \"1,800+ personas formadas\", \"12+ territorios…\", \"250+ jóvenes capacitados\") ordenadas. Usa `display` tal cual o `value` si animas el contador (pinta `prefix` + número + `suffix`). Las edita SUPER_ADMIN con `PATCH /admin/site/metrics/{key}`. Caché de 5 minutos.",
+        "operationId": "SiteMetrics_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteMetricsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [],
+        "summary": "Cifras de impacto de la landing",
+        "tags": [
+          "Sitio público"
+        ]
+      }
+    },
+    "/api/v1/admin/site/metrics": {
+      "get": {
+        "description": "Permiso `site.write` (SUPER_ADMIN).",
+        "operationId": "AdminSiteMetrics_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AdminSiteMetricDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error. `code` posibles: `UNAUTHORIZED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "UNAUTHORIZED": {
+                    "summary": "UNAUTHORIZED",
+                    "value": {
+                      "statusCode": 401,
+                      "code": "UNAUTHORIZED",
+                      "message": "Necesitas iniciar sesión para continuar.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error. `code` posibles: `FORBIDDEN`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "FORBIDDEN": {
+                    "summary": "FORBIDDEN",
+                    "value": {
+                      "statusCode": 403,
+                      "code": "FORBIDDEN",
+                      "message": "No tienes permiso para realizar esta acción.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Cifras de la landing (incluye ocultas)",
+        "tags": [
+          "Admin – Sitio público"
+        ],
+        "x-required-permissions": [
+          "site.write"
+        ]
+      }
+    },
+    "/api/v1/admin/site/metrics/{key}": {
+      "patch": {
+        "description": "Cambia número, texto, prefijo/sufijo, orden o visibilidad. Queda en la auditoría. Permiso `site.write` (SUPER_ADMIN).",
+        "operationId": "AdminSiteMetrics_update",
+        "parameters": [
+          {
+            "name": "key",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSiteMetricRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminSiteMetricDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error. `code` posibles: `VALIDATION_ERROR`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "summary": "VALIDATION_ERROR",
+                    "value": {
+                      "statusCode": 400,
+                      "code": "VALIDATION_ERROR",
+                      "message": "Los datos enviados no son válidos.",
+                      "details": [
+                        {
+                          "field": "email",
+                          "code": "IS_EMAIL",
+                          "message": "Debe ser un correo electrónico válido."
+                        }
+                      ],
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error. `code` posibles: `UNAUTHORIZED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "UNAUTHORIZED": {
+                    "summary": "UNAUTHORIZED",
+                    "value": {
+                      "statusCode": 401,
+                      "code": "UNAUTHORIZED",
+                      "message": "Necesitas iniciar sesión para continuar.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error. `code` posibles: `FORBIDDEN`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "FORBIDDEN": {
+                    "summary": "FORBIDDEN",
+                    "value": {
+                      "statusCode": 403,
+                      "code": "FORBIDDEN",
+                      "message": "No tienes permiso para realizar esta acción.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error. `code` posibles: `NOT_FOUND`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "summary": "NOT_FOUND",
+                    "value": {
+                      "statusCode": 404,
+                      "code": "NOT_FOUND",
+                      "message": "El recurso solicitado no existe.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Editar una cifra de la landing",
+        "tags": [
+          "Admin – Sitio público"
+        ],
+        "x-required-permissions": [
+          "site.write"
+        ]
+      }
+    },
     "/api/v1/offers": {
       "get": {
         "description": "HU-15: ofertas PUBLICADAS (nunca borradores) con filtros combinables (AND): `type` (varios), `modality`, `status` (por defecto `ENROLLMENT_OPEN,UPCOMING`), `scholarship=true` (solo diplomados NAS con beca), `topic` (HU-34) y `q` (≥ 3 caracteres; nombre o docente, sin acentos). Orden: abiertas/próximas por inicio más cercano; cerradas y finalizadas al final. Costo en MXN o USD según el visitante (`pricing.currency`); Moodle → `EXTERNAL_ENROLLMENT` sin precio. Horario: regla en hora CDMX + `firstSession` en UTC. Pública con sesión OPCIONAL: con `Authorization: Bearer` válido se personaliza (moneda del país del perfil y estado \"Inscrito\"); un token ausente o vencido NO da 401, se responde como visitante.",
@@ -26219,7 +26460,8 @@
                 "payments.read",
                 "payments.manage",
                 "users.manage",
-                "audit.read"
+                "audit.read",
+                "site.write"
               ]
             }
           }
@@ -26274,7 +26516,8 @@
                 "payments.read",
                 "payments.manage",
                 "users.manage",
-                "audit.read"
+                "audit.read",
+                "site.write"
               ]
             }
           }
@@ -26400,7 +26643,8 @@
                 "payments.read",
                 "payments.manage",
                 "users.manage",
-                "audit.read"
+                "audit.read",
+                "site.write"
               ]
             }
           },
@@ -27773,6 +28017,162 @@
           "status",
           "createdAt"
         ]
+      },
+      "SiteMetricDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "PEOPLE_TRAINED",
+            "description": "Clave estable. Iniciales: WATER_LITERS_REVITALIZED, PEOPLE_TRAINED, TERRITORIES_ACCOMPANIED, YOUTH_TRAINED."
+          },
+          "label": {
+            "type": "string",
+            "example": "Personas formadas"
+          },
+          "value": {
+            "type": "number",
+            "example": 1800,
+            "description": "Número crudo (el frontend lo formatea/anima)."
+          },
+          "prefix": {
+            "type": "string",
+            "example": "",
+            "description": "Texto antes del número (p. ej. \"+\")."
+          },
+          "suffix": {
+            "type": "string",
+            "example": "+",
+            "description": "Texto después del número (p. ej. \"+\" o \" L\")."
+          },
+          "display": {
+            "type": "string",
+            "example": "1,800+",
+            "description": "Listo para mostrar: prefijo + número con separador de miles + sufijo."
+          },
+          "sortOrder": {
+            "type": "number",
+            "example": 1
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "value",
+          "prefix",
+          "suffix",
+          "display",
+          "sortOrder"
+        ]
+      },
+      "SiteMetricsResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "description": "Solo las visibles, ordenadas por sortOrder.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SiteMetricDto"
+            }
+          },
+          "updatedAt": {
+            "type": "string",
+            "example": "2026-10-21T20:00:00.000Z",
+            "nullable": true
+          }
+        },
+        "required": [
+          "data",
+          "updatedAt"
+        ]
+      },
+      "AdminSiteMetricDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "PEOPLE_TRAINED",
+            "description": "Clave estable. Iniciales: WATER_LITERS_REVITALIZED, PEOPLE_TRAINED, TERRITORIES_ACCOMPANIED, YOUTH_TRAINED."
+          },
+          "label": {
+            "type": "string",
+            "example": "Personas formadas"
+          },
+          "value": {
+            "type": "number",
+            "example": 1800,
+            "description": "Número crudo (el frontend lo formatea/anima)."
+          },
+          "prefix": {
+            "type": "string",
+            "example": "",
+            "description": "Texto antes del número (p. ej. \"+\")."
+          },
+          "suffix": {
+            "type": "string",
+            "example": "+",
+            "description": "Texto después del número (p. ej. \"+\" o \" L\")."
+          },
+          "display": {
+            "type": "string",
+            "example": "1,800+",
+            "description": "Listo para mostrar: prefijo + número con separador de miles + sufijo."
+          },
+          "sortOrder": {
+            "type": "number",
+            "example": 1
+          },
+          "visible": {
+            "type": "boolean",
+            "example": true
+          },
+          "updatedAt": {
+            "type": "string",
+            "example": "2026-10-21T20:00:00.000Z"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "value",
+          "prefix",
+          "suffix",
+          "display",
+          "sortOrder",
+          "visible",
+          "updatedAt"
+        ]
+      },
+      "UpdateSiteMetricRequestDto": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string",
+            "example": "Personas formadas"
+          },
+          "value": {
+            "type": "number",
+            "example": 1950,
+            "minimum": 0
+          },
+          "prefix": {
+            "type": "string",
+            "example": ""
+          },
+          "suffix": {
+            "type": "string",
+            "example": "+"
+          },
+          "sortOrder": {
+            "type": "number",
+            "example": 1
+          },
+          "visible": {
+            "type": "boolean",
+            "example": true,
+            "description": "false = no se muestra en la landing."
+          }
+        }
       },
       "OfferDatesDto": {
         "type": "object",

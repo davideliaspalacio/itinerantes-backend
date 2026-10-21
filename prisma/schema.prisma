@@ -1651,3 +1651,21 @@ model PaymentRefund {
   @@index([createdAt])
   @@map("payment_refunds")
 }
+
+/// Cifras de impacto de la landing (HU-01): "+3,000,000 L de agua revitalizada", "1800+ personas
+/// formadas", etc. Las edita SUPER_ADMIN desde el panel; el seed crea las iniciales si no existen.
+model SiteMetric {
+  /// Clave estable que usa el frontend (p. ej. PEOPLE_TRAINED).
+  key       String   @id @db.VarChar(60)
+  label     String   @db.VarChar(120)
+  value     Int
+  /// Texto antes del número ("+").
+  prefix    String   @default("") @db.VarChar(10)
+  /// Texto después del número ("+", " L").
+  suffix    String   @default("") @db.VarChar(10)
+  sortOrder Int      @default(0) @map("sort_order")
+  visible   Boolean  @default(true)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("site_metrics")
+}

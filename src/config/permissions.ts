@@ -48,6 +48,9 @@ export const Permission = {
   USERS_MANAGE: 'users.manage',
   /** Consultar el registro de auditoría. */
   AUDIT_READ: 'audit.read',
+
+  /** Editar contenido del sitio público (cifras de impacto de la landing). Solo SUPER_ADMIN. */
+  SITE_WRITE: 'site.write',
 } as const;
 export type Permission = (typeof Permission)[keyof typeof Permission];
 

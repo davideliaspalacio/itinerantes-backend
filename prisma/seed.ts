@@ -36,6 +36,7 @@ import { bootstrapMessage, bootstrapSuperAdmin } from './bootstrap-admin';
 import { COUNTRIES } from './data/countries';
 import { DEMO_APPLICATIONS } from './data/demo-applications';
 import { DEMO_OFFERS, DEMO_TEACHERS } from './data/demo-offers';
+import { DEFAULT_SITE_METRICS } from '../src/modules/site/site-metrics.defaults';
 import {
   DEMO_CALENDAR_EVENTS,
   DEMO_ENROLLMENTS,
@@ -650,8 +651,18 @@ async function seedBootstrapAdmin(prisma: PrismaClient): Promise<void> {
   console.log(`  ${bootstrapMessage(result, email)}`);
 }
 
+/** Cifras de la landing: crea las que falten, nunca pisa lo editado en el panel (seguro en producción). */
+async function seedSiteMetrics(prisma: PrismaClient): Promise<void> {
+  const { count } = await prisma.siteMetric.createMany({
+    data: DEFAULT_SITE_METRICS.map((metric) => ({ ...metric })),
+    skipDuplicates: true,
+  });
+  console.log(`  ${count} cifras nuevas de la landing.`);
+}
+
 const seeders: Array<[name: string, run: Seeder]> = [
   ['Fase 01 — ubicaciones', seedLocations],
+  ['Sitio — cifras de la landing', seedSiteMetrics],
   ['Fase 01 — usuarios demo', seedDemoUsers],
   ['Fase 06 — primer SUPER_ADMIN (BOOTSTRAP_ADMIN_*)', seedBootstrapAdmin],
   ['Fase 02 — ofertas demo', seedDemoOffers],
