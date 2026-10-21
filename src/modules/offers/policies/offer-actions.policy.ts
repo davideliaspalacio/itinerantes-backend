@@ -1,4 +1,9 @@
-import type { ApplicationStatus, OfferOrigin, OfferType } from '../../../generated/prisma/client';
+import type {
+  ApplicationStatus,
+  EnrollmentStatus,
+  OfferOrigin,
+  OfferType,
+} from '../../../generated/prisma/client';
 import { OfferAvailability } from './offer-status.policy';
 
 /**
@@ -25,6 +30,12 @@ export const OfferActionType = {
   VIEW_APPLICATION: 'VIEW_APPLICATION',
   /** [Pagar saldo] — "Pendiente de pago" (HU-16/21/23): postulación aprobada con saldo */
   PAY_BALANCE: 'PAY_BALANCE',
+  /** [Continuar pago] (Fase 05, HU-22): tiene un checkout de Stripe abierto para esta oferta */
+  CONTINUE_PAYMENT: 'CONTINUE_PAYMENT',
+  /** "Pago en validación" (Fase 05, HU-23): comprobante de transferencia en revisión (deshabilitado) */
+  PAYMENT_IN_VALIDATION: 'PAYMENT_IN_VALIDATION',
+  /** [Regularizar pago] (Fase 05, HU-24): acceso suspendido por mora → Mis pagos */
+  REGULARIZE_PAYMENT: 'REGULARIZE_PAYMENT',
 } as const;
 export type OfferActionType = (typeof OfferActionType)[keyof typeof OfferActionType];
 
@@ -44,6 +55,8 @@ export const OfferActionReason = {
   SCHOLARSHIP_CLOSED: 'SCHOLARSHIP_CLOSED',
   /** La oferta no tiene precio en la moneda del visitante (configuración incompleta) */
   PRICE_NOT_AVAILABLE: 'PRICE_NOT_AVAILABLE',
+  /** Fase 05: el equipo valida el comprobante de transferencia ("Pago en validación") */
+  TRANSFER_PENDING_VALIDATION: 'TRANSFER_PENDING_VALIDATION',
 } as const;
 export type OfferActionReason = (typeof OfferActionReason)[keyof typeof OfferActionReason];
 
@@ -82,7 +95,9 @@ export interface OfferActionsInput {
     authenticated: boolean;
     enrolled: boolean;
     /** Postulación (beca o convocatoria) de la persona en esta oferta (Fase 04). */
-    application?: { id: string; status: ApplicationStatus } | null;
+    application?: { id: string; status: ApplicationStatus; transferPending?: boolean } | null;
+    /** Fase 05: inscripción (aunque no dé acceso) y si tiene un checkout abierto. */
+    enrollment?: { status: EnrollmentStatus; checkoutPending: boolean } | null;
   };
 }
 
@@ -97,6 +112,8 @@ export interface OfferActionsInput {
  * - Con postulación (Fase 04, una por cohorte): [Postular] / [Postular a beca] se reemplazan por
  *   [Ver mi postulación]; si está "Aprobada – pendiente de pago" → [Pagar saldo] (principal) y
  *   [Ver mi postulación], sin [Inscribirme y pagar] (evita pagar el precio completo dos veces).
+ * - Fase 05: comprobante en validación → "Pago en validación" (deshabilitado) en lugar de [Pagar
+ *   saldo]; checkout abierto → [Continuar pago]; acceso suspendido por mora → [Regularizar pago].
  */
 export function computeOfferActions(input: OfferActionsInput): OfferAction[] {
   const requiresLogin = !input.viewer.authenticated;
@@ -122,10 +139,26 @@ export function computeOfferActions(input: OfferActionsInput): OfferAction[] {
   });
 
   if (input.viewer.enrolled) return [action('GO_TO_CLASSROOM', true, null)];
+  if (input.viewer.enrollment?.status === 'SUSPENDED') {
+    return [action('REGULARIZE_PAYMENT', true, null)];
+  }
   if (input.origin === 'MOODLE') return [action('ACTIVATE_MOODLE_ACCESS', true, null)];
 
   if (application?.status === 'APPROVED_PENDING_PAYMENT') {
+    if (application.transferPending) {
+      return [
+        {
+          ...applicationAction('PAYMENT_IN_VALIDATION', true),
+          enabled: false,
+          reason: OfferActionReason.TRANSFER_PENDING_VALIDATION,
+        },
+        applicationAction('VIEW_APPLICATION', false),
+      ];
+    }
     return [applicationAction('PAY_BALANCE', true), applicationAction('VIEW_APPLICATION', false)];
+  }
+  if (input.viewer.enrollment?.checkoutPending && input.type !== 'OPEN_CALL' && !input.isFree) {
+    return [action('CONTINUE_PAYMENT', true, null)];
   }
   const enrollmentBlock = enrollmentBlockFor(input);
   if (input.type === 'OPEN_CALL') {

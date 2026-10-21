@@ -5,6 +5,7 @@ import { maskEmail, randomToken, sha256Hex } from '../../common/utils/crypto';
 import { BUSINESS_RULES } from '../../config/business-rules';
 import { OtpPurpose, User, UserStatus } from '../../generated/prisma/client';
 import { PrismaService } from '../../infra/prisma/prisma.service';
+import { MoodleAccessService } from '../moodle/moodle-access.service';
 import { USERNAME_PATTERN } from '../users/dto/user-fields';
 import { PasswordService } from '../users/password.service';
 import { UsersService } from '../users/users.service';
@@ -45,6 +46,7 @@ export class AuthService {
     private readonly passwords: PasswordService,
     private readonly otp: OtpService,
     private readonly tokens: TokensService,
+    private readonly moodle: MoodleAccessService,
   ) {}
 
   // --- HU-02 -------------------------------------------------------------------------------------
@@ -118,6 +120,8 @@ export class AuthService {
         data: { status: UserStatus.ACTIVE, emailVerifiedAt: now },
       }),
     ]);
+    // HU-25: si el correo está en la lista de una oferta Moodle, la formación se vincula sola.
+    await this.moodle.linkAfterVerification(user.id);
     return { verified: true, email: user.email };
   }
 

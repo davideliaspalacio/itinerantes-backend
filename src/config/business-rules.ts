@@ -164,14 +164,55 @@ export const BUSINESS_RULES = {
   /** HU-24 (Anexo A): plan de 2 a 4 cuotas mensuales iguales (centavos de ajuste en la última). */
   INSTALLMENTS_MIN: 2,
   INSTALLMENTS_MAX: 4,
-  /** HU-24: Stripe reintenta hasta 3 veces en 7 días. */
+  /** HU-24: una cuota por mes (la 1.ª se cobra al confirmar; la última antes del fin de la oferta). */
+  INSTALLMENT_INTERVAL_MONTHS: 1,
+  /**
+   * HU-24: "Stripe reintenta hasta 3 veces en 7 días". El plan es propio (PaymentIntents
+   * off-session), así que los reintentos los programa el job repartidos en la ventana.
+   */
   INSTALLMENT_RETRY_ATTEMPTS: 3,
   INSTALLMENT_RETRY_WINDOW_DAYS: 7,
-  /** HU-24 (Anexo A): plan "En mora" a los 15 días de un cobro fallido (suspensión manual). */
+  /** HU-24 (Anexo A): plan "En mora" a los 15 días de un cobro fallido sin regularizar. */
   DELINQUENCY_AFTER_DAYS: 15,
+  /**
+   * HU-24 / HU-33 (Anexo A: "confirmar si la suspensión debe ser automática"). `true`: al pasar a
+   * "En mora" el sistema suspende el acceso (inscripción SUSPENDED) y lo restablece solo al
+   * regularizar. `false`: solo avisa y el equipo suspende manualmente desde el panel (Fase 06).
+   */
+  SUSPEND_ACCESS_ON_DELINQUENCY: true,
   /** Reglas del cliente: precios fijos en MXN y USD (sin conversión); México paga en MXN. */
   SUPPORTED_CURRENCIES: ['MXN', 'USD'],
   MXN_COUNTRY_CODE: 'MX',
+  /**
+   * HU-22: vigencia de la sesión de Stripe Checkout (mínimo de Stripe: 30 min). Mientras está
+   * abierta, la reserva PENDING_PAYMENT retiene el cupo (ofertas con cupo limitado).
+   */
+  CHECKOUT_SESSION_TTL_MINUTES: 30,
+  /**
+   * HU-22 "Procesando pago…": al consultar un pago con checkout abierto, si el webhook no ha llegado
+   * tras N segundos se concilia consultando la sesión en Stripe (tolerancia a webhooks tardíos).
+   */
+  CHECKOUT_RECONCILE_AFTER_SECONDS: 5,
+  /** Una cuota "en cobro" sin respuesta tras N minutos se reintenta con la misma clave idempotente. */
+  INSTALLMENT_PROCESSING_STALE_MINUTES: 30,
+  /** HU-23: URL firmada para subir el comprobante de transferencia (PUT directo a storage). */
+  TRANSFER_RECEIPT_UPLOAD_URL_TTL_SECONDS: 15 * 60,
+  /** HU-23: clave de rastreo SPEI (hasta 30 caracteres alfanuméricos). */
+  TRANSFER_TRACKING_KEY_MAX_LENGTH: 30,
+  /**
+   * HU-22/23/24/13: cada cuánto corre el job de pagos (cobro de cuotas, reintentos, mora, aviso de
+   * cuota próxima y conciliación de checkouts vencidos). Solo con SCHEDULER_ENABLED=true.
+   */
+  PAYMENT_JOBS_CRON: '*/10 * * * *',
+
+  // ---------------------------------------------------------------------------
+  // Acceso Moodle (Fase 05, HU-25)
+  // ---------------------------------------------------------------------------
+  /** HU-25: código XXXX-XXXX (sin caracteres ambiguos 0/O, 1/I/L). */
+  MOODLE_ACCESS_CODE_ALPHABET: 'ABCDEFGHJKMNPQRSTUVWXYZ23456789',
+  MOODLE_ACCESS_CODE_GROUP_LENGTH: 4,
+  /** HU-25: intentos de canje de código por IP (evita adivinar códigos). */
+  MOODLE_ACCESS_CODE_THROTTLE: { limit: 10, ttlSeconds: 600 },
 
   // ---------------------------------------------------------------------------
   // Archivos (límites de carga)

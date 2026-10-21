@@ -8,7 +8,7 @@ Arquitectura de producción recomendada:
 | PostgreSQL | **Supabase** (Postgres administrado) | Neon, Railway Postgres |
 | Archivos (S3) | **Supabase Storage** (API S3) | Cloudflare R2, AWS S3 |
 | Correo | **Resend** | Cualquier SMTP (`MAIL_DRIVER=smtp`) |
-| Pagos | Stripe (Fase 05) | — |
+| Pagos | **Stripe** (Checkout + webhooks; ver sección 7) | — |
 
 ## 1. Base de datos en Supabase
 
@@ -99,7 +99,13 @@ TURNSTILE_SECRET_KEY=                               # opcional: activa el captch
 STORAGE_ENDPOINT=... STORAGE_REGION=... STORAGE_BUCKET=... STORAGE_ACCESS_KEY_ID=... STORAGE_SECRET_ACCESS_KEY=...
 STORAGE_PUBLIC_BASE_URL=                            # opcional: URL pública de imágenes (ver abajo)
 SEED_DEMO_DATA=true                                 # ofertas demo para integrar el frontend (quitar al cargar datos reales)
-SCHEDULER_ENABLED=true                              # jobs en proceso (asistencia/WhatsApp, vencimientos y recordatorios de postulaciones); true en UNA sola réplica
+SCHEDULER_ENABLED=true                              # jobs en proceso (asistencia/WhatsApp, postulaciones, cobro de cuotas y mora); true en UNA sola réplica
+STRIPE_SECRET_KEY=sk_live_...                       # Fase 05 (sección 7). Sin ella: checkout 503, la app arranca igual
+STRIPE_WEBHOOK_SECRET=whsec_...                     # firma del endpoint de webhook (sección 7)
+STRIPE_PUBLISHABLE_KEY=pk_live_...                  # informativa (Checkout es hospedado)
+BANK_TRANSFER_ACCOUNT_HOLDER=<titular>              # transferencia México (HU-23); si falta un dato no se ofrece
+BANK_TRANSFER_BANK_NAME=<banco>
+BANK_TRANSFER_CLABE=<18 dígitos>
 ```
 
    `PORT` lo inyecta Railway (la app lo lee). Los catálogos (países, estados y municipios) se cargan
@@ -158,3 +164,72 @@ responder (arranque en frío, red privada recién creada), agrega `?connect_time
 - **Rollback**: Railway → Deployments → "Redeploy" de una versión anterior. Las migraciones de Prisma no
   se revierten solas: diseña migraciones compatibles hacia atrás (agregar antes de quitar).
 - **Rate limit** detrás del proxy de Railway: `trust proxy` está activado para usar la IP real.
+
+## 7. Stripe (Fase 05: pagos)
+
+La API usa **Stripe Checkout** (página hospedada; el portal nunca ve datos de tarjeta) y cobra las
+cuotas con PaymentIntents off-session sobre la tarjeta guardada en la 1.ª cuota. Si faltan las llaves,
+la app **arranca igual**: los endpoints de checkout responden `503 PAYMENTS_NOT_CONFIGURED`, el
+webhook responde 503 y la transferencia y el resto funcionan.
+
+### Variables
+
+| Variable | Dónde se obtiene | Notas |
+|---|---|---|
+| `STRIPE_SECRET_KEY` | Dashboard → Developers → API keys → Secret key (`sk_test_…` / `sk_live_…`) | Recomendado: una **restricted key** (`rk_…`) con escritura en Checkout Sessions, Customers, PaymentIntents y lectura de SetupIntents/PaymentMethods/Charges. Nunca en el repo. |
+| `STRIPE_WEBHOOK_SECRET` | Dashboard → Developers → Webhooks → tu endpoint → Signing secret (`whsec_…`) | Distinto en test y live, y distinto al de `stripe listen`. |
+| `STRIPE_PUBLISHABLE_KEY` | Misma página (`pk_…`) | Informativa: el frontend no la necesita (redirige a `checkoutUrl`). |
+
+La versión de API la fija el SDK (`stripe` 23.0.0 → `2026-09-30.endive`); el endpoint de webhook puede
+usar la versión por defecto de la cuenta: el backend solo lee campos estables de los eventos.
+
+### Endpoint de webhook en el dashboard
+
+1. **Developers → Webhooks → Add endpoint** (modo test primero, luego live).
+2. URL: `https://<dominio-api>/api/v1/webhooks/stripe`
+3. Eventos a suscribir (los demás se responden 200 `ignored`):
+   - `checkout.session.completed`
+   - `checkout.session.async_payment_succeeded`
+   - `checkout.session.async_payment_failed`
+   - `checkout.session.expired`
+   - `payment_intent.succeeded`
+   - `payment_intent.payment_failed`
+   - `charge.refunded`
+4. Copia el **Signing secret** a `STRIPE_WEBHOOK_SECRET` en Railway y redeploy.
+5. Verifica en el dashboard que las entregas respondan `200`. La API guarda cada `event.id` en la tabla
+   `stripe_events` (idempotencia): si una entrega falla (500), Stripe reintenta y la API reprocesa sin
+   duplicar efectos.
+
+Otros ajustes de la cuenta: activa **tarjetas** como método de pago; Checkout se crea con
+`allowed_payment_method_types: ['card']` en MXN o USD. Para cobros recurrentes (cuotas) Stripe aplica
+SCA/3-D Secure en la 1.ª cuota; si un banco exige autenticación en una cuota posterior, el cobro
+falla y la persona usa [Actualizar tarjeta].
+
+### Probar en local con `stripe listen`
+
+```bash
+# 1) Llaves de PRUEBA en .env (nunca live en local)
+STRIPE_SECRET_KEY=sk_test_...
+# 2) Reenviar eventos a la API local (imprime un whsec_… temporal: cópialo a STRIPE_WEBHOOK_SECRET)
+stripe login
+stripe listen --forward-to localhost:3000/api/v1/webhooks/stripe \
+  --events checkout.session.completed,checkout.session.async_payment_succeeded,checkout.session.async_payment_failed,checkout.session.expired,payment_intent.succeeded,payment_intent.payment_failed,charge.refunded
+# 3) Arranca la API (pnpm dev), inicia un pago desde el frontend o con
+#    POST /api/v1/me/payments/checkout y paga en la URL devuelta con 4242 4242 4242 4242.
+```
+
+- Tarjetas de prueba: `4242 4242 4242 4242` (éxito), `4000 0025 0000 3155` (3-D Secure),
+  `4000 0000 0000 9995` (rechazo en Checkout). Para que una **cuota posterior** falle: paga la 1.ª
+  con `4000 0000 0000 0341` (se guarda bien pero los cobros off-session se rechazan).
+- Cuotas en local: el job corre cada 10 min con `SCHEDULER_ENABLED=true`; para forzar un cobro,
+  adelanta `installments.due_at` en `eia_dev`.
+- `stripe trigger checkout.session.completed` sirve para comprobar la firma (el evento sintético no
+  corresponde a un pago de la BD: se acusa recibo y se ignora).
+
+### Producción
+
+- Usa llaves **live** y un endpoint de webhook **live** propio (otro `whsec_…`).
+- `SCHEDULER_ENABLED=true` en UNA sola réplica (cobro de cuotas, mora, conciliación de checkouts).
+- Datos bancarios de la transferencia (`BANK_TRANSFER_*`) solo como variables de Railway.
+- Reembolsos: se hacen en el dashboard de Stripe; el evento `charge.refunded` marca el pago como
+  "Reembolsado" (la acción del panel llega en la Fase 06).

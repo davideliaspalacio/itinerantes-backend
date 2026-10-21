@@ -6,12 +6,13 @@ import { CalendarService } from '../calendar/calendar.service';
 import { EnrollmentsService } from '../enrollments/enrollments.service';
 import { LibraryService } from '../library/library.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { PaymentsQueryService } from '../payments/payments-query.service';
 import type { DashboardBlock, DashboardDto } from './dashboard.dto';
 
 /**
  * Dashboard del participante (HU-06). Compone los bloques en paralelo; un fallo en uno no afecta a
- * los demás (HU-06 criterio 5). Fase 04: widgets de Becas/Convocatorias. La Fase 05 agregará el
- * aviso de cuota.
+ * los demás (HU-06 criterio 5). Fase 04: widgets de Becas/Convocatorias. Fase 05: aviso de cuota
+ * próxima y banners de pagos (`payments`).
  */
 @Injectable()
 export class DashboardService {
@@ -23,6 +24,7 @@ export class DashboardService {
     private readonly library: LibraryService,
     private readonly notifications: NotificationsService,
     private readonly applications: ApplicationsService,
+    private readonly payments: PaymentsQueryService,
   ) {}
 
   async get(userId: string): Promise<DashboardDto> {
@@ -46,6 +48,7 @@ export class DashboardService {
       notifications,
       scholarships,
       openCalls,
+      payments,
     ] = await Promise.all([
       block('nextActivity', async () => {
         const items = await this.calendar.range(
@@ -68,6 +71,7 @@ export class DashboardService {
       block('notifications', () => this.notifications.unreadCount(userId)),
       block('scholarships', () => this.applications.widget(userId, 'SCHOLARSHIP')),
       block('openCalls', () => this.applications.widget(userId, 'OPEN_CALL')),
+      block('payments', () => this.payments.dashboard(userId)),
     ]);
 
     return {
@@ -78,6 +82,7 @@ export class DashboardService {
       notifications,
       scholarships,
       openCalls,
+      payments,
       failedBlocks: failed,
     };
   }

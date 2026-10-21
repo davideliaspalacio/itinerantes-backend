@@ -2,12 +2,13 @@ import { INestApplication, RequestMethod, ValidationPipe } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { apiReference } from '@scalar/nestjs-api-reference';
-import type { Request, Response } from 'express';
+import { raw, type Request, type Response } from 'express';
 import helmet from 'helmet';
 import { validationExceptionFactory } from './common/errors/validation-errors';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import type { Env } from './config/env.schema';
 import { API_PREFIX, createOpenApiDocument, DOCS_PATH, OPENAPI_JSON_PATH } from './config/openapi';
+import { STRIPE_WEBHOOK_PATH } from './modules/payments/stripe-webhook.controller';
 
 /**
  * Configuración HTTP compartida por main.ts y las pruebas e2e (así los tests ejercitan lo mismo
@@ -19,6 +20,11 @@ export function configureApp(app: NestExpressApplication): void {
   // Railway (y la mayoría de PaaS) ponen un proxy delante: necesario para la IP real en el throttler.
   app.set('trust proxy', 1);
   app.disable('x-powered-by');
+
+  // Webhook de Stripe (Fase 05): la firma se verifica sobre el cuerpo CRUDO. Solo en esa ruta se
+  // conserva como Buffer (express.raw); el parser JSON global de Nest la omite porque el cuerpo ya
+  // fue leído. El resto de la API sigue con JSON normal.
+  app.use(`/${API_PREFIX}/${STRIPE_WEBHOOK_PATH}`, raw({ type: () => true, limit: '1mb' }));
 
   // Helmet: CSP estricta para la API (solo JSON). /docs (Scalar) carga su bundle desde CDN, así que
   // ahí se desactiva la CSP.

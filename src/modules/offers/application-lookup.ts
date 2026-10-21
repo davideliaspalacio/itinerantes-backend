@@ -10,6 +10,8 @@ export interface OfferApplicationRef {
   kind: ApplicationKind;
   status: ApplicationStatus;
   folio: string;
+  /** Fase 05: comprobante de transferencia "Pendiente de validación" → "Pago en validación". */
+  transferPending?: boolean;
 }
 
 export interface OfferApplicationLookup {

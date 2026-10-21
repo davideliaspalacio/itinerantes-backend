@@ -128,3 +128,39 @@ Validación (`400 VALIDATION_ERROR`) del formulario: `details[].code` = `NOT_APP
 tipo de postulación), `LEVEL_NOT_ENABLED` (nivel no habilitado), `INVALID_PHONE`, `MAX_LENGTH`,
 `IS_URL` / `ARRAY_MAX_SIZE` (enlaces de evidencia), `IS_INT` / `MIN` / `MAX` (edad). Ids de ruta que no
 son UUID y postulaciones ajenas → `404 NOT_FOUND`.
+
+### Fase 05 — Pagos y acceso Moodle
+
+Guía de pantallas: [`fase-05-pagos.md`](fase-05-pagos.md). Pagos o planes ajenos e ids mal formados →
+`404 NOT_FOUND`.
+
+| `code` | HTTP | Mensaje por defecto | `meta` | Cuándo ocurre / qué hacer en la UI |
+|---|---|---|---|---|
+| `PAYMENTS_NOT_CONFIGURED` | 503 | El pago con tarjeta no está disponible en este momento. Intenta más tarde. | — | El servidor no tiene llaves de Stripe: checkout, [Actualizar tarjeta] y [Pagar ahora]. La transferencia y el resto siguen funcionando. |
+| `PAYMENT_PROVIDER_ERROR` | 502 | No pudimos comunicarnos con el procesador de pagos. Intenta de nuevo. | — | Stripe no respondió: [Reintentar]. No se cobró nada. |
+| `PAYMENT_NOT_ALLOWED` | 422 | Esta oferta no se paga en la plataforma. | `reason`, `requiredAction` | `reason` = `MOODLE` (→ activar acceso), `OPEN_CALL` (→ postular), `FREE` (→ inscribirme), `PAY_BALANCE` (→ pagar el saldo de la beca), `PRICE_NOT_AVAILABLE`. |
+| `PAYMENT_BALANCE_NOT_DUE` | 409 | Esta postulación no tiene un saldo pendiente de pago. | `status` | Pagar el saldo de una postulación que ya no está "Aprobada – pendiente de pago" → recargar. |
+| `PAYMENT_INSTALLMENTS_NOT_AVAILABLE` | 422 | El número de cuotas elegido no está disponible para esta oferta. | `allowed` | Cuotas fuera de 2–4, del máximo de la oferta o con la última después del fin. |
+| `PAYMENT_TRANSFER_NOT_AVAILABLE` | 422 | La transferencia bancaria no está disponible para este pago. | `reason` | `NOT_MEXICO`, `CURRENCY_NOT_MXN`, `NOT_A_BALANCE`, `NOT_CONFIGURED`. |
+| `PAYMENT_TRANSFER_PENDING` | 409 | Tienes un comprobante de transferencia en validación. | — | Pagar con tarjeta mientras hay un comprobante "Pendiente de validación". |
+| `PAYMENT_TRANSFER_INVALID_FILE` | 422 | El comprobante debe ser PDF, JPG o PNG de máximo 5 MB. | — | Tipo o tamaño no permitido (declarado o real). |
+| `PAYMENT_TRANSFER_UPLOAD_NOT_FOUND` | 422 | No encontramos el comprobante subido. Vuelve a subirlo. | — | Se confirmó una `key` que no existe o no es de esa postulación. |
+| `PAYMENT_TRANSFER_AMOUNT_MISMATCH` | 422 | El monto recibido es menor al saldo esperado: solo se puede rechazar. | `differenceCents`, `expectedCents` | Panel (Fase 06, HU-33) al validar una transferencia. |
+| `PAYMENT_INVALID_STATE` | 409 | El pago no está en un estado que permita esta acción. | `status` | Cancelar un checkout ya cerrado, [Pagar ahora] sin cuotas fallidas, [Actualizar tarjeta] de un plan no vigente → recargar. |
+| `PAYMENT_CHARGE_FAILED` | 422 | El cobro fue rechazado. Actualiza tu tarjeta o intenta con otra. | `failureMessage` | [Pagar ahora] rechazado → ofrecer [Actualizar tarjeta]. |
+| `PAYMENT_RECEIPT_NOT_AVAILABLE` | 422 | El comprobante solo está disponible para pagos pagados o transferencias validadas. | — | [Descargar comprobante] de un pago pendiente/fallido/rechazado. |
+| `PAYMENT_WEBHOOK_SIGNATURE_INVALID` | 400 | Firma del webhook inválida. | — | Solo el webhook de Stripe (no aplica al frontend). |
+| `MOODLE_CODE_INVALID` | 422 | El código de acceso no es válido. | — | HU-25: código con formato incorrecto o inexistente. |
+| `MOODLE_CODE_USED` | 409 | Este código de acceso ya fue usado. | — | HU-25: código de un solo uso ya canjeado. |
+| `MOODLE_CODE_EXPIRED` | 422 | Este código de acceso venció. | — | HU-25: después del fin de la cohorte. |
+
+Se reutilizan de fases anteriores: `ENROLLMENT_ALREADY_EXISTS` (409, `meta.enrollmentStatus`),
+`OFFER_SOLD_OUT` (409), `ENROLLMENT_CLOSED` (422, `meta.reason`/`availableFrom`),
+`OFFER_NOT_AVAILABLE` (404), `APPLICATION_DEADLINE_PASSED` (422, `meta.dueAt`),
+`ENROLLMENT_SUSPENDED` (403, Aula con plan en mora).
+
+Validación (`400 VALIDATION_ERROR`): `termsAccepted` distinto de `true` (`details[].code = "EQUALS"`),
+`autoDebitAuthorized` sin marcar con cuotas (`MUST_ACCEPT`), `offerId` y `applicationId` juntos o
+ninguno (`INVALID`), `installmentCount` fuera de 2–4 (`MIN`/`MAX`), `paidOn` futura (`INVALID`),
+`trackingKey` no alfanumérica (`MATCHES`), y cualquier campo extra como un monto (`UNKNOWN_FIELD`:
+el monto nunca lo envía el cliente).

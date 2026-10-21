@@ -112,11 +112,12 @@ export class NotificationsService {
 
   /**
    * Regulariza (desfija) las notificaciones de prioridad alta de una persona: p. ej. al pagar la
-   * cuota fallida (Fase 05). Filtra por tipos y/o por `dedupeKey`.
+   * cuota fallida (Fase 05). Filtra por tipos y/o por `dedupeKey` (exacta o por prefijo, p. ej.
+   * `plan-failed:{planId}:` para todos los avisos de cobro fallido de un plan).
    */
   async resolve(
     userId: string,
-    filter: { types?: NotificationType[]; dedupeKey?: string },
+    filter: { types?: NotificationType[]; dedupeKey?: string; dedupeKeyPrefix?: string },
   ): Promise<number> {
     const result = await this.prisma.notification.updateMany({
       where: {
@@ -124,6 +125,7 @@ export class NotificationsService {
         pinned: true,
         ...(filter.types ? { type: { in: filter.types } } : {}),
         ...(filter.dedupeKey ? { dedupeKey: filter.dedupeKey } : {}),
+        ...(filter.dedupeKeyPrefix ? { dedupeKey: { startsWith: filter.dedupeKeyPrefix } } : {}),
       },
       data: { pinned: false, resolvedAt: nowUtc() },
     });

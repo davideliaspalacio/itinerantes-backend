@@ -23,7 +23,9 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
 
   constructor(config: ConfigService<Env, true>) {
     const adapter = new PrismaPg({ connectionString: config.get('DATABASE_URL', { infer: true }) });
-    super({ adapter });
+    // Transacciones interactivas: margen sobre los 5 s por defecto (latencia del pooler de Supabase
+    // o carga puntual). Las transacciones del dominio son cortas; esto evita abortos espurios.
+    super({ adapter, transactionOptions: { maxWait: 10_000, timeout: 15_000 } });
   }
 
   onModuleInit(): void {

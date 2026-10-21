@@ -13,6 +13,7 @@ import { CaptchaModule } from './infra/captcha/captcha.module';
 import { MailModule } from './infra/mail/mail.module';
 import { PrismaModule } from './infra/prisma/prisma.module';
 import { StorageModule } from './infra/storage/storage.module';
+import { StripeModule } from './infra/stripe/stripe.module';
 import { ApplicationsModule } from './modules/applications/applications.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CalendarModule } from './modules/calendar/calendar.module';
@@ -24,8 +25,10 @@ import { HealthModule } from './modules/health/health.module';
 import { LibraryModule } from './modules/library/library.module';
 import { LiveSessionsModule } from './modules/live-sessions/live-sessions.module';
 import { LocationsModule } from './modules/locations/locations.module';
+import { MoodleModule } from './modules/moodle/moodle.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { OffersModule } from './modules/offers/offers.module';
+import { PaymentsModule } from './modules/payments/payments.module';
 import { UsersModule } from './modules/users/users.module';
 
 @Module({
@@ -75,6 +78,7 @@ import { UsersModule } from './modules/users/users.module';
     MailModule,
     StorageModule,
     CaptchaModule,
+    StripeModule,
 
     // Dominio
     HealthModule,
@@ -93,6 +97,9 @@ import { UsersModule } from './modules/users/users.module';
     DashboardModule,
     // Fase 04 — Postulaciones
     ApplicationsModule,
+    // Fase 05 — Pagos y acceso Moodle
+    PaymentsModule,
+    MoodleModule,
   ],
   providers: [
     // Orden: rate limit → autenticación (respeta @Public()) → roles (@Roles()).

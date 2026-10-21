@@ -19,12 +19,25 @@ export class ApplicationLookupService implements OfferApplicationLookup {
     if (offerIds.length === 0) return new Map();
     const rows = await this.prisma.application.findMany({
       where: { userId, offerId: { in: [...offerIds] } },
-      select: { id: true, offerId: true, kind: true, status: true, number: true },
+      select: {
+        id: true,
+        offerId: true,
+        kind: true,
+        status: true,
+        number: true,
+        pendingTransferSince: true,
+      },
     });
     return new Map(
       rows.map((r) => [
         r.offerId,
-        { id: r.id, kind: r.kind, status: r.status, folio: formatFolio(r.kind, r.number) },
+        {
+          id: r.id,
+          kind: r.kind,
+          status: r.status,
+          folio: formatFolio(r.kind, r.number),
+          transferPending: r.pendingTransferSince !== null,
+        },
       ]),
     );
   }

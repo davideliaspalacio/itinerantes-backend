@@ -105,6 +105,17 @@ model User {
   applicationStatusEvents ApplicationStatusEvent[]
   scheduledInterviews     ApplicationInterview[]
 
+  // Fase 05 — Pagos y acceso Moodle
+  /// Cliente de Stripe (se crea al primer checkout; reutilizado para guardar la tarjeta de cuotas).
+  stripeCustomerId    String?             @unique @map("stripe_customer_id") @db.VarChar(255)
+  payments            Payment[]           @relation("PaymentPayer")
+  reviewedPayments    Payment[]           @relation("PaymentReviewer")
+  installmentPlans    InstallmentPlan[]
+  moodleRosterLinks   MoodleRosterEntry[] @relation("MoodleRosterLinkedUser")
+  moodleRosterUploads MoodleRosterEntry[] @relation("MoodleRosterCreatedBy")
+  moodleCodesUsed     MoodleAccessCode[]  @relation("MoodleCodeUsedBy")
+  moodleCodesCreated  MoodleAccessCode[]  @relation("MoodleCodeCreatedBy")
+
   @@map("users")
 }
 
@@ -510,6 +521,11 @@ model Offer {
   libraryResources LibraryResource[]
   finalProjects    FinalProjectSubmission[]
   applications     Application[]
+  // Fase 05
+  payments         Payment[]
+  installmentPlans InstallmentPlan[]
+  moodleRoster     MoodleRosterEntry[]
+  moodleCodes      MoodleAccessCode[]
 
   @@index([publicationStatus, startsAt])
   @@index([publicTopic])
@@ -721,29 +737,35 @@ enum EnrollmentSource {
 }
 
 model Enrollment {
-  id            String           @id @default(uuid()) @db.Uuid
-  userId        String           @map("user_id") @db.Uuid
-  offerId       String           @map("offer_id") @db.Uuid
-  status        EnrollmentStatus @default(ACTIVE)
-  origin        EnrollmentOrigin @default(NAS)
-  source        EnrollmentSource
+  id                String           @id @default(uuid()) @db.Uuid
+  userId            String           @map("user_id") @db.Uuid
+  offerId           String           @map("offer_id") @db.Uuid
+  status            EnrollmentStatus @default(ACTIVE)
+  origin            EnrollmentOrigin @default(NAS)
+  source            EnrollmentSource
   /// Fase 04: postulación que originó la inscripción (beca/convocatoria).
-  applicationId String?          @unique @map("application_id") @db.Uuid
+  applicationId     String?          @unique @map("application_id") @db.Uuid
   /// Cuándo obtuvo acceso (pago confirmado, alta gratuita, vinculación Moodle).
-  activatedAt   DateTime?        @map("activated_at") @db.Timestamptz(3)
-  completedAt   DateTime?        @map("completed_at") @db.Timestamptz(3)
-  suspendedAt   DateTime?        @map("suspended_at") @db.Timestamptz(3)
-  cancelledAt   DateTime?        @map("cancelled_at") @db.Timestamptz(3)
+  activatedAt       DateTime?        @map("activated_at") @db.Timestamptz(3)
+  completedAt       DateTime?        @map("completed_at") @db.Timestamptz(3)
+  suspendedAt       DateTime?        @map("suspended_at") @db.Timestamptz(3)
+  cancelledAt       DateTime?        @map("cancelled_at") @db.Timestamptz(3)
   /// Motivo del último cambio de estado (suspensión, cancelación).
-  statusReason  String?          @map("status_reason") @db.VarChar(500)
-  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt     DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+  statusReason      String?          @map("status_reason") @db.VarChar(500)
+  /// Fase 05: una reserva PENDING_PAYMENT retiene cupo mientras `seatHoldExpiresAt` sea null o futura
+  /// (checkout de Stripe: vence con la sesión; saldo tras beca: hasta que la postulación vence).
+  seatHoldExpiresAt DateTime?        @map("seat_hold_expires_at") @db.Timestamptz(3)
+  createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  user         User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  offer        Offer                   @relation(fields: [offerId], references: [id], onDelete: Restrict)
-  application  Application?            @relation(fields: [applicationId], references: [id], onDelete: SetNull)
-  attendances  SessionAttendance[]
-  finalProject FinalProjectSubmission?
+  user             User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  offer            Offer                   @relation(fields: [offerId], references: [id], onDelete: Restrict)
+  application      Application?            @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+  attendances      SessionAttendance[]
+  finalProject     FinalProjectSubmission?
+  // Fase 05
+  payments         Payment[]
+  installmentPlans InstallmentPlan[]
 
   @@unique([userId, offerId])
   @@index([offerId, status])
@@ -1084,6 +1106,8 @@ model Application {
   paymentStartedAt     DateTime? @map("payment_started_at") @db.Timestamptz(3)
   /// Comprobante de transferencia "Pendiente de validación": la postulación NO vence (HU-21/23).
   pendingTransferSince DateTime? @map("pending_transfer_since") @db.Timestamptz(3)
+  /// Último comprobante "Rechazado" (HU-23: la persona puede subir otro). Se limpia al subir uno nuevo.
+  transferRejectedAt   DateTime? @map("transfer_rejected_at") @db.Timestamptz(3)
 
   // --- Jobs (claims idempotentes) ---
   /// Recordatorio de saldo enviado (BALANCE_REMINDER_HOURS_BEFORE antes de responseDueAt).
@@ -1092,13 +1116,16 @@ model Application {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  user         User                     @relation("ApplicationApplicant", fields: [userId], references: [id], onDelete: Cascade)
-  offer        Offer                    @relation(fields: [offerId], references: [id], onDelete: Restrict)
-  decidedBy    User?                    @relation("ApplicationDecidedBy", fields: [decidedById], references: [id], onDelete: SetNull)
-  documents    ApplicationDocument[]
-  statusEvents ApplicationStatusEvent[]
-  interviews   ApplicationInterview[]
-  enrollment   Enrollment?
+  user             User                     @relation("ApplicationApplicant", fields: [userId], references: [id], onDelete: Cascade)
+  offer            Offer                    @relation(fields: [offerId], references: [id], onDelete: Restrict)
+  decidedBy        User?                    @relation("ApplicationDecidedBy", fields: [decidedById], references: [id], onDelete: SetNull)
+  documents        ApplicationDocument[]
+  statusEvents     ApplicationStatusEvent[]
+  interviews       ApplicationInterview[]
+  enrollment       Enrollment?
+  // Fase 05
+  payments         Payment[]
+  installmentPlans InstallmentPlan[]
 
   @@unique([userId, offerId])
   @@index([offerId, status])
@@ -1168,4 +1195,296 @@ model ApplicationInterview {
   @@index([applicationId])
   @@index([status, startsAt])
   @@map("application_interviews")
+}
+
+// =============================================================================
+// Fase 05 — Pagos (HU-22, 23, 24, 26; modelo listo para HU-32/33) y acceso Moodle (HU-25)
+// =============================================================================
+//
+// Decisiones (docs/ARCHITECTURE.md → "Pagos"):
+//  - Payment = un cobro (o comprobante) con folio legible PAG-000123: pago completo, saldo tras beca o
+//    cuota n de N. Dinero en centavos + moneda (calculado SIEMPRE por el servidor).
+//  - Tarjeta: Stripe Checkout (mode=payment). El portal nunca ve datos de tarjeta.
+//  - Cuotas: plan PROPIO (InstallmentPlan + Installment). La 1.ª cuota se cobra en Checkout guardando
+//    la tarjeta (setup_future_usage=off_session); las siguientes las cobra un job con PaymentIntents
+//    off-session sobre el método guardado (reintentos y mora configurables en BUSINESS_RULES).
+//  - Transferencia (solo México, saldo tras beca, MXN): Payment method=BANK_TRANSFER con comprobante;
+//    el equipo la valida o rechaza (Fase 06).
+//  - Webhooks idempotentes: StripeEvent guarda cada evento procesado; las transiciones son
+//    condicionales al estado previo (eventos fuera de orden no retroceden un pago).
+//  - Moodle sin API: lista de correos por oferta (MoodleRosterEntry) y códigos de un solo uso
+//    (MoodleAccessCode, solo hash).
+
+enum PaymentConcept {
+  /// Pago completo de la oferta (HU-22)
+  FULL_PRICE
+  /// Saldo tras beca / convocatoria con costo (HU-23)
+  BALANCE
+  /// Cuota n de N de un plan (HU-24)
+  INSTALLMENT
+}
+
+enum PaymentMethod {
+  CARD
+  BANK_TRANSFER
+}
+
+/// Estados del pago (HU-26 / HU-33). Tarjeta: PENDING → PAID | FAILED | CANCELLED; PAID → REFUNDED.
+/// Transferencia: PENDING_VALIDATION → VALIDATED | REJECTED.
+enum PaymentStatus {
+  /// Checkout abierto o cobro en proceso ("Procesando pago…")
+  PENDING
+  /// Pagado
+  PAID
+  /// Fallido (cobro rechazado)
+  FAILED
+  /// Checkout cancelado o vencido (no se cobró nada; no aparece en el historial)
+  CANCELLED
+  /// Reembolsado (total)
+  REFUNDED
+  /// Transferencia: Pendiente de validación
+  PENDING_VALIDATION
+  /// Transferencia: Validada
+  VALIDATED
+  /// Transferencia: Rechazada (con motivo)
+  REJECTED
+}
+
+/// Motivos de rechazo de una transferencia (HU-33).
+enum TransferRejectionReason {
+  ILLEGIBLE
+  AMOUNT_MISMATCH
+  NOT_FOUND
+  OTHER
+}
+
+/// Estado del plan de cuotas (HU-24 / HU-26 / HU-33).
+enum InstallmentPlanStatus {
+  /// Creado al abrir el checkout de la 1.ª cuota; aún no se cobra.
+  PENDING_ACTIVATION
+  /// Al día
+  CURRENT
+  /// Cobro fallido (reintentos en curso)
+  PAST_DUE
+  /// En mora (N días sin regularizar)
+  DELINQUENT
+  COMPLETED
+  CANCELLED
+}
+
+enum InstallmentStatus {
+  SCHEDULED
+  /// Cobro en curso (claim del job)
+  PROCESSING
+  PAID
+  FAILED
+  CANCELLED
+}
+
+model Payment {
+  id            String         @id @default(uuid()) @db.Uuid
+  /// Consecutivo del folio legible (PAG-000123).
+  number        Int            @unique @default(autoincrement())
+  userId        String         @map("user_id") @db.Uuid
+  offerId       String         @map("offer_id") @db.Uuid
+  enrollmentId  String?        @map("enrollment_id") @db.Uuid
+  applicationId String?        @map("application_id") @db.Uuid
+  planId        String?        @map("plan_id") @db.Uuid
+  installmentId String?        @unique @map("installment_id") @db.Uuid
+  concept       PaymentConcept
+  method        PaymentMethod
+  status        PaymentStatus  @default(PENDING)
+  /// Monto esperado (calculado por el servidor) en `currency`.
+  amountCents   Int            @map("amount_cents")
+  currency      Currency
+  refundedCents Int            @default(0) @map("refunded_cents")
+
+  // --- Tarjeta (Stripe) ---
+  stripeCheckoutSessionId String?   @unique @map("stripe_checkout_session_id") @db.VarChar(255)
+  stripePaymentIntentId   String?   @unique @map("stripe_payment_intent_id") @db.VarChar(255)
+  stripeChargeId          String?   @map("stripe_charge_id") @db.VarChar(255)
+  stripeReceiptUrl        String?   @map("stripe_receipt_url") @db.VarChar(1000)
+  checkoutUrl             String?   @map("checkout_url") @db.VarChar(2000)
+  checkoutExpiresAt       DateTime? @map("checkout_expires_at") @db.Timestamptz(3)
+  cardBrand               String?   @map("card_brand") @db.VarChar(30)
+  cardLast4               String?   @map("card_last4") @db.VarChar(4)
+  failureCode             String?   @map("failure_code") @db.VarChar(100)
+  failureMessage          String?   @map("failure_message") @db.VarChar(500)
+
+  // --- Transferencia (HU-23 / HU-33) ---
+  /// Referencia única por postulación (folio).
+  transferReference   String?                  @map("transfer_reference") @db.VarChar(40)
+  declaredAmountCents Int?                     @map("declared_amount_cents")
+  declaredPaidOn      DateTime?                @map("declared_paid_on") @db.Date
+  /// Clave de rastreo SPEI.
+  trackingKey         String?                  @map("tracking_key") @db.VarChar(40)
+  /// Comprobante PRIVADO en storage (URL firmada solo para su autor y el equipo).
+  proofFileKey        String?                  @unique @map("proof_file_key") @db.VarChar(500)
+  proofFileName       String?                  @map("proof_file_name") @db.VarChar(255)
+  proofMimeType       String?                  @map("proof_mime_type") @db.VarChar(120)
+  proofSizeBytes      Int?                     @map("proof_size_bytes")
+  /// Captura del equipo al validar (Fase 06).
+  receivedAmountCents Int?                     @map("received_amount_cents")
+  receivedOn          DateTime?                @map("received_on") @db.Date
+  reviewedById        String?                  @map("reviewed_by_id") @db.Uuid
+  reviewedAt          DateTime?                @map("reviewed_at") @db.Timestamptz(3)
+  rejectionReason     TransferRejectionReason? @map("rejection_reason")
+  rejectionNote       String?                  @map("rejection_note") @db.VarChar(500)
+
+  // --- Hitos ---
+  submittedAt DateTime? @map("submitted_at") @db.Timestamptz(3)
+  paidAt      DateTime? @map("paid_at") @db.Timestamptz(3)
+  failedAt    DateTime? @map("failed_at") @db.Timestamptz(3)
+  cancelledAt DateTime? @map("cancelled_at") @db.Timestamptz(3)
+  refundedAt  DateTime? @map("refunded_at") @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user        User             @relation("PaymentPayer", fields: [userId], references: [id], onDelete: Cascade)
+  offer       Offer            @relation(fields: [offerId], references: [id], onDelete: Restrict)
+  enrollment  Enrollment?      @relation(fields: [enrollmentId], references: [id], onDelete: SetNull)
+  application Application?     @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+  plan        InstallmentPlan? @relation(fields: [planId], references: [id], onDelete: SetNull)
+  installment Installment?     @relation(fields: [installmentId], references: [id], onDelete: SetNull)
+  reviewedBy  User?            @relation("PaymentReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([offerId, status])
+  @@index([applicationId])
+  @@index([status, checkoutExpiresAt])
+  @@map("payments")
+}
+
+/// Plan de cuotas con cobro automático (HU-24). Moneda y montos fijos al crearse (HU-14).
+model InstallmentPlan {
+  id                    String                @id @default(uuid()) @db.Uuid
+  userId                String                @map("user_id") @db.Uuid
+  offerId               String                @map("offer_id") @db.Uuid
+  enrollmentId          String?               @map("enrollment_id") @db.Uuid
+  applicationId         String?               @map("application_id") @db.Uuid
+  /// FULL_PRICE (HU-22 en cuotas) o BALANCE (saldo tras beca en cuotas, HU-23).
+  concept               PaymentConcept
+  status                InstallmentPlanStatus @default(PENDING_ACTIVATION)
+  currency              Currency
+  totalCents            Int                   @map("total_cents")
+  installmentCount      Int                   @map("installment_count")
+  stripeCustomerId      String?               @map("stripe_customer_id") @db.VarChar(255)
+  stripePaymentMethodId String?               @map("stripe_payment_method_id") @db.VarChar(255)
+  cardBrand             String?               @map("card_brand") @db.VarChar(30)
+  cardLast4             String?               @map("card_last4") @db.VarChar(4)
+  cardExpMonth          Int?                  @map("card_exp_month")
+  cardExpYear           Int?                  @map("card_exp_year")
+  /// "Autorizo a la Escuela a cobrar automáticamente…" (HU-24).
+  autoDebitAuthorizedAt DateTime              @map("auto_debit_authorized_at") @db.Timestamptz(3)
+  activatedAt           DateTime?             @map("activated_at") @db.Timestamptz(3)
+  /// Primer cobro fallido sin regularizar (la mora se cuenta desde aquí).
+  failedSince           DateTime?             @map("failed_since") @db.Timestamptz(3)
+  delinquentAt          DateTime?             @map("delinquent_at") @db.Timestamptz(3)
+  /// El sistema suspendió el acceso por mora (se restablece solo al regularizar).
+  accessSuspendedAt     DateTime?             @map("access_suspended_at") @db.Timestamptz(3)
+  completedAt           DateTime?             @map("completed_at") @db.Timestamptz(3)
+  cancelledAt           DateTime?             @map("cancelled_at") @db.Timestamptz(3)
+  cancelReason          String?               @map("cancel_reason") @db.VarChar(500)
+  createdAt             DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  offer        Offer         @relation(fields: [offerId], references: [id], onDelete: Restrict)
+  enrollment   Enrollment?   @relation(fields: [enrollmentId], references: [id], onDelete: SetNull)
+  application  Application?  @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+  installments Installment[]
+  payments     Payment[]
+
+  @@index([userId, status])
+  @@index([status, failedSince])
+  @@map("installment_plans")
+}
+
+/// Cuota de un plan. La 1.ª se cobra al confirmar (Checkout); las demás, el job en `dueAt`.
+model Installment {
+  id                 String            @id @default(uuid()) @db.Uuid
+  planId             String            @map("plan_id") @db.Uuid
+  /// 1..N
+  sequence           Int
+  amountCents        Int               @map("amount_cents")
+  dueAt              DateTime          @map("due_at") @db.Timestamptz(3)
+  status             InstallmentStatus @default(SCHEDULED)
+  /// Intentos de cobro off-session realizados (el primero + reintentos).
+  attempts           Int               @default(0)
+  lastAttemptAt      DateTime?         @map("last_attempt_at") @db.Timestamptz(3)
+  nextRetryAt        DateTime?         @map("next_retry_at") @db.Timestamptz(3)
+  /// Claim del job (cobro en curso).
+  processingSince    DateTime?         @map("processing_since") @db.Timestamptz(3)
+  paidAt             DateTime?         @map("paid_at") @db.Timestamptz(3)
+  failedAt           DateTime?         @map("failed_at") @db.Timestamptz(3)
+  failureMessage     String?           @map("failure_message") @db.VarChar(500)
+  /// Aviso "cuota próxima" enviado (claim del job, HU-06/13).
+  upcomingNotifiedAt DateTime?         @map("upcoming_notified_at") @db.Timestamptz(3)
+  createdAt          DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  plan    InstallmentPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  payment Payment?
+
+  @@unique([planId, sequence])
+  @@index([status, dueAt])
+  @@index([status, nextRetryAt])
+  @@map("installments")
+}
+
+/// Eventos de webhook de Stripe ya recibidos (idempotencia: Stripe reintenta y puede duplicar).
+model StripeEvent {
+  /// evt_…
+  id              String    @id @db.VarChar(255)
+  type            String    @db.VarChar(100)
+  stripeCreatedAt DateTime  @map("stripe_created_at") @db.Timestamptz(3)
+  receivedAt      DateTime  @default(now()) @map("received_at") @db.Timestamptz(3)
+  processedAt     DateTime? @map("processed_at") @db.Timestamptz(3)
+  /// Último error al procesarlo (Stripe lo reintentará).
+  error           String?   @db.Text
+
+  @@index([receivedAt])
+  @@map("stripe_events")
+}
+
+/// Lista de correos inscritos en una oferta Moodle (HU-25 / HU-27). La carga el equipo (Fase 06).
+model MoodleRosterEntry {
+  id           String    @id @default(uuid()) @db.Uuid
+  offerId      String    @map("offer_id") @db.Uuid
+  /// Normalizado: minúsculas y sin espacios.
+  email        String    @db.VarChar(254)
+  linkedUserId String?   @map("linked_user_id") @db.Uuid
+  linkedAt     DateTime? @map("linked_at") @db.Timestamptz(3)
+  createdById  String?   @map("created_by_id") @db.Uuid
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  offer      Offer @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  linkedUser User? @relation("MoodleRosterLinkedUser", fields: [linkedUserId], references: [id], onDelete: SetNull)
+  createdBy  User? @relation("MoodleRosterCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([offerId, email])
+  @@index([email])
+  @@map("moodle_roster_entries")
+}
+
+/// Código de acceso Moodle XXXX-XXXX de un solo uso (HU-25). Solo se guarda el hash.
+model MoodleAccessCode {
+  id          String    @id @default(uuid()) @db.Uuid
+  offerId     String    @map("offer_id") @db.Uuid
+  codeHash    String    @unique @map("code_hash") @db.VarChar(64)
+  /// Últimos 4 caracteres (para que el equipo identifique el código).
+  codeHint    String    @map("code_hint") @db.VarChar(4)
+  /// Vigente hasta el fin de la cohorte (null = sin vencimiento).
+  expiresAt   DateTime? @map("expires_at") @db.Timestamptz(3)
+  usedById    String?   @map("used_by_id") @db.Uuid
+  usedAt      DateTime? @map("used_at") @db.Timestamptz(3)
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  offer     Offer @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  usedBy    User? @relation("MoodleCodeUsedBy", fields: [usedById], references: [id], onDelete: SetNull)
+  createdBy User? @relation("MoodleCodeCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([offerId])
+  @@map("moodle_access_codes")
 }

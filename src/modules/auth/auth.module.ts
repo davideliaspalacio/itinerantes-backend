@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { MoodleModule } from '../moodle/moodle.module';
 import { UsersModule } from '../users/users.module';
 import { AccountSecurityController } from './account-security.controller';
 import { AuthController } from './auth.controller';
@@ -8,7 +9,7 @@ import { TokensService } from './tokens.service';
 
 /** JwtModule es global (registrado en AppModule) porque lo usa el JwtAuthGuard global. */
 @Module({
-  imports: [UsersModule],
+  imports: [UsersModule, MoodleModule],
   controllers: [AuthController, AccountSecurityController],
   providers: [AuthService, OtpService, TokensService],
 })

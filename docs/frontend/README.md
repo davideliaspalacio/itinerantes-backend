@@ -13,7 +13,7 @@ agrega su guía específica en `docs/frontend/fase-XX-<nombre>.md`.
 | [`fase-02-oferta.md`](fase-02-oferta.md) | Catálogo, ficha (acciones/CTA, moneda, beca) y disponibilidad por temática (HU-34) | Fase 02 ✔ |
 | [`fase-03-portal.md`](fase-03-portal.md) | Dashboard, Mi formación, inscripción gratuita, Aula, materiales, sesiones en vivo, asistencia, calendario, biblioteca, notificaciones | Fase 03 ✔ |
 | [`fase-04-postulaciones.md`](fase-04-postulaciones.md) | Becas disponibles, convocatorias abiertas, formulario con borrador y evidencias, envío, Mis postulaciones (línea de tiempo, entrevista, resultado, confirmación) + widgets, calendario y acciones de la ficha | Fase 04 ✔ |
-| `fase-05-pagos.md` | Stripe, transferencias, cuotas, Mis pagos | Fase 05 (pendiente) |
+| [`fase-05-pagos.md`](fase-05-pagos.md) | Stripe Checkout (pago completo y saldo tras beca), transferencia México, cuotas con cobro automático (fallos, mora, actualizar tarjeta), acceso Moodle, Mis pagos y recibos PDF + acciones de ficha/postulaciones, Dashboard y notificaciones | Fase 05 ✔ |
 | `fase-06-admin.md` | Panel administrativo | Fase 06 (pendiente) |
 
 ## URLs
@@ -73,7 +73,8 @@ Detalle completo (pantallas HU-02 a HU-05, HU-14): [`fase-01-identidad.md`](fase
 - Recursos del usuario autenticado: `GET/PATCH /api/v1/me`, `PATCH /me/timezone`, `POST /me/password`
   y, desde Fase 03, el portal bajo `/me/...` (`/me/dashboard`, `/me/enrollments`, `/me/classrooms/{offerId}`,
   `/me/sessions`, `/me/calendar`, `/me/notifications`) más `/library` y, desde Fase 04,
-  `/me/applications` (postulaciones a becas y convocatorias).
+  `/me/applications` (postulaciones a becas y convocatorias) y, desde Fase 05, `/me/payments`
+  (pagos, cuotas, transferencias, recibos) y `/me/moodle-access` (vinculación Moodle).
 - Acceso a una formación sin inscripción → `403 ENROLLMENT_REQUIRED` (`meta.offerSlug` para ofrecer la
   ficha); recursos ajenos u ocultos → `404`. Ver [`fase-03-portal.md`](fase-03-portal.md).
 
@@ -150,6 +151,9 @@ GET /api/v1/<recurso>?page=1&pageSize=20&<filtros>
 - Siempre en **centavos enteros** + moneda: `{ "amountCents": 1020000, "currency": "MXN" }` = $10,200.00 MXN.
 - Monedas: `MXN` (participantes de México) y `USD` (resto). **Nunca** se suman ni convierten entre sí.
 - Formateo: `new Intl.NumberFormat('es-MX', { style: 'currency', currency }).format(amountCents / 100)`.
+- Los montos a cobrar los calcula SIEMPRE el backend (Fase 05): el frontend nunca envía un monto a
+  pagar; solo elige la oferta/postulación y el número de cuotas. Los pagos con tarjeta ocurren en
+  Stripe Checkout (redirección); ver [`fase-05-pagos.md`](fase-05-pagos.md).
 
 ## Enums
 

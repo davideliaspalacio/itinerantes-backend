@@ -4,6 +4,7 @@ import { CalendarItemDto } from '../calendar/dto/calendar.dto';
 import { FormationCardDto } from '../enrollments/dto/enrollments.response.dto';
 import { LibraryItemDto } from '../library/dto/library.dto';
 import { UnreadCountDto } from '../notifications/dto/notifications.response.dto';
+import { DashboardPaymentsDto } from '../payments/dto/payments.response.dto';
 
 export const DASHBOARD_BLOCKS = [
   'nextActivity',
@@ -13,6 +14,7 @@ export const DASHBOARD_BLOCKS = [
   'notifications',
   'scholarships',
   'openCalls',
+  'payments',
 ] as const;
 export type DashboardBlock = (typeof DASHBOARD_BLOCKS)[number];
 
@@ -78,13 +80,22 @@ export class DashboardDto {
   openCalls!: ApplicationsWidgetDto | null;
 
   @ApiProperty({
+    type: DashboardPaymentsDto,
+    nullable: true,
+    description:
+      'Fase 05: aviso informativo de cuota próxima (7 días: monto, fecha del cobro automático y ' +
+      'tarjeta, HU-06/24) y banners de cobro fallido / en mora / transferencia (→ Mis pagos).',
+  })
+  payments!: DashboardPaymentsDto | null;
+
+  @ApiProperty({
     enum: DASHBOARD_BLOCKS,
     isArray: true,
     example: [],
     description:
       'Bloques que no se pudieron cargar: muestra "No se pudo cargar esta información" + reintento ' +
       '(el reintento puede usar el endpoint propio del bloque: /me/enrollments, /me/calendar, ' +
-      '/library, /me/notifications/unread-count, /me/applications?kind=…).',
+      '/library, /me/notifications/unread-count, /me/applications?kind=…, /me/payments/summary).',
   })
   failedBlocks!: DashboardBlock[];
 }

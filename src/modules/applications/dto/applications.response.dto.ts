@@ -148,7 +148,10 @@ export class ApplicationActionDto {
     example: 'PAY_BALANCE',
     description:
       'CONTINUE_DRAFT [Continuar] · JOIN_INTERVIEW [Entrar a la entrevista] (abre `interview.join.url`) ' +
-      '· PAY_BALANCE [Pagar saldo] (Fase 05: `/portal/postulaciones/{id}/pago`) · ' +
+      '· PAY_BALANCE [Pagar saldo] (Fase 05: `/portal/postulaciones/{id}/pago`) · CONTINUE_PAYMENT ' +
+      '[Continuar pago] (ya inició un pago: misma pantalla) · UPLOAD_TRANSFER_PROOF [Subir ' +
+      'comprobante] (transferencia rechazada) · PAYMENT_IN_VALIDATION "Pago en validación" ' +
+      '(deshabilitado, comprobante en revisión) · ' +
       'CONFIRM_PARTICIPATION [Confirmar mi participación] (`POST …/confirm`) · GO_TO_CLASSROOM [Ir a ' +
       'mi aula] · VIEW [Ver mi postulación].',
   })
@@ -163,7 +166,8 @@ export class ApplicationActionDto {
     example: null,
     description:
       'Si `enabled = false`: WINDOW_CLOSED (borrador en solo lectura), INTERVIEW_NOT_OPEN_YET ' +
-      '("Disponible 10 min antes"), INTERVIEW_LINK_PENDING, INTERVIEW_ENDED.',
+      '("Disponible 10 min antes"), INTERVIEW_LINK_PENDING, INTERVIEW_ENDED, ' +
+      'TRANSFER_PENDING_VALIDATION ("El equipo valida tu comprobante en 1–2 días hábiles").',
   })
   reason!: ApplicationActionReason | null;
 
@@ -255,6 +259,20 @@ export class ApplicationResponseDeadlineDto {
       'Comprobante de transferencia "Pendiente de validación" (Fase 05): la postulación no vence.',
   })
   transferPendingValidation!: boolean;
+
+  @ApiProperty({
+    example: false,
+    description:
+      'Fase 05: el último comprobante fue "Rechazado" (ver motivo en Mis pagos) y puede subir otro.',
+  })
+  transferRejected!: boolean;
+
+  @ApiProperty({
+    example: false,
+    description:
+      'Fase 05: ya inició un pago (abrió Stripe o subió comprobante): "Con pago iniciado".',
+  })
+  paymentStarted!: boolean;
 }
 
 /** Tarjeta de "Mis postulaciones" (HU-21) y widgets del Dashboard (HU-06). */

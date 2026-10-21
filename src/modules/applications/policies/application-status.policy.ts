@@ -61,8 +61,13 @@ export const APPLICATION_TRANSITIONS: Record<
   APPROVED_PENDING_CONFIRMATION: { ENROLLED: ['PARTICIPANT', 'STAFF'], EXPIRED: ['SYSTEM'] },
   ENROLLED: {},
   NOT_SELECTED: {},
-  // HU-32 "Extender plazo" reactiva una Vencida.
-  EXPIRED: { APPROVED_PENDING_PAYMENT: STAFF, APPROVED_PENDING_CONFIRMATION: STAFF },
+  // HU-32 "Extender plazo" reactiva una Vencida. Fase 05: un pago de Stripe abierto antes del
+  // vencimiento y confirmado después (sesión de Checkout ≥ 30 min) inscribe igual (sistema).
+  EXPIRED: {
+    APPROVED_PENDING_PAYMENT: STAFF,
+    APPROVED_PENDING_CONFIRMATION: STAFF,
+    ENROLLED: ['SYSTEM'],
+  },
 };
 
 export function canTransition(
@@ -116,6 +121,12 @@ export const ApplicationActionType = {
   JOIN_INTERVIEW: 'JOIN_INTERVIEW',
   /** [Pagar saldo] (HU-23, Fase 05) */
   PAY_BALANCE: 'PAY_BALANCE',
+  /** [Continuar pago] (Fase 05): ya inició un pago (Stripe o plan) sin completarlo */
+  CONTINUE_PAYMENT: 'CONTINUE_PAYMENT',
+  /** [Subir comprobante] (Fase 05, HU-23): su transferencia fue "Rechazada" y puede enviar otra */
+  UPLOAD_TRANSFER_PROOF: 'UPLOAD_TRANSFER_PROOF',
+  /** "Pago en validación" (Fase 05, HU-23): comprobante "Pendiente de validación" (deshabilitado) */
+  PAYMENT_IN_VALIDATION: 'PAYMENT_IN_VALIDATION',
   /** [Confirmar mi participación] (sin costo) */
   CONFIRM_PARTICIPATION: 'CONFIRM_PARTICIPATION',
   /** [Ir a mi aula] */
@@ -135,6 +146,8 @@ export const ApplicationActionReason = {
   INTERVIEW_LINK_PENDING: 'INTERVIEW_LINK_PENDING',
   /** La entrevista ya terminó (en espera de resultado). */
   INTERVIEW_ENDED: 'INTERVIEW_ENDED',
+  /** Fase 05: el equipo está validando el comprobante de transferencia (1–2 días hábiles). */
+  TRANSFER_PENDING_VALIDATION: 'TRANSFER_PENDING_VALIDATION',
 } as const;
 export type ApplicationActionReason =
   (typeof ApplicationActionReason)[keyof typeof ApplicationActionReason];
@@ -153,6 +166,8 @@ export interface ActionInput {
   windowOpen: boolean;
   responseDueAt: Date | null;
   interview: { startsAt: Date; joinState: string } | null;
+  /** Fase 05: estado del pago del saldo (columnas de la postulación). */
+  payment?: { started: boolean; transferPending: boolean; transferRejected: boolean };
 }
 
 export function contextualAction(input: ActionInput): ApplicationAction {
@@ -181,8 +196,19 @@ export function contextualAction(input: ActionInput): ApplicationAction {
               : ApplicationActionReason.INTERVIEW_NOT_OPEN_YET;
       return action('JOIN_INTERVIEW', input.interview.startsAt, reason);
     }
-    case 'APPROVED_PENDING_PAYMENT':
+    case 'APPROVED_PENDING_PAYMENT': {
+      const payment = input.payment;
+      if (payment?.transferPending) {
+        return action(
+          'PAYMENT_IN_VALIDATION',
+          input.responseDueAt,
+          ApplicationActionReason.TRANSFER_PENDING_VALIDATION,
+        );
+      }
+      if (payment?.transferRejected) return action('UPLOAD_TRANSFER_PROOF', input.responseDueAt);
+      if (payment?.started) return action('CONTINUE_PAYMENT', input.responseDueAt);
       return action('PAY_BALANCE', input.responseDueAt);
+    }
     case 'APPROVED_PENDING_CONFIRMATION':
       return action('CONFIRM_PARTICIPATION', input.responseDueAt);
     case 'ENROLLED':

@@ -18,7 +18,7 @@ Este documento es la referencia para cualquier persona (o agente) que agregue c�
 | Seguridad | helmet, CORS por lista blanca, @nestjs/throttler | Rate limit en login/OTP/contacto |
 | Correo | `MailService` con driver `console`/`smtp` en dev (Mailpit) y `resend` en prod | Intercambiable |
 | Archivos | `StorageService` sobre API S3 (MinIO en dev; Supabase Storage S3 o Cloudflare R2 en prod) | URLs firmadas temporales |
-| Pagos | Stripe (Checkout, Subscriptions/Invoices, Customer Portal, webhooks) | Fase 05 |
+| Pagos | Stripe (SDK `stripe` 23.0.0 exacto): Checkout Sessions (`payment` y `setup`), PaymentIntents off-session para cuotas, webhooks firmados. Puerto `PaymentGateway` (fake en e2e) | Fase 05 |
 | Tareas programadas | `@nestjs/schedule` (cron en proceso; una sola instancia en Railway) | Cierre de asistencia, vencimientos, recordatorios |
 | Fechas | Luxon | Zonas IANA; hora oficial `America/Mexico_City` |
 | Pruebas | Jest + supertest; e2e contra Postgres de Docker | |
@@ -42,7 +42,7 @@ src/
     dto/                  # PaginationQueryDto, PaginatedResponseDto, ErrorResponseDto
     utils/                # time (CDMX <-> UTC), money, slug, etc.
   infra/                  # adaptadores a servicios externos
-    prisma/  mail/  storage/  captcha/ (Turnstile)  stripe/
+    prisma/  mail/  storage/  captcha/ (Turnstile)  stripe/ (puerto PaymentGateway + Stripe)
   modules/                # un módulo por dominio
     <dominio>/
       <dominio>.module.ts
@@ -132,7 +132,8 @@ paginar (p. ej. `/locations/countries`) responden `{ "data": [ ... ] }` sin `met
 ## Base de datos
 
 - Desarrollo y pruebas: Postgres en `docker-compose.yml` (puerto host `5434`; BDs `eia_dev` y `eia_test`).
-- Prisma 7: la URL NO va en `schema.prisma`. El CLI la toma de `prisma.config.ts` (`DIRECT_URL` si existe, si no `DATABASE_URL`); la app usa `DATABASE_URL` con el driver adapter de `pg` en `PrismaService`. Importa tipos/enums de Prisma desde `src/generated/prisma/client`.
+- Prisma 7: la URL NO va en `schema.prisma`. Las transacciones interactivas usan `maxWait` 10 s y
+  `timeout` 15 s (`PrismaService`). El CLI la toma de `prisma.config.ts` (`DIRECT_URL` si existe, si no `DATABASE_URL`); la app usa `DATABASE_URL` con el driver adapter de `pg` en `PrismaService`. Importa tipos/enums de Prisma desde `src/generated/prisma/client`.
 - Producción: Postgres administrado (recomendado Supabase; alternativa Neon o Railway Postgres). Solo se usa `DATABASE_URL` (+ `DIRECT_URL` para migraciones si hay pooler).
 - Cada fase crea su migración con nombre descriptivo (`pnpm db:migrate --name fase01_identity`).
 - `prisma/seed.ts` es idempotente: catálogos de referencia (siempre), usuarios demo (nunca con `NODE_ENV=production`), ofertas demo de Fase 02 y contenido demo del portal de Fase 03 (biblioteca, recursos, eventos; `SEED_DEMO_DATA`, por defecto solo fuera de producción) e inscripciones/asistencias/notificaciones del usuario demo (nunca en producción), y postulaciones demo
@@ -263,6 +264,76 @@ evidencias, folio, % asignado, saldo y plazos) y `application-messages` (textos 
   `ApplicationLookupService`) → `viewer.application` y acciones `VIEW_APPLICATION` / `PAY_BALANCE`.
 - Para la Fase 06 quedan listos en `ApplicationWorkflowService`: `startReview`, `scheduleInterview`,
   `completeInterview`, `cancelInterview`, `approve`, `reject`, `extendDeadline` (sin endpoints admin).
+
+## Pagos y acceso Moodle (Fase 05)
+
+Módulos: `payments` (HU-22, 23, 24, 26 + "Mis pagos" de HU-14) y `moodle` (HU-25); adaptador
+`infra/stripe`. Dependencias: `payments` → (`applications`, `enrollments`, `notifications`) + puerto
+`PAYMENT_GATEWAY` (`StripeModule`, global); `dashboard` importa `payments`; `auth` importa `moodle`
+(vinculación al verificar el correo); `moodle` → (`enrollments`, `notifications`). Reglas puras con
+pruebas en `payments/policies/` (`payment-amounts`, `installment-collection`, `payment-status`,
+`checkout`, `transfer`, `payment-messages`) y `moodle/policies/moodle-code`.
+
+- **Puerto `PaymentGateway`** (`infra/stripe/payment-gateway.ts`): el dominio no importa el SDK.
+  `StripePaymentGateway` lo implementa; las e2e usan `test/utils/fake-payment-gateway.ts`, que firma
+  payloads reales con `stripe.webhooks.generateTestHeaderString`. Sin `STRIPE_SECRET_KEY` la app
+  arranca y los checkouts responden `503 PAYMENTS_NOT_CONFIGURED` (la transferencia sigue).
+- **Payment** = un cobro o comprobante con folio `PAG-000123` (`concept` FULL_PRICE / BALANCE /
+  INSTALLMENT, `method` CARD / BANK_TRANSFER). Montos SIEMPRE calculados por el servidor: precio fijo
+  por moneda del perfil (`offerPriceFor`) o `Application.balanceCents` en la moneda de la postulación.
+- **Stripe Checkout** (`mode=payment`, `allowed_payment_method_types: ['card']`, sesión de 30 min,
+  clave idempotente `checkout:{paymentId}`). Regreso a `FRONTEND_URL/portal/pagos/resultado`. La
+  consulta `GET /me/payments/{id}` concilia con Stripe si el webhook tarda.
+- **Webhook** `POST /api/v1/webhooks/stripe`: `app.setup.ts` monta `express.raw()` SOLO en esa ruta
+  (el parser JSON de Nest la omite porque el cuerpo ya se leyó); firma con `constructEvent`;
+  idempotencia con la tabla `stripe_events` (`processedAt`; error → 500 y Stripe reintenta); todas las
+  transiciones son updates condicionados al estado previo (`payment-status.policy`), así los eventos
+  repetidos o fuera de orden no retroceden un pago (`expired` tras `completed`, `payment_intent.*`
+  antes de `checkout.session.completed`, intento viejo fallido tras uno nuevo).
+- **Confirmación** (`PaymentLedgerService.markPaid`): sin postulación → inscripción ACTIVE con
+  `source` PAYMENT / INSTALLMENTS; con postulación → `ApplicationWorkflowService.markEnrolled`
+  (conserva `source` SCHOLARSHIP / OPEN_CALL para el embudo). `EXPIRED → ENROLLED` está permitido al
+  SISTEMA (pago abierto antes del vencimiento y confirmado después). Notificación PAYMENT_CONFIRMED.
+- **Cuotas = plan PROPIO** (`InstallmentPlan` + `Installment`), no Subscriptions/Subscription
+  Schedules: los montos no salen de un Price fijo (saldo tras beca, ajuste en la última cuota), las
+  fechas dependen del fin de la oferta y los estados son de negocio (Al día / Cobro fallido / En mora
+  / suspensión). La 1.ª cuota se cobra en Checkout con `setup_future_usage=off_session` (guarda la
+  tarjeta, 3-D Secure); las demás las cobra el job con PaymentIntents off-session
+  (`installment:{id}:attempt:{n}` idempotente). Reintentos: `INSTALLMENT_RETRY_ATTEMPTS` repartidos en
+  `INSTALLMENT_RETRY_WINDOW_DAYS` (días 3, 5, 7). Mora: `DELINQUENCY_AFTER_DAYS` desde el primer fallo →
+  DELINQUENT + PLAN_DELINQUENT y, con `SUSPEND_ACCESS_ON_DELINQUENCY`, inscripción SUSPENDED
+  (`plan.accessSuspendedAt`). Regularizar (reintento, [Pagar ahora] o tarjeta nueva con Checkout
+  `setup`) → CURRENT, `notifications.resolve` por prefijo (`plan-failed:{planId}:`,
+  `plan-delinquent:{planId}:`) y reactivación. Avisos fijados: INSTALLMENT_FAILED (uno por cuota),
+  PLAN_DELINQUENT.
+- **Cupo** (`seatHoldingWhere`): ocupan cupo ACTIVE/COMPLETED/SUSPENDED y las reservas
+  PENDING_PAYMENT con `seatHoldExpiresAt` null o futura. Checkout → hold hasta que vence la sesión
+  (webhook `checkout.session.expired` o el job lo cancelan); saldo tras beca → `null` (retiene hasta
+  que la postulación vence o se paga; con comprobante pendiente no vence).
+- **Transferencia** (solo México, saldo en MXN, una exhibición): datos bancarios por variables de
+  entorno (`BANK_TRANSFER_*`); comprobante con URL firmada + `head()` (PDF/JPG/PNG ≤ 5 MB, key bajo
+  `payments/transfers/{applicationId}/`); "Pendiente de validación" con `setPendingTransfer`
+  (reemplazable); `TransfersService.approveTransfer` / `rejectTransfer` listos para la Fase 06 (monto
+  recibido ≥ esperado; rechazo con motivo → `markTransferRejected`).
+- **Recibo**: PDF propio (`common/utils/simple-pdf.ts`, sin dependencias, WinAnsi) con folio, fecha,
+  concepto, monto, moneda y método; sirve para tarjeta y transferencia (el `receipt_url` de Stripe se
+  expone además como `stripeReceiptUrl`). No es CFDI.
+- **Moodle** (sin API): `MoodleRosterEntry` (lista por oferta, correo normalizado) y
+  `MoodleAccessCode` (XXXX-XXXX, un solo uso, solo hash, vence con la cohorte). Vincular =
+  inscripción ACTIVE origin MOODLE (`source` MOODLE_LIST / MOODLE_ACCESS_CODE) + notificación
+  MOODLE_ENROLLMENT_LINKED; ocurre al verificar el correo, al cargar la lista
+  (`MoodleAccessService.importRoster`, Fase 06) o con `POST /me/moodle-access/link|redeem`.
+- **Jobs** (`PaymentJobsService`, `PAYMENT_JOBS_CRON`, `SCHEDULER_ENABLED`): cobro de cuotas vencidas
+  y reintentos (claim atómico de la cuota), mora, aviso de cuota próxima (claim
+  `upcomingNotifiedAt`) y conciliación de checkouts vencidos.
+- **Acciones**: ficha (`CONTINUE_PAYMENT`, `PAYMENT_IN_VALIDATION`, `REGULARIZE_PAYMENT`, vía
+  `OfferEnrollmentLookup.enrollmentStatesForUser`) y postulación (`CONTINUE_PAYMENT`,
+  `UPLOAD_TRANSFER_PROOF`, `PAYMENT_IN_VALIDATION`, desde `paymentStartedAt` / `pendingTransferSince` /
+  `transferRejectedAt`).
+- Para la Fase 06 quedan listos: `TransfersService.approveTransfer/rejectTransfer`,
+  `InstallmentCollectionService.chargeInstallment` (reintentar), `PaymentLedgerService.markDelinquent`,
+  `EnrollmentsService.suspendForDelinquency/restoreAccess`, `MoodleAccessService.importRoster/
+  generateCodes` (sin endpoints admin).
 
 ## Reglas de negocio configurables
 

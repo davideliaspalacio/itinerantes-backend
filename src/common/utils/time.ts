@@ -84,6 +84,15 @@ export function addDaysInZone(date: Date, days: number, zone: string = OFFICIAL_
   return utcToZoned(date, zone).plus({ days }).toUTC().toJSDate();
 }
 
+/** Suma meses de calendario en la zona (31-ene + 1 mes → 28/29-feb). Cuotas mensuales (HU-24). */
+export function addMonthsInZone(
+  date: Date,
+  months: number,
+  zone: string = OFFICIAL_TIMEZONE,
+): Date {
+  return utcToZoned(date, zone).plus({ months }).toUTC().toJSDate();
+}
+
 /** Suma minutos/horas a un instante (independiente de zona). */
 export function addMinutes(date: Date, minutes: number): Date {
   return new Date(date.getTime() + minutes * 60_000);

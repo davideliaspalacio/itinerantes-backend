@@ -246,6 +246,76 @@ export const ERROR_CODES = {
     status: HttpStatus.UNPROCESSABLE_ENTITY,
     message: 'Esta postulación requiere entrevista por Zoom.',
   },
+
+  // --- Fase 05: Pagos (HU-22, 23, 24, 26) y acceso Moodle (HU-25) ---
+  PAYMENTS_NOT_CONFIGURED: {
+    status: HttpStatus.SERVICE_UNAVAILABLE,
+    message: 'El pago con tarjeta no está disponible en este momento. Intenta más tarde.',
+  },
+  PAYMENT_PROVIDER_ERROR: {
+    status: HttpStatus.BAD_GATEWAY,
+    message: 'No pudimos comunicarnos con el procesador de pagos. Intenta de nuevo.',
+  },
+  PAYMENT_NOT_ALLOWED: {
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    message: 'Esta oferta no se paga en la plataforma.',
+  },
+  PAYMENT_BALANCE_NOT_DUE: {
+    status: HttpStatus.CONFLICT,
+    message: 'Esta postulación no tiene un saldo pendiente de pago.',
+  },
+  PAYMENT_INSTALLMENTS_NOT_AVAILABLE: {
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    message: 'El número de cuotas elegido no está disponible para esta oferta.',
+  },
+  PAYMENT_TRANSFER_NOT_AVAILABLE: {
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    message: 'La transferencia bancaria no está disponible para este pago.',
+  },
+  PAYMENT_TRANSFER_PENDING: {
+    status: HttpStatus.CONFLICT,
+    message: 'Tienes un comprobante de transferencia en validación.',
+  },
+  PAYMENT_TRANSFER_INVALID_FILE: {
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    message: 'El comprobante debe ser PDF, JPG o PNG de máximo 5 MB.',
+  },
+  PAYMENT_TRANSFER_UPLOAD_NOT_FOUND: {
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    message: 'No encontramos el comprobante subido. Vuelve a subirlo.',
+  },
+  PAYMENT_TRANSFER_AMOUNT_MISMATCH: {
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    message: 'El monto recibido es menor al saldo esperado: solo se puede rechazar.',
+  },
+  PAYMENT_INVALID_STATE: {
+    status: HttpStatus.CONFLICT,
+    message: 'El pago no está en un estado que permita esta acción.',
+  },
+  PAYMENT_CHARGE_FAILED: {
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    message: 'El cobro fue rechazado. Actualiza tu tarjeta o intenta con otra.',
+  },
+  PAYMENT_RECEIPT_NOT_AVAILABLE: {
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    message: 'El comprobante solo está disponible para pagos pagados o transferencias validadas.',
+  },
+  PAYMENT_WEBHOOK_SIGNATURE_INVALID: {
+    status: HttpStatus.BAD_REQUEST,
+    message: 'Firma del webhook inválida.',
+  },
+  MOODLE_CODE_INVALID: {
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    message: 'El código de acceso no es válido.',
+  },
+  MOODLE_CODE_USED: {
+    status: HttpStatus.CONFLICT,
+    message: 'Este código de acceso ya fue usado.',
+  },
+  MOODLE_CODE_EXPIRED: {
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    message: 'Este código de acceso venció.',
+  },
 } as const satisfies Record<string, ErrorDefinition>;
 
 export type ErrorCode = keyof typeof ERROR_CODES;

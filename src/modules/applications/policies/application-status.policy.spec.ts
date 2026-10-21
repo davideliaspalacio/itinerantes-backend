@@ -20,7 +20,7 @@ describe('máquina de estados de la postulación', () => {
     expect(allowed).toEqual(['DRAFT→SUBMITTED', 'APPROVED_PENDING_CONFIRMATION→ENROLLED']);
   });
 
-  it('el sistema solo inscribe tras el pago y vence aprobadas', () => {
+  it('el sistema solo inscribe tras el pago (también tras vencer, Fase 05) y vence aprobadas', () => {
     const allowed = ALL.flatMap((from) =>
       ALL.filter((to) => canTransition(from, to, 'SYSTEM')).map((to) => `${from}→${to}`),
     );
@@ -28,6 +28,7 @@ describe('máquina de estados de la postulación', () => {
       'APPROVED_PENDING_PAYMENT→ENROLLED',
       'APPROVED_PENDING_PAYMENT→EXPIRED',
       'APPROVED_PENDING_CONFIRMATION→EXPIRED',
+      'EXPIRED→ENROLLED',
     ]);
   });
 
@@ -231,5 +232,44 @@ describe('buildTimeline (HU-21)', () => {
         history: [...history, { toStatus: 'ENROLLED', at: t('2026-10-27T10:00:00Z') }],
       }).every((s) => s.endsWith(':DONE')),
     ).toBe(true);
+  });
+});
+
+describe('contextualAction — pago del saldo (Fase 05)', () => {
+  const due = new Date('2026-11-14T05:59:00Z');
+  const input = (payment: {
+    started: boolean;
+    transferPending: boolean;
+    transferRejected: boolean;
+  }) =>
+    contextualAction({
+      status: 'APPROVED_PENDING_PAYMENT',
+      windowOpen: true,
+      responseDueAt: due,
+      interview: null,
+      payment,
+    });
+
+  it('Pagar saldo → Continuar pago → Pago en validación / Subir comprobante', () => {
+    expect(input({ started: false, transferPending: false, transferRejected: false }).type).toBe(
+      'PAY_BALANCE',
+    );
+    expect(input({ started: true, transferPending: false, transferRejected: false }).type).toBe(
+      'CONTINUE_PAYMENT',
+    );
+    expect(input({ started: true, transferPending: true, transferRejected: false })).toEqual({
+      type: 'PAYMENT_IN_VALIDATION',
+      enabled: false,
+      reason: 'TRANSFER_PENDING_VALIDATION',
+      dueAt: due,
+    });
+    expect(input({ started: true, transferPending: false, transferRejected: true }).type).toBe(
+      'UPLOAD_TRANSFER_PROOF',
+    );
+  });
+
+  it('un pago confirmado tras vencer inscribe igual (sistema)', () => {
+    expect(canTransition('EXPIRED', 'ENROLLED', 'SYSTEM')).toBe(true);
+    expect(canTransition('EXPIRED', 'ENROLLED', 'PARTICIPANT')).toBe(false);
   });
 });

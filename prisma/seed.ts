@@ -10,6 +10,8 @@
  *   existe con NODE_ENV=production.
  * - Postulaciones demo (Fase 04): solo para el usuario demo y nunca con NODE_ENV=production; se crean
  *   solo si no existen (no pisan lo que se haga desde el portal).
+ * - Pagos demo (Fase 05: plan de cuotas, pago completo) y acceso Moodle demo (lista y código): nunca
+ *   con NODE_ENV=production ni sin SEED_DEMO_DATA; se crean solo si no existen.
  *
  * Reglas para las fases:
  * - Usa SIEMPRE `upsert` (o `createMany({ skipDuplicates: true })`) con claves estables (email, slug),
@@ -24,6 +26,7 @@ import { resolve } from 'node:path';
 import { PrismaPg } from '@prisma/adapter-pg';
 import * as argon2 from 'argon2';
 import { Prisma, PrismaClient, Role, UserStatus } from '../src/generated/prisma/client';
+import { accessCodeHint, hashAccessCode } from '../src/modules/moodle/policies/moodle-code.policy';
 import { buildImportantDates } from '../src/modules/offers/policies/important-dates.policy';
 import { cdmxDate, parseScheduleRule } from '../src/modules/offers/policies/schedule-rule';
 import { generateSessions } from '../src/modules/offers/policies/session-generation.policy';
@@ -475,12 +478,155 @@ async function seedDemoApplications(prisma: PrismaClient): Promise<void> {
   console.log(`  ${created} postulaciones demo nuevas de participante@example.com.`);
 }
 
+/**
+ * Fase 05: pagos demo de `participante@example.com` (nunca en producción; solo si no existen):
+ * - Plan de 3 cuotas "Al día" en el Diplomado en Ecotecnologías del Agua: 1.ª pagada y la 2.ª en
+ *   5 días (aviso "cuota próxima" del Dashboard). Sin tarjeta real: el job no la cobra sin Stripe.
+ * - Pago completo "Pagado" del Curso de Humedales construidos (recibo PDF descargable).
+ * - Moodle: el correo demo en la lista del curso Moodle (vinculado), `moodle.demo@example.com` en la
+ *   lista sin cuenta (se vincula al registrarse) y el código de un solo uso `AGUA-2345`.
+ */
+async function seedDemoPayments(prisma: PrismaClient): Promise<void> {
+  if (process.env.NODE_ENV === 'production' || !demoDataEnabled()) {
+    console.log('  Se omiten los pagos demo (producción o SEED_DEMO_DATA desactivado).');
+    return;
+  }
+  const participant = await prisma.user.findUnique({
+    where: { email: 'participante@example.com' },
+  });
+  if (!participant) return;
+  const offerBySlug = async (slug: string) => prisma.offer.findUnique({ where: { slug } });
+  const now = new Date();
+  const day = 86_400_000;
+  let created = 0;
+
+  const diploma = await offerBySlug('diplomado-en-ecotecnologias-del-agua');
+  if (diploma) {
+    const existing = await prisma.installmentPlan.findFirst({
+      where: { userId: participant.id, offerId: diploma.id },
+    });
+    if (!existing) {
+      const enrollment = await prisma.enrollment.findUnique({
+        where: { userId_offerId: { userId: participant.id, offerId: diploma.id } },
+      });
+      const plan = await prisma.installmentPlan.create({
+        data: {
+          userId: participant.id,
+          offerId: diploma.id,
+          enrollmentId: enrollment?.id ?? null,
+          concept: 'FULL_PRICE',
+          status: 'CURRENT',
+          currency: 'MXN',
+          totalCents: 1_020_000,
+          installmentCount: 3,
+          cardBrand: 'visa',
+          cardLast4: '4242',
+          cardExpMonth: 12,
+          cardExpYear: 2030,
+          autoDebitAuthorizedAt: new Date(now.getTime() - 26 * day),
+          activatedAt: new Date(now.getTime() - 26 * day),
+          installments: {
+            create: [
+              {
+                sequence: 1,
+                amountCents: 340_000,
+                dueAt: new Date(now.getTime() - 26 * day),
+                status: 'PAID',
+                attempts: 1,
+                paidAt: new Date(now.getTime() - 26 * day),
+              },
+              { sequence: 2, amountCents: 340_000, dueAt: new Date(now.getTime() + 5 * day) },
+              { sequence: 3, amountCents: 340_000, dueAt: new Date(now.getTime() + 35 * day) },
+            ],
+          },
+        },
+        include: { installments: { where: { sequence: 1 } } },
+      });
+      await prisma.payment.create({
+        data: {
+          userId: participant.id,
+          offerId: diploma.id,
+          enrollmentId: enrollment?.id ?? null,
+          planId: plan.id,
+          installmentId: plan.installments[0].id,
+          concept: 'INSTALLMENT',
+          method: 'CARD',
+          status: 'PAID',
+          amountCents: 340_000,
+          currency: 'MXN',
+          cardBrand: 'visa',
+          cardLast4: '4242',
+          paidAt: new Date(now.getTime() - 26 * day),
+        },
+      });
+      created++;
+    }
+  }
+
+  const course = await offerBySlug('curso-humedales-construidos');
+  if (course) {
+    const existing = await prisma.payment.findFirst({
+      where: { userId: participant.id, offerId: course.id },
+    });
+    if (!existing) {
+      const enrollment = await prisma.enrollment.findUnique({
+        where: { userId_offerId: { userId: participant.id, offerId: course.id } },
+      });
+      await prisma.payment.create({
+        data: {
+          userId: participant.id,
+          offerId: course.id,
+          enrollmentId: enrollment?.id ?? null,
+          concept: 'FULL_PRICE',
+          method: 'CARD',
+          status: 'PAID',
+          amountCents: 180_000,
+          currency: 'MXN',
+          cardBrand: 'visa',
+          cardLast4: '4242',
+          paidAt: new Date(now.getTime() - 40 * day),
+        },
+      });
+      created++;
+    }
+  }
+
+  const moodleCourse = await offerBySlug('curso-captacion-y-cosecha-de-agua-moodle');
+  if (moodleCourse) {
+    await prisma.moodleRosterEntry.createMany({
+      data: [
+        {
+          offerId: moodleCourse.id,
+          email: participant.email,
+          linkedUserId: participant.id,
+          linkedAt: now,
+        },
+        { offerId: moodleCourse.id, email: 'moodle.demo@example.com' },
+      ],
+      skipDuplicates: true,
+    });
+    await prisma.moodleAccessCode.createMany({
+      data: [
+        {
+          offerId: moodleCourse.id,
+          codeHash: hashAccessCode('AGUA-2345'),
+          codeHint: accessCodeHint('AGUA-2345'),
+          expiresAt: moodleCourse.endsAt,
+        },
+      ],
+      skipDuplicates: true,
+    });
+  }
+  console.log(`  ${created} pagos/planes demo nuevos; lista y código Moodle demo (AGUA-2345).`);
+}
+
 const seeders: Array<[name: string, run: Seeder]> = [
   ['Fase 01 — ubicaciones', seedLocations],
   ['Fase 01 — usuarios demo', seedDemoUsers],
   ['Fase 02 — ofertas demo', seedDemoOffers],
   ['Fase 03 — portal demo', seedDemoPortal],
   ['Fase 04 — postulaciones demo', seedDemoApplications],
+  ['Fase 05 — pagos y Moodle demo', seedDemoPayments],
 ];
 
 async function main(): Promise<void> {

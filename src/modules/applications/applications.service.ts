@@ -734,6 +734,11 @@ export class ApplicationsService {
       interview: interview
         ? { startsAt: interview.row.startsAt, joinState: interview.join.state }
         : null,
+      payment: {
+        started: row.paymentStartedAt !== null,
+        transferPending: row.pendingTransferSince !== null,
+        transferRejected: row.transferRejectedAt !== null,
+      },
     });
     const currency = row.currency && isCurrency(row.currency) ? row.currency : null;
     const money = (cents: number | null) =>
@@ -796,6 +801,8 @@ export class ApplicationsService {
             dueAt: row.responseDueAt?.toISOString() ?? null,
             amount: responseKind === 'PAYMENT' ? money(row.balanceCents) : null,
             transferPendingValidation: row.pendingTransferSince !== null,
+            transferRejected: row.transferRejectedAt !== null,
+            paymentStarted: row.paymentStartedAt !== null,
           }
         : null,
     };

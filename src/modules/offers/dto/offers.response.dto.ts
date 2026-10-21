@@ -412,7 +412,16 @@ export class OfferCapacityDto {
 }
 
 export class OfferActionDto {
-  @ApiProperty({ enum: Object.values(OfferActionType), example: 'ENROLL_AND_PAY' })
+  @ApiProperty({
+    enum: Object.values(OfferActionType),
+    example: 'ENROLL_AND_PAY',
+    description:
+      'Fase 05: ENROLL_AND_PAY / PAY_IN_INSTALLMENTS → pantalla de pago (`GET /me/payments/quote?offerId=`), ' +
+      'PAY_BALANCE → `/portal/postulaciones/{applicationId}/pago`, CONTINUE_PAYMENT [Continuar pago] ' +
+      '(checkout abierto: `POST /me/payments/checkout` devuelve la misma sesión), ' +
+      'PAYMENT_IN_VALIDATION "Pago en validación" (deshabilitado), REGULARIZE_PAYMENT [Regularizar ' +
+      'pago] → Mis pagos (acceso suspendido por mora).',
+  })
   type!: OfferActionType;
 
   @ApiProperty({ example: true })
@@ -474,6 +483,13 @@ export class OfferViewerApplicationDto {
 
   @ApiProperty({ example: 'BEC-000123' })
   folio!: string;
+
+  @ApiProperty({
+    example: false,
+    required: false,
+    description: 'Fase 05: comprobante de transferencia "Pendiente de validación".',
+  })
+  transferPending?: boolean;
 }
 
 export class OfferViewerDto {

@@ -386,7 +386,7 @@ export class ApplicationWorkflowService {
   ): Promise<Application> {
     const now = nowUtc();
     const { application } = await this.transition(applicationId, 'ENROLLED', actor, {
-      data: { enrolledAt: now, pendingTransferSince: null },
+      data: { enrolledAt: now, pendingTransferSince: null, expiredAt: null },
       afterUpdate: async (tx, app) => this.activateEnrollment(tx, app, now),
     });
     return application;
@@ -396,14 +396,49 @@ export class ApplicationWorkflowService {
    * Comprobante de transferencia "Pendiente de validación" (true) o resuelto/rechazado (false).
    * Mientras esté pendiente, el job de vencimientos no la vence (HU-21/23).
    */
-  async setPendingTransfer(applicationId: string, pending: boolean): Promise<void> {
+  async setPendingTransfer(
+    applicationId: string,
+    pending: boolean,
+    tx: Prisma.TransactionClient = this.prisma,
+  ): Promise<void> {
     const now = nowUtc();
-    await this.prisma.application.update({
+    const current = await tx.application.findUnique({
+      where: { id: applicationId },
+      select: { paymentStartedAt: true },
+    });
+    await tx.application.update({
       where: { id: applicationId },
       data: {
         pendingTransferSince: pending ? now : null,
-        ...(pending ? { paymentStartedAt: now } : {}),
+        ...(pending
+          ? { paymentStartedAt: current?.paymentStartedAt ?? now, transferRejectedAt: null }
+          : {}),
       },
+    });
+  }
+
+  /**
+   * Fase 05 (HU-23/33): el equipo rechazó el comprobante. Deja de estar "Pendiente de validación"
+   * (vuelve a correr el plazo) y la persona ve [Subir comprobante].
+   */
+  async markTransferRejected(
+    applicationId: string,
+    tx: Prisma.TransactionClient = this.prisma,
+  ): Promise<void> {
+    await tx.application.update({
+      where: { id: applicationId },
+      data: { pendingTransferSince: null, transferRejectedAt: nowUtc() },
+    });
+  }
+
+  /** Fase 05: "Con pago iniciado" (embudo HU-32): abrió Stripe o creó un plan. Idempotente. */
+  async markPaymentStarted(
+    applicationId: string,
+    tx: Prisma.TransactionClient = this.prisma,
+  ): Promise<void> {
+    await tx.application.updateMany({
+      where: { id: applicationId, paymentStartedAt: null },
+      data: { paymentStartedAt: nowUtc() },
     });
   }
 

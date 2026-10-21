@@ -23,4 +23,18 @@ export const PORTAL_LINKS = {
   openCalls: () => '/portal/convocatorias',
   /** "Pagar saldo" tras beca (HU-23, pantalla de la Fase 05). */
   payBalance: (applicationId: string) => `/portal/postulaciones/${applicationId}/pago`,
+  // Fase 05 — Pagos (HU-22, 23, 24, 26) y acceso Moodle (HU-25)
+  /** Perfil › "Mis pagos" (HU-14 / HU-26). */
+  myPayments: () => '/portal/perfil/pagos',
+  /** Detalle de un pago (comprobante, motivo de rechazo). */
+  payment: (paymentId: string) => `/portal/perfil/pagos/${paymentId}`,
+  /** Resumen y pago de una oferta (HU-22: "Inscribirme y pagar" / "Pagar en cuotas"). */
+  checkout: (offerSlug: string) => `/portal/pagar/${offerSlug}`,
+  /**
+   * Regreso de Stripe Checkout (success_url / cancel_url). El backend agrega `paymentId` y
+   * `result=success|cancel`; Stripe reemplaza `{CHECKOUT_SESSION_ID}`.
+   */
+  checkoutResult: () => '/portal/pagos/resultado',
+  /** "Mi formación" (banner de vinculación Moodle). */
+  myFormation: () => '/portal/mi-formacion',
 } as const;

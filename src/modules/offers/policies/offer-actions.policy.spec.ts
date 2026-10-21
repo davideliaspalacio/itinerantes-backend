@@ -167,3 +167,46 @@ describe('computeOfferActions (HU-16)', () => {
     expect(windowState(null, new Date('2026-10-19T00:00:00Z'), now)).toBe('CLOSED');
   });
 });
+
+describe('computeOfferActions — pagos (Fase 05)', () => {
+  it('checkout abierto → [Continuar pago]', () => {
+    expect(
+      summary({
+        ...base,
+        viewer: {
+          authenticated: true,
+          enrolled: false,
+          enrollment: { status: 'PENDING_PAYMENT', checkoutPending: true },
+        },
+      }),
+    ).toEqual([['CONTINUE_PAYMENT', true, null]]);
+  });
+
+  it('acceso suspendido por mora → [Regularizar pago]', () => {
+    expect(
+      summary({
+        ...base,
+        viewer: {
+          authenticated: true,
+          enrolled: false,
+          enrollment: { status: 'SUSPENDED', checkoutPending: false },
+        },
+      }),
+    ).toEqual([['REGULARIZE_PAYMENT', true, null]]);
+  });
+
+  it('comprobante en validación → "Pago en validación" deshabilitado', () => {
+    const actions = computeOfferActions({
+      ...base,
+      viewer: {
+        authenticated: true,
+        enrolled: false,
+        application: { id: 'a1', status: 'APPROVED_PENDING_PAYMENT', transferPending: true },
+      },
+    });
+    expect(actions.map((a) => [a.type, a.enabled, a.reason])).toEqual([
+      ['PAYMENT_IN_VALIDATION', false, 'TRANSFER_PENDING_VALIDATION'],
+      ['VIEW_APPLICATION', true, null],
+    ]);
+  });
+});

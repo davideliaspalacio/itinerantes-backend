@@ -31,6 +31,9 @@ describe('Oferta formativa (e2e) — HU-15, HU-16, HU-34', () => {
     countSeatsTaken() {
       return Promise.resolve(this.seats);
     },
+    enrollmentStatesForUser() {
+      return Promise.resolve(new Map());
+    },
   };
 
   const token = `zq${randomUUID().slice(0, 6)}`;
@@ -480,6 +483,14 @@ describe('Oferta formativa (e2e) — HU-15, HU-16, HU-34', () => {
 
   describe('GET /offers/availability (HU-34)', () => {
     it('las 10 temáticas en orden, con etiqueta y destino', async () => {
+      // Robustez: ofertas e2e de ejecuciones anteriores (eia_test no se resetea) no deben contar.
+      await prisma.offer.updateMany({
+        where: {
+          slug: { startsWith: 'e2e-', not: { contains: token } },
+          publicTopic: { not: null },
+        },
+        data: { publicTopic: null },
+      });
       const res = await http().get('/api/v1/offers/availability').expect(200);
       const data = res.body.data as Item[];
       expect(data.map((t) => t.topic)).toEqual([

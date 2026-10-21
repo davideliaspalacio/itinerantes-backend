@@ -16,14 +16,44 @@ export const CLASSROOM_ACCESS_STATUSES = [
 ] as const satisfies readonly EnrollmentStatus[];
 
 /**
- * Estados que ocupan cupo (HU-16 "Cupo agotado", HU-22). PENDING_PAYMENT no ocupa cupo en Fase 03;
- * la Fase 05 decide si una reserva en checkout lo retiene (con vencimiento).
+ * Estados que ocupan cupo SIEMPRE (HU-16 "Cupo agotado", HU-22). Además, desde la Fase 05 una
+ * reserva PENDING_PAYMENT retiene cupo mientras su `seatHoldExpiresAt` sea null o futura
+ * (`seatHoldingWhere`):
+ * - Checkout de Stripe (HU-22/24): vence con la sesión (CHECKOUT_SESSION_TTL_MINUTES, 30 min); el job
+ *   y el webhook `checkout.session.expired` la cancelan.
+ * - Saldo tras beca (HU-23): `null` → retiene hasta que la postulación vence (el job de Fase 04 la
+ *   cancela) o se paga; con comprobante "Pendiente de validación" no vence.
  */
 export const SEAT_HOLDING_STATUSES = [
   'ACTIVE',
   'COMPLETED',
   'SUSPENDED',
 ] as const satisfies readonly EnrollmentStatus[];
+
+/** Filtro Prisma de las inscripciones que ocupan cupo en `now` (ver SEAT_HOLDING_STATUSES). */
+export function seatHoldingWhere(now: Date) {
+  return {
+    OR: [
+      { status: { in: [...SEAT_HOLDING_STATUSES] } },
+      {
+        status: 'PENDING_PAYMENT' as const,
+        OR: [{ seatHoldExpiresAt: null }, { seatHoldExpiresAt: { gt: now } }],
+      },
+    ],
+  };
+}
+
+/** ¿Una inscripción ocupa cupo en `now`? (versión en memoria de `seatHoldingWhere`). */
+export function holdsSeat(
+  enrollment: { status: EnrollmentStatus; seatHoldExpiresAt: Date | null },
+  now: Date,
+): boolean {
+  if ((SEAT_HOLDING_STATUSES as readonly string[]).includes(enrollment.status)) return true;
+  return (
+    enrollment.status === 'PENDING_PAYMENT' &&
+    (enrollment.seatHoldExpiresAt === null || enrollment.seatHoldExpiresAt > now)
+  );
+}
 
 /** Estados que aparecen en "Mi formación" (HU-07). PENDING_PAYMENT y CANCELLED no se listan. */
 export const MY_FORMATION_STATUSES = [

@@ -112,10 +112,29 @@ export const envSchema = z
      */
     SCHEDULER_ENABLED: bool(true),
 
-    // --- Stripe (Fase 05; opcionales por ahora) ---
+    // --- Stripe (Fase 05) ---
+    /**
+     * Llave secreta (sk_live_… / sk_test_… o restringida rk_…). Si falta, la app arranca igual pero
+     * los endpoints de checkout responden 503 PAYMENTS_NOT_CONFIGURED (la transferencia sigue).
+     */
     STRIPE_SECRET_KEY: optionalString,
+    /** Secreto de firma del endpoint de webhook (whsec_…). Sin él, el webhook responde 503. */
     STRIPE_WEBHOOK_SECRET: optionalString,
+    /** Llave publicable (pk_…). Informativa: Checkout es hospedado y el frontend no la necesita. */
     STRIPE_PUBLISHABLE_KEY: optionalString,
+
+    // --- Transferencia bancaria México (Fase 05, HU-23) ---
+    /** Titular de la cuenta. Si falta alguno de los tres datos, la transferencia no se ofrece. */
+    BANK_TRANSFER_ACCOUNT_HOLDER: optionalString,
+    /** Banco. */
+    BANK_TRANSFER_BANK_NAME: optionalString,
+    /** CLABE interbancaria (18 dígitos). */
+    BANK_TRANSFER_CLABE: optionalString.pipe(
+      z
+        .string()
+        .regex(/^\d{18}$/, 'La CLABE debe tener 18 dígitos')
+        .optional(),
+    ),
   })
   .superRefine((env, ctx) => {
     if (env.MAIL_DRIVER === 'resend' && !env.RESEND_API_KEY) {

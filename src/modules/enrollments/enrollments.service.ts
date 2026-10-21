@@ -17,6 +17,7 @@ import {
   hasClassroomAccess,
   MY_FORMATION_STATUSES,
   SEAT_HOLDING_STATUSES,
+  seatHoldingWhere,
 } from './policies/enrollment.policy';
 import { computeProgress, nextSession } from './policies/progress.policy';
 import { whatsappInfo } from '../classroom/policies/classroom.policy';
@@ -100,7 +101,7 @@ export class EnrollmentsService {
       const seatsTaken =
         offer.capacity !== null
           ? await tx.enrollment.count({
-              where: { offerId, status: { in: [...SEAT_HOLDING_STATUSES] } },
+              where: { offerId, userId: { not: userId }, ...seatHoldingWhere(now) },
             })
           : 0;
       const decision = decideFreeEnrollment({
@@ -177,6 +178,8 @@ export class EnrollmentsService {
       activatedAt: input.status === 'ACTIVE' ? input.now : null,
       cancelledAt: null,
       statusReason: null,
+      // Saldo tras beca: la reserva retiene cupo hasta que la postulación vence o se paga (Fase 05).
+      seatHoldExpiresAt: null,
     };
     return existing
       ? tx.enrollment.update({ where: { id: existing.id }, data })
@@ -195,6 +198,151 @@ export class EnrollmentsService {
       data: { status: 'CANCELLED', cancelledAt: now, statusReason: reason },
     });
     return result.count;
+  }
+
+  // --- Fase 05: pagos (HU-22, 24) y acceso Moodle (HU-25) ----------------------------------------
+
+  /**
+   * Reserva PENDING_PAYMENT de un checkout (HU-22/24): retiene cupo hasta `expiresAt` (vence con la
+   * sesión de Stripe). Corre en la transacción que bloquea la oferta. No toca reservas de una
+   * postulación ni inscripciones vigentes (el llamador ya validó).
+   */
+  async holdForCheckout(
+    tx: Prisma.TransactionClient,
+    input: {
+      userId: string;
+      offerId: string;
+      source: 'PAYMENT' | 'INSTALLMENTS';
+      expiresAt: Date;
+    },
+  ): Promise<Enrollment> {
+    const data = {
+      status: 'PENDING_PAYMENT' as const,
+      origin: 'NAS' as const,
+      source: input.source,
+      seatHoldExpiresAt: input.expiresAt,
+      activatedAt: null,
+      cancelledAt: null,
+      statusReason: null,
+    };
+    return tx.enrollment.upsert({
+      where: { userId_offerId: { userId: input.userId, offerId: input.offerId } },
+      create: { userId: input.userId, offerId: input.offerId, ...data },
+      update: data,
+    });
+  }
+
+  /**
+   * Pago confirmado sin postulación (HU-22/24): inscripción ACTIVE con `source` PAYMENT / INSTALLMENTS.
+   * Si ya tenía acceso por otra vía no la modifica. Devuelve la inscripción y si se activó ahora.
+   */
+  async activateFromPayment(
+    tx: Prisma.TransactionClient,
+    input: { userId: string; offerId: string; source: 'PAYMENT' | 'INSTALLMENTS'; now: Date },
+  ): Promise<{ enrollment: Enrollment; activated: boolean }> {
+    const existing = await tx.enrollment.findUnique({
+      where: { userId_offerId: { userId: input.userId, offerId: input.offerId } },
+    });
+    if (existing && hasClassroomAccess(existing.status)) {
+      return { enrollment: existing, activated: false };
+    }
+    const data = {
+      status: 'ACTIVE' as const,
+      origin: 'NAS' as const,
+      source: input.source,
+      activatedAt: input.now,
+      seatHoldExpiresAt: null,
+      cancelledAt: null,
+      suspendedAt: null,
+      statusReason: null,
+    };
+    const enrollment = existing
+      ? await tx.enrollment.update({ where: { id: existing.id }, data })
+      : await tx.enrollment.create({
+          data: { userId: input.userId, offerId: input.offerId, ...data },
+        });
+    return { enrollment, activated: true };
+  }
+
+  /** Libera la reserva de un checkout cancelado o vencido (solo si sigue PENDING_PAYMENT sin postulación). */
+  async releaseCheckoutHold(
+    tx: Prisma.TransactionClient,
+    input: { userId: string; offerId: string; reason: string; now: Date },
+  ): Promise<number> {
+    const result = await tx.enrollment.updateMany({
+      where: {
+        userId: input.userId,
+        offerId: input.offerId,
+        status: 'PENDING_PAYMENT',
+        applicationId: null,
+      },
+      data: {
+        status: 'CANCELLED',
+        cancelledAt: input.now,
+        seatHoldExpiresAt: null,
+        statusReason: input.reason,
+      },
+    });
+    return result.count;
+  }
+
+  /** HU-24/33: suspende el acceso por mora (ACTIVE → SUSPENDED). Devuelve si cambió. */
+  async suspendForDelinquency(
+    tx: Prisma.TransactionClient,
+    enrollmentId: string,
+    reason: string,
+    now: Date,
+  ): Promise<boolean> {
+    const result = await tx.enrollment.updateMany({
+      where: { id: enrollmentId, status: 'ACTIVE' },
+      data: { status: 'SUSPENDED', suspendedAt: now, statusReason: reason },
+    });
+    return result.count > 0;
+  }
+
+  /** Al regularizar el pago: SUSPENDED → ACTIVE. Devuelve si cambió. */
+  async restoreAccess(tx: Prisma.TransactionClient, enrollmentId: string): Promise<boolean> {
+    const result = await tx.enrollment.updateMany({
+      where: { id: enrollmentId, status: 'SUSPENDED' },
+      data: { status: 'ACTIVE', suspendedAt: null, statusReason: null },
+    });
+    return result.count > 0;
+  }
+
+  /**
+   * HU-25: vincula una oferta Moodle (lista del equipo o código de acceso) → inscripción ACTIVE de
+   * origen MOODLE. Si ya tenía una inscripción vigente (cualquier origen) no la toca.
+   */
+  async linkMoodle(
+    tx: Prisma.TransactionClient,
+    input: {
+      userId: string;
+      offerId: string;
+      source: 'MOODLE_LIST' | 'MOODLE_ACCESS_CODE';
+      now: Date;
+    },
+  ): Promise<{ enrollment: Enrollment; linked: boolean }> {
+    const existing = await tx.enrollment.findUnique({
+      where: { userId_offerId: { userId: input.userId, offerId: input.offerId } },
+    });
+    if (existing && (SEAT_HOLDING_STATUSES as readonly string[]).includes(existing.status)) {
+      return { enrollment: existing, linked: false };
+    }
+    const data = {
+      status: 'ACTIVE' as const,
+      origin: 'MOODLE' as const,
+      source: input.source,
+      activatedAt: input.now,
+      seatHoldExpiresAt: null,
+      cancelledAt: null,
+      statusReason: null,
+    };
+    const enrollment = existing
+      ? await tx.enrollment.update({ where: { id: existing.id }, data })
+      : await tx.enrollment.create({
+          data: { userId: input.userId, offerId: input.offerId, ...data },
+        });
+    return { enrollment, linked: true };
   }
 
   async cardFor(userId: string, offerId: string, now: Date = nowUtc()): Promise<FormationCardDto> {

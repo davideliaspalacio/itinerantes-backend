@@ -23,7 +23,11 @@ import {
   type OfferApplicationLookup,
   type OfferApplicationRef,
 } from './application-lookup';
-import { OFFER_ENROLLMENT_LOOKUP, type OfferEnrollmentLookup } from './enrollment-lookup';
+import {
+  OFFER_ENROLLMENT_LOOKUP,
+  type OfferEnrollmentLookup,
+  type OfferEnrollmentState,
+} from './enrollment-lookup';
 import {
   type CatalogEntry,
   compareCatalogEntries,
@@ -197,18 +201,23 @@ export class OffersService {
 
     const viewer = await this.viewerContext(viewerInput);
     const availability = deriveOfferAvailability(offer, now);
-    const [enrolledIds, applications, seatsTaken, countryNames] = await Promise.all([
-      viewer.userId
-        ? this.enrollments.activeOfferIdsForUser(viewer.userId, [offer.id])
-        : Promise.resolve(new Set<string>()),
-      viewer.userId
-        ? this.applications.applicationsForUser(viewer.userId, [offer.id])
-        : Promise.resolve(new Map<string, OfferApplicationRef>()),
-      offer.capacity !== null
-        ? this.enrollments.countSeatsTaken([offer.id])
-        : Promise.resolve(new Map<string, number>()),
-      this.locations.getCountryNames(offer.eligibleCountryCodes),
-    ]);
+    const [enrolledIds, applications, seatsTaken, countryNames, enrollmentStates] =
+      await Promise.all([
+        viewer.userId
+          ? this.enrollments.activeOfferIdsForUser(viewer.userId, [offer.id])
+          : Promise.resolve(new Set<string>()),
+        viewer.userId
+          ? this.applications.applicationsForUser(viewer.userId, [offer.id])
+          : Promise.resolve(new Map<string, OfferApplicationRef>()),
+        offer.capacity !== null
+          ? this.enrollments.countSeatsTaken([offer.id])
+          : Promise.resolve(new Map<string, number>()),
+        this.locations.getCountryNames(offer.eligibleCountryCodes),
+        viewer.userId
+          ? this.enrollments.enrollmentStatesForUser(viewer.userId, [offer.id])
+          : Promise.resolve(new Map<string, OfferEnrollmentState>()),
+      ]);
+    const enrollmentState = enrollmentStates.get(offer.id) ?? null;
     const enrolled = enrolledIds.has(offer.id);
     const application = applications.get(offer.id) ?? null;
     const soldOut = offer.capacity !== null && (seatsTaken.get(offer.id) ?? 0) >= offer.capacity;
@@ -233,7 +242,12 @@ export class OffersService {
       scholarshipOpensAt,
       hasPriceInCurrency: priceCents !== null && priceCents > 0,
       soldOut,
-      viewer: { authenticated: viewer.userId !== null, enrolled, application },
+      viewer: {
+        authenticated: viewer.userId !== null,
+        enrolled,
+        application,
+        enrollment: enrollmentState,
+      },
     });
 
     const scholarshipRange = scholarshipPercentRange(offer.scholarshipLevels);
