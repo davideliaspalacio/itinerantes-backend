@@ -104,6 +104,11 @@ export const envSchema = z
      * bucket público o CDN: `${STORAGE_PUBLIC_BASE_URL}/${key}`. Vacía = URL firmada de larga duración.
      */
     STORAGE_PUBLIC_BASE_URL: optionalString.pipe(z.url().optional()),
+    /**
+     * Fase 06: bucket aparte (público / CDN) para las imágenes de difusión que sube el panel (keys bajo
+     * `public/`). Vacío = se guardan en STORAGE_BUCKET. Úsalo junto con STORAGE_PUBLIC_BASE_URL.
+     */
+    STORAGE_PUBLIC_BUCKET: optionalString,
 
     // --- Tareas programadas (Fase 03) ---
     /**
@@ -135,6 +140,15 @@ export const envSchema = z
         .regex(/^\d{18}$/, 'La CLABE debe tener 18 dígitos')
         .optional(),
     ),
+
+    // --- Primer SUPER_ADMIN (Fase 06; lo usa el seed, no la API) ---
+    /**
+     * Si no existe ningún SUPER_ADMIN activo, el seed crea (o promueve) esta cuenta en cada arranque.
+     * Vacías = no hace nada. Ver docs/DEPLOY.md → "Primer administrador".
+     */
+    BOOTSTRAP_ADMIN_EMAIL: optionalString,
+    BOOTSTRAP_ADMIN_PASSWORD: optionalString,
+    BOOTSTRAP_ADMIN_NAME: optionalString,
   })
   .superRefine((env, ctx) => {
     if (env.MAIL_DRIVER === 'resend' && !env.RESEND_API_KEY) {

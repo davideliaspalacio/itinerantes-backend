@@ -12,6 +12,8 @@
  *   solo si no existen (no pisan lo que se haga desde el portal).
  * - Pagos demo (Fase 05: plan de cuotas, pago completo) y acceso Moodle demo (lista y código): nunca
  *   con NODE_ENV=production ni sin SEED_DEMO_DATA; se crean solo si no existen.
+ * - Primer SUPER_ADMIN (Fase 06): en TODOS los entornos, solo si hay BOOTSTRAP_ADMIN_EMAIL y no existe
+ *   ningún SUPER_ADMIN activo (seguro en producción; nunca usa contraseñas demo).
  *
  * Reglas para las fases:
  * - Usa SIEMPRE `upsert` (o `createMany({ skipDuplicates: true })`) con claves estables (email, slug),
@@ -30,6 +32,7 @@ import { accessCodeHint, hashAccessCode } from '../src/modules/moodle/policies/m
 import { buildImportantDates } from '../src/modules/offers/policies/important-dates.policy';
 import { cdmxDate, parseScheduleRule } from '../src/modules/offers/policies/schedule-rule';
 import { generateSessions } from '../src/modules/offers/policies/session-generation.policy';
+import { bootstrapMessage, bootstrapSuperAdmin } from './bootstrap-admin';
 import { COUNTRIES } from './data/countries';
 import { DEMO_APPLICATIONS } from './data/demo-applications';
 import { DEMO_OFFERS, DEMO_TEACHERS } from './data/demo-offers';
@@ -195,7 +198,13 @@ async function seedDemoOffers(prisma: PrismaClient): Promise<void> {
       const existing = await prisma.offerModule.findFirst({
         where: { offerId: offer.id, position },
       });
-      const moduleData = { ...module, visibility: 'PUBLISHED' as const, publishAt: null };
+      // Fase 06: contenido demo ya "notificado" (el job de publicación del panel no lo anuncia).
+      const moduleData = {
+        ...module,
+        visibility: 'PUBLISHED' as const,
+        publishAt: null,
+        publishedNotifiedAt: existing?.publishedNotifiedAt ?? new Date(),
+      };
       const saved = existing
         ? await prisma.offerModule.update({ where: { id: existing.id }, data: moduleData })
         : await prisma.offerModule.create({ data: { offerId: offer.id, position, ...moduleData } });
@@ -288,6 +297,8 @@ async function seedDemoPortal(prisma: PrismaClient): Promise<void> {
           : null,
         visibility: 'PUBLISHED' as const,
         publishAt: null,
+        // Fase 06: contenido demo ya "notificado" (el job de publicación del panel no lo anuncia).
+        publishedNotifiedAt: new Date(),
       };
       const existing = await prisma.moduleResource.findFirst({
         where: { moduleId: module.id, title: resource.title },
@@ -620,9 +631,29 @@ async function seedDemoPayments(prisma: PrismaClient): Promise<void> {
   console.log(`  ${created} pagos/planes demo nuevos; lista y código Moodle demo (AGUA-2345).`);
 }
 
+/**
+ * Fase 06: primer SUPER_ADMIN en PRODUCCIÓN (y en cualquier entorno) desde BOOTSTRAP_ADMIN_EMAIL /
+ * BOOTSTRAP_ADMIN_PASSWORD / BOOTSTRAP_ADMIN_NAME. Solo actúa si no hay ningún SUPER_ADMIN activo;
+ * si el correo ya existe lo promueve sin tocar su contraseña. Ver docs/DEPLOY.md.
+ */
+async function seedBootstrapAdmin(prisma: PrismaClient): Promise<void> {
+  const email = process.env.BOOTSTRAP_ADMIN_EMAIL;
+  const result = await bootstrapSuperAdmin(
+    prisma,
+    {
+      email,
+      password: process.env.BOOTSTRAP_ADMIN_PASSWORD,
+      fullName: process.env.BOOTSTRAP_ADMIN_NAME,
+    },
+    { force: false },
+  );
+  console.log(`  ${bootstrapMessage(result, email)}`);
+}
+
 const seeders: Array<[name: string, run: Seeder]> = [
   ['Fase 01 — ubicaciones', seedLocations],
   ['Fase 01 — usuarios demo', seedDemoUsers],
+  ['Fase 06 — primer SUPER_ADMIN (BOOTSTRAP_ADMIN_*)', seedBootstrapAdmin],
   ['Fase 02 — ofertas demo', seedDemoOffers],
   ['Fase 03 — portal demo', seedDemoPortal],
   ['Fase 04 — postulaciones demo', seedDemoApplications],

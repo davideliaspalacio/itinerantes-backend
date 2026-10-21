@@ -35,6 +35,8 @@ renombran una vez publicados.
 | `IS_IANA_TIMEZONE` | Zona horaria IANA no válida (Fase 01). |
 | `INVALID_LOCATION` | País / estado / municipio inexistente o que no corresponde al nivel superior (Fase 01). |
 | `INVALID_PHONE` | Longitud del teléfono no válida para el indicativo (Fase 01). |
+| `COURSE_MAX_HOURS_EXCEEDED`, `DIPLOMA_HOURS_MISMATCH` | Panel (Fase 06): curso de más de 9 h / diplomado que no suma 60 h (asistente de ofertas y vista previa de sesiones). |
+| `INVALID_MEETING_URL` | Panel (Fase 06): enlace de sesión que no es `https://…zoom.us` ni `https://meet.google.com`. |
 | `NOT_APPLICABLE`, `LEVEL_NOT_ENABLED`, `MIN_FILES`, `MUST_ACCEPT` | Formulario de postulación (Fase 04): campo de otro tipo, nivel de beca no habilitado, faltan evidencias, casilla obligatoria sin marcar. |
 | `IS_EMAIL`, `IS_STRING`, `IS_INT`, `IS_ENUM`, `IS_UUID`, `IS_DATE_STRING`, `MIN_LENGTH`, `MAX_LENGTH`, `MIN`, `MAX`, `MATCHES`, ... | Restricción de validación incumplida (nombre de la regla en `SCREAMING_SNAKE_CASE`). |
 
@@ -164,3 +166,39 @@ Validación (`400 VALIDATION_ERROR`): `termsAccepted` distinto de `true` (`detai
 ninguno (`INVALID`), `installmentCount` fuera de 2–4 (`MIN`/`MAX`), `paidOn` futura (`INVALID`),
 `trackingKey` no alfanumérica (`MATCHES`), y cualquier campo extra como un monto (`UNKNOWN_FIELD`:
 el monto nunca lo envía el cliente).
+
+### Fase 06 — Panel administrativo
+
+Guía: [`fase-06-admin.md`](fase-06-admin.md). Todo `/admin/...` responde `403 FORBIDDEN` con
+`meta.missingPermissions` (p. ej. `["payments.manage"]`) cuando el rol no tiene el permiso; ids que no
+son UUID o inexistentes → `404 NOT_FOUND`.
+
+| `code` | HTTP | Mensaje por defecto | `meta` | Cuándo ocurre / qué hacer en la UI |
+|---|---|---|---|---|
+| `FORBIDDEN` | 403 | No tienes permiso para realizar esta acción. | `missingPermissions` | Rol sin el permiso del endpoint (o cuenta del panel deshabilitada) → ocultar/deshabilitar la acción; en `GET /admin/me`, redirigir al portal. |
+| `OFFER_NAME_TAKEN` | 409 | Ya existe una oferta con ese nombre. | — | HU-27: nombre único (crear, paso 1, duplicar). Error bajo `name`. |
+| `OFFER_INCOMPLETE` | 422 | Faltan datos obligatorios o la oferta no cumple las reglas de su tipo. | `steps` | HU-27 "Publicar": `details[].field = <paso>.<campo>` (p. ej. `schedule.totalHours`); llevar al paso con problemas. |
+| `OFFER_HAS_ENROLLMENTS` | 409 | La oferta ya tiene inscritos o postulaciones: no se puede cambiar su tipo, modalidad u origen, ni borrarla. | — | HU-27: campos bloqueados con inscritos; borrar una oferta con actividad. |
+| `OFFER_INVALID_STATE` | 409 | La oferta no está en un estado que permita esta acción. | `publicationStatus` | Publicar/archivar/despublicar/borrar desde un estado inválido; cerrar inscripciones ya cerradas (HU-32). Recargar. |
+| `OFFER_NOT_MOODLE` | 422 | Esta acción solo aplica a ofertas de origen Moodle. | — | Lista de correos / códigos Moodle en una oferta NAS. |
+| `TEACHER_IN_USE` | 409 | El docente está asignado a ofertas o módulos: quítalo de ellos antes de borrarlo. | — | Borrar docente. |
+| `ADMIN_UPLOAD_INVALID_FILE` | 422 | El archivo no tiene un formato o tamaño permitido. | — | Imagen (JPG/PNG/WebP ≤ 5 MB) o material (PDF/PPTX/DOCX/EPUB ≤ 50 MB) no permitido (declarado o real). Error en ese ítem, reintentar. |
+| `ADMIN_UPLOAD_NOT_FOUND` | 422 | No encontramos el archivo subido. Vuelve a subirlo. | — | Se confirmó una `key` que no existe en storage o no corresponde. |
+| `SESSION_GENERATION_BLOCKED` | 422 | No se pueden crear las sesiones: revisa los conflictos y las reglas de duración. | `conflictCount`, `violations` | HU-29 "Crear sesiones" con conflictos, 0 sesiones o curso > 9 h (la vista previa ya lo anticipa con `canConfirm=false`). |
+| `SESSION_CONFLICT` | 409 | Ya existe una sesión de esta oferta que se traslapa con ese horario. | — | Sesión manual o reprogramación sobre otra sesión. |
+| `SESSION_HAS_ATTENDANCE` | 409 | La sesión ya tiene registros de asistencia: cancélala en lugar de borrarla. | — | Borrar una sesión con asistencias. |
+| `ATTENDANCE_NOT_ENROLLED` | 422 | Alguna persona no tiene una inscripción vigente en esta oferta. | `userIds` | HU-30 marcar asistencia manual. |
+| `APPLICATION_INVALID_STATE` | 409 | La postulación no está en un estado que permita esta acción. | `status`, `to` | HU-31/32: evaluar, decidir, entrevista, recordatorio o extensión fuera de estado (o acción concurrente). Recargar. |
+| `NOTIFICATION_EMAIL_NOT_FAILED` | 409 | No hay un correo fallido que reenviar. | — | "Reintentar envío" sin correo fallido. |
+| `FOLLOW_UP_REMINDER_TOO_SOON` | 409 | Ya se envió un recordatorio en las últimas 24 horas. | `availableAt` | HU-32: botón deshabilitado hasta `availableAt`. |
+| `FOLLOW_UP_PHONE_INVALID` | 422 | La persona no tiene un teléfono válido con indicativo para WhatsApp. | — | HU-32: botón WhatsApp deshabilitado. |
+| `PAYMENT_PLAN_INVALID_STATE` | 409 | El plan de cuotas no está en un estado que permita esta acción. | `status` | HU-33: reintentar, mora, suspender (solo En mora), restablecer o cancelar desde un estado inválido. |
+| `PAYMENT_REFUND_INVALID` | 422 | El monto a reembolsar debe ser mayor a 0 y no superar lo pagado. | `refundableCents` | HU-33 reembolso. |
+| `ADMIN_LAST_SUPER_ADMIN` | 409 | Debe quedar al menos una cuenta SUPER_ADMIN activa. | — | Quitar el rol o deshabilitar al último SUPER_ADMIN. |
+| `ADMIN_SELF_ACTION` | 409 | No puedes quitarte el rol SUPER_ADMIN ni deshabilitar tu propia cuenta. | — | Gestión del equipo sobre la propia cuenta. |
+
+Se reutilizan de fases anteriores: `APPLICATION_INTERVIEW_REQUIRED` (422, decidir sin entrevista
+"Realizada"), `PAYMENT_TRANSFER_AMOUNT_MISMATCH` (422, `meta.differenceCents`/`expectedCents`),
+`PAYMENT_INVALID_STATE` (409), `PAYMENT_CHARGE_FAILED` (422), `PAYMENTS_NOT_CONFIGURED` (503),
+`PAYMENT_PROVIDER_ERROR` (502), `SESSION_CANCELLED` (422, cancelar o marcar asistencia en una sesión ya
+cancelada) y `CONFLICT` (409 genérico: evento ya cancelado, correo Moodle ya vinculado).

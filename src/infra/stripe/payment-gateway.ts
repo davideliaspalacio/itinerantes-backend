@@ -114,6 +114,25 @@ export interface OffSessionChargeResult {
   failureMessage: string | null;
 }
 
+/** Fase 06 (HU-33): reembolso total o parcial de un cobro con tarjeta. */
+export interface RefundInput {
+  paymentIntentId: string;
+  /** Monto a reembolsar (centavos, ≤ lo cobrado y no reembolsado). */
+  amountCents: number;
+  /** Se copia a la metadata del Refund (`paymentId`, `refundId`, `reason`…). */
+  metadata: Record<string, string>;
+  /** Misma clave = mismo Refund (un doble clic o un reintento no reembolsa dos veces). */
+  idempotencyKey: string;
+}
+
+/** Resultado del reembolso: `pending` = en proceso en Stripe (se confirma con `charge.refunded`). */
+export interface RefundResult {
+  id: string;
+  status: 'pending' | 'succeeded' | 'failed';
+  amountCents: number;
+  failureMessage: string | null;
+}
+
 /** Evento de webhook ya verificado y normalizado (solo los que el dominio procesa). */
 export type GatewayEvent = { id: string; createdAt: Date; type: string } & (
   | {
@@ -161,6 +180,12 @@ export interface PaymentGateway {
   retrieveSetupIntent(id: string): Promise<GatewaySetupIntent>;
   /** Cobra una cuota con la tarjeta guardada sin la persona presente (off_session). */
   chargeOffSession(input: OffSessionChargeInput): Promise<OffSessionChargeResult>;
+
+  /**
+   * Fase 06 (HU-33): reembolsa (total o parcial) un PaymentIntent cobrado. Nunca lanza por un
+   * reembolso rechazado (eso es `failed`); sí lanza PAYMENT_PROVIDER_ERROR si Stripe no responde.
+   */
+  refundPayment(input: RefundInput): Promise<RefundResult>;
 
   /** Verifica la firma (`Stripe-Signature`) con el cuerpo CRUDO y normaliza el evento. */
   parseWebhookEvent(rawBody: Buffer, signature: string): GatewayEvent;

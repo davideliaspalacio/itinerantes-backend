@@ -7,6 +7,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { LoggerModule } from 'nestjs-pino';
 import { Env, validateEnv } from './config/env.schema';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
+import { PermissionsGuard } from './common/guards/permissions.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { buildLoggerParams } from './config/logger.config';
 import { CaptchaModule } from './infra/captcha/captcha.module';
@@ -15,6 +16,7 @@ import { PrismaModule } from './infra/prisma/prisma.module';
 import { StorageModule } from './infra/storage/storage.module';
 import { StripeModule } from './infra/stripe/stripe.module';
 import { ApplicationsModule } from './modules/applications/applications.module';
+import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CalendarModule } from './modules/calendar/calendar.module';
 import { ClassroomModule } from './modules/classroom/classroom.module';
@@ -100,12 +102,16 @@ import { UsersModule } from './modules/users/users.module';
     // Fase 05 — Pagos y acceso Moodle
     PaymentsModule,
     MoodleModule,
+    // Fase 06 — Panel administrativo (los controladores admin-* viven en cada dominio)
+    AuditModule,
   ],
   providers: [
-    // Orden: rate limit → autenticación (respeta @Public()) → roles (@Roles()).
+    // Orden: rate limit → autenticación (respeta @Public()) → roles (@Roles()) → permisos del panel
+    // (@RequirePermissions(), con los roles actuales de la BD).
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
+    { provide: APP_GUARD, useClass: PermissionsGuard },
   ],
 })
 export class AppModule {}

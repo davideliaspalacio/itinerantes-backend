@@ -11,6 +11,8 @@ import type {
   OffSessionChargeInput,
   OffSessionChargeResult,
   PaymentGateway,
+  RefundInput,
+  RefundResult,
 } from '../../src/infra/stripe/payment-gateway';
 import { toGatewayEvent } from '../../src/infra/stripe/stripe-mappers';
 
@@ -56,6 +58,10 @@ export class FakePaymentGateway implements PaymentGateway {
   /** Resultados de los próximos cobros off-session (por defecto: éxito). */
   readonly nextCharges: Array<'succeeded' | 'failed'> = [];
   readonly offSessionCalls: OffSessionChargeInput[] = [];
+  /** Fase 06: resultados de los próximos reembolsos (por defecto: éxito inmediato). */
+  readonly nextRefunds: Array<'succeeded' | 'pending' | 'failed'> = [];
+  readonly refundCalls: RefundInput[] = [];
+  private readonly refundsByKey = new Map<string, RefundResult>();
   private readonly byIdempotencyKey = new Map<string, OffSessionChargeResult>();
   private readonly stripe = new Stripe('sk_test_fake_for_signatures');
   private eventSeq = 0;
@@ -166,6 +172,21 @@ export class FakePaymentGateway implements PaymentGateway {
     return Promise.resolve(result);
   }
 
+  refundPayment(input: RefundInput): Promise<RefundResult> {
+    const cached = this.refundsByKey.get(input.idempotencyKey);
+    if (cached) return Promise.resolve(cached);
+    this.refundCalls.push(input);
+    const status = this.nextRefunds.shift() ?? 'succeeded';
+    const result: RefundResult = {
+      id: `re_fake_${randomUUID().replace(/-/g, '').slice(0, 16)}`,
+      status,
+      amountCents: input.amountCents,
+      failureMessage: status === 'failed' ? 'El banco rechazó el reembolso.' : null,
+    };
+    this.refundsByKey.set(input.idempotencyKey, result);
+    return Promise.resolve(result);
+  }
+
   parseWebhookEvent(rawBody: Buffer, signature: string): GatewayEvent {
     let event: Stripe.Event;
     try {
@@ -251,6 +272,22 @@ export class FakePaymentGateway implements PaymentGateway {
         ? { code: 'card_declined', decline_code: 'insufficient_funds', message: pi.failureMessage }
         : null,
       metadata: pi.metadata,
+    });
+  }
+
+  /** Fase 06: evento `charge.refunded` (JSON real) de un PaymentIntent. */
+  chargeRefundedEvent(
+    paymentIntentId: string,
+    amountCents: number,
+    amountRefundedCents: number,
+  ): Record<string, unknown> {
+    return this.event('charge.refunded', {
+      id: `ch_${paymentIntentId.slice(3)}`,
+      object: 'charge',
+      payment_intent: paymentIntentId,
+      amount: amountCents,
+      amount_refunded: amountRefundedCents,
+      refunded: amountRefundedCents >= amountCents,
     });
   }
 

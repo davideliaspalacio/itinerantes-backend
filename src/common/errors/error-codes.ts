@@ -316,6 +316,94 @@ export const ERROR_CODES = {
     status: HttpStatus.UNPROCESSABLE_ENTITY,
     message: 'Este código de acceso venció.',
   },
+
+  // --- Fase 06: Panel administrativo (HU-27 a HU-33) ---
+  // Ofertas y contenido (HU-27, 28)
+  OFFER_NAME_TAKEN: {
+    status: HttpStatus.CONFLICT,
+    message: 'Ya existe una oferta con ese nombre.',
+  },
+  OFFER_INCOMPLETE: {
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    message: 'Faltan datos obligatorios o la oferta no cumple las reglas de su tipo.',
+  },
+  OFFER_HAS_ENROLLMENTS: {
+    status: HttpStatus.CONFLICT,
+    message:
+      'La oferta ya tiene inscritos o postulaciones: no se puede cambiar su tipo, modalidad u origen, ni borrarla.',
+  },
+  OFFER_INVALID_STATE: {
+    status: HttpStatus.CONFLICT,
+    message: 'La oferta no está en un estado que permita esta acción.',
+  },
+  OFFER_NOT_MOODLE: {
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    message: 'Esta acción solo aplica a ofertas de origen Moodle.',
+  },
+  TEACHER_IN_USE: {
+    status: HttpStatus.CONFLICT,
+    message: 'El docente está asignado a ofertas o módulos: quítalo de ellos antes de borrarlo.',
+  },
+  ADMIN_UPLOAD_INVALID_FILE: {
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    message: 'El archivo no tiene un formato o tamaño permitido.',
+  },
+  ADMIN_UPLOAD_NOT_FOUND: {
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    message: 'No encontramos el archivo subido. Vuelve a subirlo.',
+  },
+  // Sesiones y asistencia (HU-29, 30)
+  SESSION_GENERATION_BLOCKED: {
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    message: 'No se pueden crear las sesiones: revisa los conflictos y las reglas de duración.',
+  },
+  SESSION_CONFLICT: {
+    status: HttpStatus.CONFLICT,
+    message: 'Ya existe una sesión de esta oferta que se traslapa con ese horario.',
+  },
+  SESSION_HAS_ATTENDANCE: {
+    status: HttpStatus.CONFLICT,
+    message: 'La sesión ya tiene registros de asistencia: cancélala en lugar de borrarla.',
+  },
+  ATTENDANCE_NOT_ENROLLED: {
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    message: 'Alguna persona no tiene una inscripción vigente en esta oferta.',
+  },
+  // Postulaciones y seguimiento (HU-31, 32)
+  APPLICATION_INVALID_STATE: {
+    status: HttpStatus.CONFLICT,
+    message: 'La postulación no está en un estado que permita esta acción.',
+  },
+  NOTIFICATION_EMAIL_NOT_FAILED: {
+    status: HttpStatus.CONFLICT,
+    message: 'No hay un correo fallido que reenviar.',
+  },
+  FOLLOW_UP_REMINDER_TOO_SOON: {
+    status: HttpStatus.CONFLICT,
+    message: 'Ya se envió un recordatorio en las últimas 24 horas.',
+  },
+  FOLLOW_UP_PHONE_INVALID: {
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    message: 'La persona no tiene un teléfono válido con indicativo para WhatsApp.',
+  },
+  // Pagos (HU-33)
+  PAYMENT_PLAN_INVALID_STATE: {
+    status: HttpStatus.CONFLICT,
+    message: 'El plan de cuotas no está en un estado que permita esta acción.',
+  },
+  PAYMENT_REFUND_INVALID: {
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    message: 'El monto a reembolsar debe ser mayor a 0 y no superar lo pagado.',
+  },
+  // Equipo y roles
+  ADMIN_LAST_SUPER_ADMIN: {
+    status: HttpStatus.CONFLICT,
+    message: 'Debe quedar al menos una cuenta SUPER_ADMIN activa.',
+  },
+  ADMIN_SELF_ACTION: {
+    status: HttpStatus.CONFLICT,
+    message: 'No puedes quitarte el rol SUPER_ADMIN ni deshabilitar tu propia cuenta.',
+  },
 } as const satisfies Record<string, ErrorDefinition>;
 
 export type ErrorCode = keyof typeof ERROR_CODES;

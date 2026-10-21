@@ -16,6 +16,8 @@ export default function globalSetup(): void {
     ...parsed,
     NODE_ENV: 'test',
     DIRECT_URL: parsed.DIRECT_URL ?? '',
+    // E2E_DATABASE_URL (opcional): otra BD *_test para correr suites en paralelo sin pisarse.
+    ...(process.env.E2E_DATABASE_URL ? { DATABASE_URL: process.env.E2E_DATABASE_URL } : {}),
   };
 
   if (!String(env.DATABASE_URL ?? '').includes('_test')) {

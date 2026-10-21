@@ -13,6 +13,8 @@ import type {
   OffSessionChargeInput,
   OffSessionChargeResult,
   PaymentGateway,
+  RefundInput,
+  RefundResult,
 } from './payment-gateway';
 import {
   toGatewayCheckoutSession,
@@ -198,6 +200,34 @@ export class StripePaymentGateway implements PaymentGateway {
       }
       throw this.providerError(error);
     }
+  }
+
+  async refundPayment(input: RefundInput): Promise<RefundResult> {
+    const refund = await this.call(() =>
+      this.client.refunds.create(
+        {
+          payment_intent: input.paymentIntentId,
+          amount: input.amountCents,
+          // El motivo del equipo va en metadata; `reason` de Stripe solo acepta su enum.
+          reason: 'requested_by_customer',
+          metadata: input.metadata,
+        },
+        { idempotencyKey: input.idempotencyKey },
+      ),
+    );
+    const status: RefundResult['status'] =
+      refund.status === 'succeeded'
+        ? 'succeeded'
+        : refund.status === 'failed' || refund.status === 'canceled'
+          ? 'failed'
+          : 'pending';
+    return {
+      id: refund.id,
+      status,
+      amountCents: refund.amount,
+      failureMessage:
+        status === 'failed' ? (refund.failure_reason ?? 'Stripe rechazó el reembolso.') : null,
+    };
   }
 
   parseWebhookEvent(rawBody: Buffer, signature: string): GatewayEvent {

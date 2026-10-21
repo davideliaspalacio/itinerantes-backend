@@ -28,6 +28,8 @@
     "db:deploy": "prisma migrate deploy",
     "db:seed": "prisma db seed",
     "db:seed:prod": "node dist/seed/prisma/seed.js",
+    "admin:create": "ts-node --transpile-only prisma/create-admin.ts",
+    "admin:create:prod": "node dist/seed/prisma/create-admin.js",
     "db:reset": "prisma migrate reset --force",
     "db:studio": "prisma studio"
   },

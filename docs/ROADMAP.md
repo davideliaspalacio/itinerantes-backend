@@ -42,4 +42,4 @@ Los supuestos pendientes de confirmar con el cliente (plazos de 7 días, mora a 
 | 03 | hecho |
 | 04 | hecho |
 | 05 | hecho |
-| 06 | pendiente |
+| 06 | hecho |

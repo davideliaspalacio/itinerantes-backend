@@ -14,7 +14,7 @@ agrega su guía específica en `docs/frontend/fase-XX-<nombre>.md`.
 | [`fase-03-portal.md`](fase-03-portal.md) | Dashboard, Mi formación, inscripción gratuita, Aula, materiales, sesiones en vivo, asistencia, calendario, biblioteca, notificaciones | Fase 03 ✔ |
 | [`fase-04-postulaciones.md`](fase-04-postulaciones.md) | Becas disponibles, convocatorias abiertas, formulario con borrador y evidencias, envío, Mis postulaciones (línea de tiempo, entrevista, resultado, confirmación) + widgets, calendario y acciones de la ficha | Fase 04 ✔ |
 | [`fase-05-pagos.md`](fase-05-pagos.md) | Stripe Checkout (pago completo y saldo tras beca), transferencia México, cuotas con cobro automático (fallos, mora, actualizar tarjeta), acceso Moodle, Mis pagos y recibos PDF + acciones de ficha/postulaciones, Dashboard y notificaciones | Fase 05 ✔ |
-| `fase-06-admin.md` | Panel administrativo | Fase 06 (pendiente) |
+| [`fase-06-admin.md`](fase-06-admin.md) | Panel administrativo: acceso por roles y matriz de permisos, equipo y auditoría, asistente de ofertas de 7 pasos, docentes, imágenes, módulos y recursos, generación de sesiones y calendario, asistencia, revisión de postulaciones, embudo y seguimiento, pagos/transferencias/cuotas/reembolsos, Moodle | Fase 06 ✔ |
 
 ## URLs
 
@@ -69,7 +69,9 @@ Detalle completo (pantallas HU-02 a HU-05, HU-14): [`fase-01-identidad.md`](fase
   responden como visitante (nunca 401).
 - `401 UNAUTHORIZED` → intenta refresh una vez; si responde `AUTH_REFRESH_INVALID`, manda a login.
 - `403 AUTH_EMAIL_NOT_VERIFIED` en el login → pantalla de verificación OTP (HU-03).
-- `403 FORBIDDEN` → el usuario no tiene el rol/permiso.
+- `403 FORBIDDEN` → el usuario no tiene el rol/permiso (en el panel trae `meta.missingPermissions`).
+- Panel del equipo (Fase 06): mismo login; `GET /api/v1/admin/me` da roles y permisos. Ver
+  [`fase-06-admin.md`](fase-06-admin.md).
 - Recursos del usuario autenticado: `GET/PATCH /api/v1/me`, `PATCH /me/timezone`, `POST /me/password`
   y, desde Fase 03, el portal bajo `/me/...` (`/me/dashboard`, `/me/enrollments`, `/me/classrooms/{offerId}`,
   `/me/sessions`, `/me/calendar`, `/me/notifications`) más `/library` y, desde Fase 04,

@@ -14,6 +14,7 @@ import {
 import { ApplicationWorkflowService } from '../applications/application-workflow.service';
 import { EnrollmentsService } from '../enrollments/enrollments.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { pendingRefundsCovered } from './admin/policies/admin-payments.policy';
 import { nextRetryAt } from './policies/installment-collection.policy';
 import { formatPaymentFolio, paymentConceptLabel } from './policies/payment-amounts.policy';
 import {
@@ -161,6 +162,18 @@ export class PaymentLedgerService {
           : {}),
       },
     });
+    // Fase 06 (HU-33): reembolsos del panel "en proceso" que este total ya cubre → confirmados.
+    const refunds = await this.prisma.paymentRefund.findMany({ where: { paymentId: payment.id } });
+    const covered = pendingRefundsCovered({
+      amountRefundedCents: charge.amountRefundedCents,
+      refunds,
+    });
+    if (covered.length > 0) {
+      await this.prisma.paymentRefund.updateMany({
+        where: { id: { in: covered }, status: 'PENDING' },
+        data: { status: 'SUCCEEDED' },
+      });
+    }
   }
 
   // --- Núcleo -------------------------------------------------------------------------------------

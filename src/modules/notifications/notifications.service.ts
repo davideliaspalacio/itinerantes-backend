@@ -132,6 +132,33 @@ export class NotificationsService {
     return result.count;
   }
 
+  /**
+   * Fase 06 (HU-31 "Reintentar envío"): reenvía el correo de una notificación cuyo envío falló, con
+   * el título, cuerpo y acción guardados. Deja `emailStatus` en SENT o FAILED.
+   */
+  async retryEmail(notificationId: string): Promise<Notification> {
+    const notification = await this.prisma.notification.findUnique({
+      where: { id: notificationId },
+    });
+    if (!notification) throw AppException.notFound('La notificación no existe.');
+    if (notification.emailStatus !== 'FAILED') {
+      throw new AppException('NOTIFICATION_EMAIL_NOT_FAILED', {
+        meta: { emailStatus: notification.emailStatus },
+      });
+    }
+    await this.sendEmails([notification], {
+      userIds: [notification.userId],
+      type: notification.type,
+      title: notification.title,
+      body: notification.body,
+      action:
+        notification.actionLabel && notification.actionPath
+          ? { label: notification.actionLabel, path: notification.actionPath }
+          : undefined,
+    });
+    return this.prisma.notification.findUniqueOrThrow({ where: { id: notificationId } });
+  }
+
   // --- Endpoints de la campana (HU-13) ------------------------------------------------------------
 
   async list(

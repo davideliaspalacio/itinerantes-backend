@@ -2,6 +2,9 @@ import { Module } from '@nestjs/common';
 import { ApplicationsModule } from '../applications/applications.module';
 import { EnrollmentsModule } from '../enrollments/enrollments.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { AdminPaymentPlansService } from './admin/admin-payment-plans.service';
+import { AdminPaymentsController } from './admin/admin-payments.controller';
+import { AdminPaymentsService } from './admin/admin-payments.service';
 import { CheckoutService } from './checkout.service';
 import { InstallmentCollectionService } from './installment-collection.service';
 import { PaymentJobsService } from './payment-jobs.service';
@@ -22,10 +25,11 @@ import { TransfersService } from './transfers.service';
  * - `TransfersService`: comprobantes (participante) y `approveTransfer`/`rejectTransfer` (Fase 06).
  * - `PaymentsQueryService`: Mis pagos, recibo PDF y bloque del Dashboard.
  * - `StripeWebhookService` + `PaymentJobsService`.
+ * - Fase 06 (HU-33): panel `/admin/payments|transfers|payment-plans|refunds` (`admin/`).
  */
 @Module({
   imports: [ApplicationsModule, EnrollmentsModule, NotificationsModule],
-  controllers: [PaymentsController, StripeWebhookController],
+  controllers: [PaymentsController, StripeWebhookController, AdminPaymentsController],
   providers: [
     CheckoutService,
     PaymentLedgerService,
@@ -34,6 +38,8 @@ import { TransfersService } from './transfers.service';
     PaymentsQueryService,
     StripeWebhookService,
     PaymentJobsService,
+    AdminPaymentsService,
+    AdminPaymentPlansService,
   ],
   exports: [
     CheckoutService,

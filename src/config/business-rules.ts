@@ -278,6 +278,15 @@ export const BUSINESS_RULES = {
   PUBLIC_IMAGE_SIGNED_URL_TTL_SECONDS: 7 * 24 * 3600,
 
   // ---------------------------------------------------------------------------
+  // Panel administrativo (Fase 06)
+  // ---------------------------------------------------------------------------
+  /**
+   * Primer SUPER_ADMIN en producción (BOOTSTRAP_ADMIN_PASSWORD / `pnpm admin:create`): contraseña más
+   * exigente que la del registro (es la llave de todo el panel).
+   */
+  BOOTSTRAP_ADMIN_PASSWORD_MIN_LENGTH: 12,
+
+  // ---------------------------------------------------------------------------
   // Contacto (HU-38)
   // ---------------------------------------------------------------------------
   CONTACT_MESSAGE_MIN_LENGTH: 10,

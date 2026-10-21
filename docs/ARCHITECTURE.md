@@ -16,6 +16,7 @@ Este documento es la referencia para cualquier persona (o agente) que agregue c�
 | Hash | argon2 | Recomendado para contraseñas |
 | Logs | nestjs-pino | JSON estructurado con requestId |
 | Seguridad | helmet, CORS por lista blanca, @nestjs/throttler | Rate limit en login/OTP/contacto |
+| Permisos del panel | Matriz rol → permisos en código + `@RequirePermissions` (roles leídos de la BD) + auditoría | Fase 06 |
 | Correo | `MailService` con driver `console`/`smtp` en dev (Mailpit) y `resend` en prod | Intercambiable |
 | Archivos | `StorageService` sobre API S3 (MinIO en dev; Supabase Storage S3 o Cloudflare R2 en prod) | URLs firmadas temporales |
 | Pagos | Stripe (SDK `stripe` 23.0.0 exacto): Checkout Sessions (`payment` y `setup`), PaymentIntents off-session para cuotas, webhooks firmados. Puerto `PaymentGateway` (fake en e2e) | Fase 05 |
@@ -262,8 +263,8 @@ evidencias, folio, % asignado, saldo y plazos) y `application-messages` (textos 
   (claim `reminderSentAt`). Idempotentes.
 - **Ficha** (HU-16): `OfferApplicationLookup` (token `OFFER_APPLICATION_LOOKUP`, implementado por
   `ApplicationLookupService`) → `viewer.application` y acciones `VIEW_APPLICATION` / `PAY_BALANCE`.
-- Para la Fase 06 quedan listos en `ApplicationWorkflowService`: `startReview`, `scheduleInterview`,
-  `completeInterview`, `cancelInterview`, `approve`, `reject`, `extendDeadline` (sin endpoints admin).
+- `ApplicationWorkflowService`: `startReview`, `scheduleInterview`, `completeInterview`,
+  `cancelInterview`, `approve`, `reject`, `extendDeadline` (los usa el panel desde la Fase 06).
 
 ## Pagos y acceso Moodle (Fase 05)
 
@@ -330,10 +331,69 @@ pruebas en `payments/policies/` (`payment-amounts`, `installment-collection`, `p
   `OfferEnrollmentLookup.enrollmentStatesForUser`) y postulación (`CONTINUE_PAYMENT`,
   `UPLOAD_TRANSFER_PROOF`, `PAYMENT_IN_VALIDATION`, desde `paymentStartedAt` / `pendingTransferSince` /
   `transferRejectedAt`).
-- Para la Fase 06 quedan listos: `TransfersService.approveTransfer/rejectTransfer`,
-  `InstallmentCollectionService.chargeInstallment` (reintentar), `PaymentLedgerService.markDelinquent`,
-  `EnrollmentsService.suspendForDelinquency/restoreAccess`, `MoodleAccessService.importRoster/
-  generateCodes` (sin endpoints admin).
+- `TransfersService.approveTransfer/rejectTransfer`, `InstallmentCollectionService.chargeInstallment`
+  (reintentar), `PaymentLedgerService.markDelinquent`, `EnrollmentsService.suspendForDelinquency/
+  restoreAccess` y `MoodleAccessService.importRoster/generateCodes` los usa el panel (Fase 06).
+
+## Panel administrativo (Fase 06)
+
+HU-27 a HU-33 bajo `/api/v1/admin/...`. Los controladores admin viven DENTRO de cada dominio
+(`src/modules/<dominio>/admin/admin-*.controller.ts` + `admin-*.service.ts` + `dto/admin-*.dto.ts` +
+`policies/`), así reutilizan sus servicios sin dependencias nuevas entre módulos. DTOs de admin
+separados de los públicos/portal (pueden exponer `hostUrl`, notas internas, evaluaciones, etc.).
+
+- **Permisos**: matriz rol → permisos en `src/config/permissions.ts` (único lugar). Los endpoints
+  declaran `@RequirePermissions(Permission.X)`; el `PermissionsGuard` global (después de JwtAuthGuard y
+  RolesGuard) lee los roles y el estado ACTUALES de la BD (un rol retirado o una cuenta deshabilitada
+  pierden el acceso en la siguiente petición, sin esperar al vencimiento del JWT), exige TODOS los
+  permisos (403 `FORBIDDEN` + `meta.missingPermissions`) y deja en `request.user` un `AdminUser`
+  (roles frescos + `permissions`). OpenAPI: `x-required-permissions`. `GET /admin/me` da al frontend
+  roles y permisos.
+- **Equipo** (`users/admin`): no hay alta desde el panel; la persona se registra (HU-02/03) y un
+  SUPER_ADMIN asigna roles (`PUT /admin/users/{id}/roles`) o deshabilita la cuenta (revoca sus
+  refresh tokens). Reglas puras: nadie se quita su SUPER_ADMIN ni se deshabilita; siempre queda ≥ 1
+  SUPER_ADMIN activo (lock advisory en la transacción).
+- **Primer SUPER_ADMIN**: `prisma/bootstrap-admin.ts` (lo llama el seed con `BOOTSTRAP_ADMIN_*` solo si
+  no hay ningún SUPER_ADMIN activo; si el correo existe lo promueve sin tocar su contraseña) y el CLI
+  `pnpm admin:create` (`prisma/create-admin.ts`, compilado a `dist/seed/prisma/create-admin.js`).
+- **Auditoría**: `AuditModule` global; `AuditService.record({ actor, action, entityType, entityId,
+  summary, before, after }, tx?)` en TODA acción de escritura del panel (dentro de la transacción
+  cuando la hay). Tabla `admin_audit_logs`; `changes` guarda solo los campos cambiados
+  (`audit.policy.summarizeChanges`: recorta textos/arreglos, nunca hashes/tokens/`hostUrl`). Acciones
+  estables `dominio.verbo` (`offer.publish`, `transfer.validate`…). `GET /admin/audit-logs`.
+- **Archivos del panel**: imágenes de difusión con keys `public/...` (si existe `STORAGE_PUBLIC_BUCKET`
+  van a ese bucket; `StorageService.bucketFor`), materiales privados con cualquier otra key. Mismo
+  flujo upload-url → PUT → confirmación con `head()`.
+- **Exportaciones**: CSV compatible con Excel (`common/utils/csv.ts`: BOM UTF-8, CRLF, celdas que
+  empiezan con `= + - @` neutralizadas).
+- **Ofertas (HU-27/28, `offers/admin`, `moodle/admin`)**: asistente de 7 pasos con un `PATCH
+  /admin/offers/{id}/steps/<paso>` por paso (autoguardado: datos incompletos permitidos, solo formato
+  → 400); validación pura por paso (`offer-wizard.policy`) en `wizard.steps[].issues`; publicar exige
+  pasos 1–4 (422 `OFFER_INCOMPLETE`). Tipo/modalidad/origen bloqueados con inscritos o postulaciones.
+  Duplicar = nueva cohorte (contenido, docentes, módulos y recursos ocultos; sin fechas ni sesiones).
+  Contenido del aula: al quedar visible un módulo/recurso con `notifyEnrollees` se notifica una vez
+  (claim de `publishedNotifiedAt` + `dedupeKey material:*`); la publicación programada la avisa
+  `AdminContentJobsService` (cron, `SCHEDULER_ENABLED`). Moodle: lista por CSV/JSON → `importRoster`.
+- **Sesiones y asistencia (HU-29/30, `live-sessions/admin`, `calendar/admin`)**: vista previa y
+  "Crear sesiones" con `generateSessions` + `validateOfferHours` (bloquean conflictos, 0 sesiones y
+  curso > 9 h; diplomado ≠ 60 h es advertencia), todo en una transacción junto con las fechas
+  importantes (`buildImportantDates`, una por tipo). Reprogramar/cancelar con motivo notifica con la
+  hora de cada zona (`dedupeKey session-*`); la grabación notifica una vez (`recording:{id}`).
+  Asistencia manual = `SessionAttendance` `MANUAL` con `recordedById`/`manualReason`; % = asistidas ÷
+  sesiones ya realizadas no canceladas; exportación CSV.
+- **Postulaciones (HU-31/32, `applications/admin`)**: todas las transiciones pasan por
+  `ApplicationWorkflowService` (abrir el detalle hace `startReview`); evaluaciones por integrante
+  (`ApplicationEvaluation`), notas de seguimiento (`ApplicationFollowUpNote`, recordatorio máx. 1/24 h y
+  WhatsApp wa.me generan nota automática); `participantMessage` agrega un párrafo editable al aviso de
+  la decisión; `NotificationsService.retryEmail` reintenta un correo `FAILED`. Embudo puro
+  (`computeFunnel`) sobre `submittedAt`/estado/`paymentStartedAt`/`enrolledAt`.
+- **Pagos (HU-33, `payments/admin`)**: lectura para todo el staff, acciones con `payments.manage`.
+  Reutiliza `TransfersService`, `payNow`, `markDelinquent`, `suspendForDelinquency`/`restoreAccess`.
+  Suspensión manual marca `plan.accessSuspendedAt` (se restablece sola al regularizar). Reembolsos:
+  `PaymentRefund` + `PaymentGateway.refundPayment` (Stripe, clave idempotente `refund:{id}`) o registro
+  de reembolso de transferencia; el webhook `charge.refunded` concilia los pendientes.
+  `SUSPEND_ACCESS_ON_DELINQUENCY` sigue en `true` (automática) aunque HU-33/Anexo A dicen manual: pendiente
+  de decisión del cliente (ver la guía).
 
 ## Reglas de negocio configurables
 
@@ -346,3 +406,5 @@ pruebas en `payments/policies/` (`payment-amounts`, `installment-collection`, `p
 - e2e por endpoint principal con supertest contra BD de prueba (`.env.test` → `eia_test`; `test/setup/global-setup.ts` aplica `prisma migrate deploy`; se resetea con `prisma migrate reset --force` o truncado). Usa `createTestApp()` (`test/utils/create-test-app.ts`), que aplica la misma configuración HTTP que producción.
 - `pnpm test:e2e` corre Jest con `--experimental-vm-modules` (Prisma 7 carga su query compiler con `import()` dinámico).
 - `pnpm test`, `pnpm test:e2e`, `pnpm lint`, `pnpm build` deben pasar antes de cerrar una fase.
+- Fase 06: `test/utils/admin.ts` (`createStaffUser(app, mail, roles)`). `E2E_DATABASE_URL` (una BD
+  `*_test`) permite correr suites en paralelo en BDs distintas.

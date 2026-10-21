@@ -53,7 +53,12 @@ pnpm dev
 | Admin (`SUPER_ADMIN`) | `admin@example.com` | `Admin12345` |
 
 Desde la Fase 03 el participante demo tiene inscripciones, asistencias y notificaciones de ejemplo
-(ver `docs/frontend/fase-03-portal.md` → "Datos demo").
+(ver `docs/frontend/fase-03-portal.md` → "Datos demo"). El admin demo entra al panel (Fase 06,
+`/api/v1/admin/...`) con todos los permisos.
+
+**Producción**: no hay usuarios demo. El primer SUPER_ADMIN se crea con `BOOTSTRAP_ADMIN_EMAIL` /
+`BOOTSTRAP_ADMIN_PASSWORD` (el seed lo crea si no existe ninguno) o con
+`ADMIN_PASSWORD=… pnpm admin:create --email …`; ver `docs/DEPLOY.md` → "Primer administrador".
 
 El seed también carga los países (LatAm + España + EE. UU.), los 32 estados de México y sus 2,478
 municipios (catálogo INEGI, `prisma/data/mx-inegi-municipalities.json`).
@@ -78,11 +83,15 @@ municipios (catálogo INEGI, `prisma/data/mx-inegi-municipalities.json`).
 | `pnpm db:deploy` | `prisma migrate deploy` (aplica migraciones pendientes; lo usa Railway) |
 | `pnpm db:seed` | Datos demo idempotentes (`prisma/seed.ts`): catálogos, usuarios demo y ofertas demo (`SEED_DEMO_DATA`) |
 | `pnpm build:seed` | Compila el seed a `dist/seed/` (lo usa la imagen Docker al arrancar) |
+| `pnpm admin:create --email …` | Crea o promueve un SUPER_ADMIN (contraseña en `ADMIN_PASSWORD`; en la imagen: `node dist/seed/prisma/create-admin.js`) |
 | `pnpm db:reset` | Borra la BD de dev, re-aplica migraciones y corre el seed |
 | `pnpm db:studio` | Prisma Studio |
 
 Las e2e aplican las migraciones a `eia_test` automáticamente (`test/setup/global-setup.ts`). Para
 dejarla en blanco: `DATABASE_URL="$(grep ^DATABASE_URL .env.test | cut -d= -f2-)" pnpm db:reset`.
+Para correr suites en paralelo sin pisarse, apunta cada una a otra BD `*_test` con
+`E2E_DATABASE_URL=postgresql://eia:eia@127.0.0.1:5434/eia_test_x pnpm test:e2e test/<suite>` (créala
+antes con `createdb`; el global-setup la migra y siembra).
 
 ## Estructura
 

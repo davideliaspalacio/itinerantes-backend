@@ -98,6 +98,10 @@ IP_HASH_SECRET=<openssl rand -base64 32>            # HMAC de IPs de Contacto
 TURNSTILE_SECRET_KEY=                               # opcional: activa el captcha de Contacto
 STORAGE_ENDPOINT=... STORAGE_REGION=... STORAGE_BUCKET=... STORAGE_ACCESS_KEY_ID=... STORAGE_SECRET_ACCESS_KEY=...
 STORAGE_PUBLIC_BASE_URL=                            # opcional: URL pública de imágenes (ver abajo)
+STORAGE_PUBLIC_BUCKET=                              # opcional (Fase 06): bucket público para las imágenes que sube el panel
+BOOTSTRAP_ADMIN_EMAIL=<correo del primer administrador>   # Fase 06: primer SUPER_ADMIN (sección 8)
+BOOTSTRAP_ADMIN_PASSWORD=<contraseña ≥ 12 con letra y número>
+BOOTSTRAP_ADMIN_NAME="<Nombre Apellido>"
 SEED_DEMO_DATA=true                                 # ofertas demo para integrar el frontend (quitar al cargar datos reales)
 SCHEDULER_ENABLED=true                              # jobs en proceso (asistencia/WhatsApp, postulaciones, cobro de cuotas y mora); true en UNA sola réplica
 STRIPE_SECRET_KEY=sk_live_...                       # Fase 05 (sección 7). Sin ella: checkout 503, la app arranca igual
@@ -111,16 +115,21 @@ BANK_TRANSFER_CLABE=<18 dígitos>
    `PORT` lo inyecta Railway (la app lo lee). Los catálogos (países, estados y municipios) se cargan
    solos en cada arranque (entrypoint); en `NODE_ENV=production` el seed **no** crea usuarios demo.
 
-   **Ofertas demo (`SEED_DEMO_DATA`)**: mientras no exista el panel (Fase 06), pon `SEED_DEMO_DATA=true`
-   para que el frontend tenga el catálogo de ejemplo (diplomado, curso, taller, evento, convocatorias,
-   Moodle). El seed hace upsert por `slug` en cada arranque: **sobrescribe** cambios hechos a esas
-   ofertas demo. Al cargar datos reales, quita la variable (o `false`) y borra/archiva las ofertas demo
-   desde el panel; el seed nunca borra ofertas.
+   **Ofertas demo (`SEED_DEMO_DATA`)**: útil mientras se integra el frontend (diplomado, curso, taller,
+   evento, convocatorias, Moodle). El seed hace upsert por `slug` en cada arranque: **sobrescribe**
+   cambios hechos a esas ofertas demo. Al cargar datos reales desde el panel (Fase 06), quita la
+   variable (o `false`) y archiva/borra las ofertas demo desde el panel; el seed nunca borra ofertas.
 
    **Imágenes públicas (`STORAGE_PUBLIC_BASE_URL`)**: portadas, carrusel y fotos de docentes son de
    difusión. Recomendado: un bucket público aparte (Supabase: Storage → bucket público `eia-public`,
    `STORAGE_PUBLIC_BASE_URL=https://<ref>.supabase.co/storage/v1/object/public/eia-public`) o un CDN.
    Sin la variable, la API firma URLs de 7 días (funciona, pero no es cacheable y la URL cambia).
+   Desde la Fase 06 el panel sube esas imágenes con keys bajo `public/` (`public/offers/…`,
+   `public/teachers/…`). Si defines **`STORAGE_PUBLIC_BUCKET=eia-public`**, esas keys se guardan en ese
+   bucket (y `STORAGE_PUBLIC_BASE_URL` debe apuntar a él); los archivos privados (materiales,
+   comprobantes, evidencias) siguen en `STORAGE_BUCKET`. Sin `STORAGE_PUBLIC_BUCKET` todo va al bucket
+   privado: en ese caso NO definas `STORAGE_PUBLIC_BASE_URL` (deja que la API firme las URLs), porque
+   un bucket privado no sirve URLs públicas. Las credenciales S3 deben tener permiso sobre ambos buckets.
     La lista completa y documentada está en `.env.example`;
    si falta una variable obligatoria la app no arranca y el log indica cuál.
 3. **Networking → Generate Domain** (o dominio propio con CNAME).
@@ -231,5 +240,48 @@ stripe listen --forward-to localhost:3000/api/v1/webhooks/stripe \
 - Usa llaves **live** y un endpoint de webhook **live** propio (otro `whsec_…`).
 - `SCHEDULER_ENABLED=true` en UNA sola réplica (cobro de cuotas, mora, conciliación de checkouts).
 - Datos bancarios de la transferencia (`BANK_TRANSFER_*`) solo como variables de Railway.
-- Reembolsos: se hacen en el dashboard de Stripe; el evento `charge.refunded` marca el pago como
-  "Reembolsado" (la acción del panel llega en la Fase 06).
+- Reembolsos: desde el panel (Fase 06, `POST /admin/payments/{id}/refund`, rol Administración y
+  finanzas) la API crea el reembolso en Stripe (la restricted key necesita escritura en **Refunds**);
+  también se pueden hacer en el dashboard de Stripe. En ambos casos el evento `charge.refunded`
+  concilia el pago ("Reembolsado" si es total).
+
+## 8. Primer administrador (Fase 06)
+
+El seed **nunca** crea usuarios demo con `NODE_ENV=production` (el `admin@example.com` /
+`Admin12345` solo existe en desarrollo y pruebas). Para el primer SUPER_ADMIN de producción hay dos
+caminos; elige uno:
+
+**A. Variables de entorno (recomendado en Railway, sin shell).** En Service → Variables:
+
+```env
+BOOTSTRAP_ADMIN_EMAIL=direccion@escuelaitinerante.org
+BOOTSTRAP_ADMIN_PASSWORD=<mínimo 12 caracteres, con letra y número>
+BOOTSTRAP_ADMIN_NAME="Nombre Apellido"
+```
+
+En el siguiente arranque, el seed del entrypoint (`node dist/seed/prisma/seed.js`):
+- si **ya existe algún SUPER_ADMIN activo**, no hace nada (idempotente: puedes dejar las variables);
+- si el correo **ya está registrado** (p. ej. la persona se registró en el portal), le agrega el rol
+  SUPER_ADMIN y la activa, **sin cambiar su contraseña** (`BOOTSTRAP_ADMIN_PASSWORD` no se usa);
+- si no existe, crea la cuenta verificada con esa contraseña (argon2id) y perfil mínimo (México, CDMX;
+  completa teléfono y ubicación en "Mi perfil").
+- Si falta la contraseña o es débil cuando hay que crear la cuenta, el seed falla con un mensaje claro
+  y el contenedor no arranca (Railway conserva la versión anterior).
+
+Después de entrar, **borra `BOOTSTRAP_ADMIN_PASSWORD`** de Railway (ya no se necesita) y cambia la
+contraseña desde el portal si la compartiste.
+
+**B. CLI (`pnpm admin:create`).** Crea o promueve una cuenta aunque ya exista otro SUPER_ADMIN (útil
+para recuperar el acceso). La contraseña va por variable de entorno, nunca como argumento:
+
+```bash
+# Local / con acceso a la BD
+ADMIN_PASSWORD='<contraseña robusta>' pnpm admin:create --email direccion@escuelaitinerante.org --name "Nombre Apellido"
+# Imagen de producción (shell del servicio o `railway run`)
+ADMIN_PASSWORD='<contraseña robusta>' node dist/seed/prisma/create-admin.js --email direccion@escuelaitinerante.org
+```
+
+Con el primer SUPER_ADMIN, el resto del equipo **se registra en el portal** (HU-02/03) y el
+SUPER_ADMIN le asigna roles en el panel (`PUT /api/v1/admin/users/{id}/roles`; ver
+`docs/frontend/fase-06-admin.md`). Los cambios de rol y las cuentas deshabilitadas aplican de
+inmediato (la API lee los roles de la BD en cada petición del panel).

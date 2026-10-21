@@ -64,11 +64,14 @@ export interface SignedUrl {
 export class StorageService implements OnModuleDestroy {
   private readonly client: S3Client;
   private readonly bucket: string;
+  /** Bucket de difusión (opcional) para las keys bajo `public/` (STORAGE_PUBLIC_BUCKET). */
+  private readonly publicBucket?: string;
   private readonly defaultTtl: number;
   private readonly publicBaseUrl?: string;
 
   constructor(config: ConfigService<Env, true>) {
     this.bucket = config.get('STORAGE_BUCKET', { infer: true });
+    this.publicBucket = config.get('STORAGE_PUBLIC_BUCKET', { infer: true });
     this.defaultTtl = config.get('STORAGE_SIGNED_URL_TTL_SECONDS', { infer: true });
     this.publicBaseUrl = config
       .get('STORAGE_PUBLIC_BASE_URL', { infer: true })
@@ -96,6 +99,20 @@ export class StorageService implements OnModuleDestroy {
   }
 
   /**
+   * Prefijo de las imágenes de DIFUSIÓN (portadas, carrusel, fotos de docentes; Fase 06). Si existe
+   * STORAGE_PUBLIC_BUCKET, las keys con este prefijo viven en ese bucket (público / CDN, servido con
+   * STORAGE_PUBLIC_BASE_URL); si no, en el bucket privado como cualquier otra key.
+   */
+  static readonly PUBLIC_PREFIX = 'public/';
+
+  /** Bucket donde vive una key (ver `PUBLIC_PREFIX`). */
+  bucketFor(key: string): string {
+    return this.publicBucket && key.startsWith(StorageService.PUBLIC_PREFIX)
+      ? this.publicBucket
+      : this.bucket;
+  }
+
+  /**
    * Construye una clave única y legible: `<prefix>/<uuid>-<nombre-saneado>.<ext>`.
    * @example buildKey('offers/123/covers', 'Portada Diplomado.PNG') → 'offers/123/covers/2f..-portada-diplomado.png'
    */
@@ -111,7 +128,7 @@ export class StorageService implements OnModuleDestroy {
   async upload(input: UploadInput): Promise<StoredObject> {
     await this.client.send(
       new PutObjectCommand({
-        Bucket: this.bucket,
+        Bucket: this.bucketFor(input.key),
         Key: input.key,
         Body: input.body,
         ContentType: input.contentType,
@@ -119,18 +136,18 @@ export class StorageService implements OnModuleDestroy {
         Metadata: input.metadata,
       }),
     );
-    return { bucket: this.bucket, key: input.key };
+    return { bucket: this.bucketFor(input.key), key: input.key };
   }
 
   async delete(key: string): Promise<void> {
-    await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
+    await this.client.send(new DeleteObjectCommand({ Bucket: this.bucketFor(key), Key: key }));
   }
 
   /** Metadatos del objeto, o `null` si no existe. */
   async head(key: string): Promise<{ contentLength?: number; contentType?: string } | null> {
     try {
       const result = await this.client.send(
-        new HeadObjectCommand({ Bucket: this.bucket, Key: key }),
+        new HeadObjectCommand({ Bucket: this.bucketFor(key), Key: key }),
       );
       return { contentLength: result.ContentLength, contentType: result.ContentType };
     } catch (error) {
@@ -145,7 +162,7 @@ export class StorageService implements OnModuleDestroy {
   async getDownloadUrl(key: string, options: DownloadUrlOptions = {}): Promise<SignedUrl> {
     const expiresIn = options.expiresInSeconds ?? this.defaultTtl;
     const command = new GetObjectCommand({
-      Bucket: this.bucket,
+      Bucket: this.bucketFor(key),
       Key: key,
       ResponseContentDisposition: options.downloadFileName
         ? `attachment; filename*=UTF-8''${encodeURIComponent(options.downloadFileName)}`
@@ -175,7 +192,7 @@ export class StorageService implements OnModuleDestroy {
   async getUploadUrl(key: string, options: UploadUrlOptions): Promise<SignedUrl> {
     const expiresIn = options.expiresInSeconds ?? this.defaultTtl;
     const command = new PutObjectCommand({
-      Bucket: this.bucket,
+      Bucket: this.bucketFor(key),
       Key: key,
       ContentType: options.contentType,
     });

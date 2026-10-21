@@ -46,6 +46,11 @@ export interface TransitionOptions {
   afterUpdate?: (tx: Prisma.TransactionClient, application: Application) => Promise<void>;
   /** Notificar al postulante (por defecto sí). */
   notify?: boolean;
+  /**
+   * Fase 06 (HU-31 "Correo al postulante: plantilla editable"): párrafo del equipo que se agrega al
+   * cuerpo de la notificación y del correo del cambio de estado.
+   */
+  participantMessage?: string | null;
 }
 
 export interface TransitionResult {
@@ -66,6 +71,8 @@ export interface ApproveInput {
   /** Beca especial: 71–80 (los niveles fijos ignoran este valor). */
   assignedPercent?: number | null;
   note?: string | null;
+  /** Fase 06: párrafo editable que se agrega al aviso/correo de la decisión. */
+  participantMessage?: string | null;
 }
 
 /**
@@ -129,7 +136,9 @@ export class ApplicationWorkflowService {
       await options.afterUpdate?.(tx, application);
       return { application, event };
     });
-    if (options.notify !== false) await this.notifyStatus(result.application, result.event);
+    if (options.notify !== false) {
+      await this.notifyStatus(result.application, result.event, options.participantMessage);
+    }
     return result;
   }
 
@@ -301,6 +310,7 @@ export class ApplicationWorkflowService {
       { type: 'STAFF', id: staffId },
       {
         note: input.note,
+        participantMessage: input.participantMessage,
         data: {
           assignedLevel,
           assignedPercent,
@@ -320,13 +330,22 @@ export class ApplicationWorkflowService {
   }
 
   /** Decisión "No seleccionada" (HU-31). */
-  async reject(applicationId: string, staffId: string, note?: string): Promise<Application> {
+  async reject(
+    applicationId: string,
+    staffId: string,
+    note?: string,
+    participantMessage?: string | null,
+  ): Promise<Application> {
     const now = nowUtc();
     const { application } = await this.transition(
       applicationId,
       'NOT_SELECTED',
       { type: 'STAFF', id: staffId },
-      { note, data: { decidedAt: now, decidedById: staffId, decisionNote: note ?? null } },
+      {
+        note,
+        participantMessage,
+        data: { decidedAt: now, decidedById: staffId, decisionNote: note ?? null },
+      },
     );
     return application;
   }
@@ -569,13 +588,16 @@ export class ApplicationWorkflowService {
   private async notifyStatus(
     application: Application,
     event: ApplicationStatusEvent,
+    participantMessage?: string | null,
   ): Promise<void> {
     await this.safeNotify(application, async (ctx) => {
       const message = statusChangeMessage(event.toStatus, ctx);
       if (!message) return;
+      const extra = participantMessage?.trim();
       await this.notifications.notify({
         userIds: [application.userId],
         ...message,
+        ...(extra ? { body: `${message.body}\n\n${extra}` } : {}),
         dedupeKey: `app-status:${application.id}:${event.toStatus}:${event.id}`,
       });
     });
