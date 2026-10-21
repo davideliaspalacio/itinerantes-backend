@@ -96,6 +96,15 @@ model User {
   notifications       Notification[]
   finalProjects       FinalProjectSubmission[]
 
+  // Fase 04 — Postulaciones
+  /// Última vez que la persona abrió "Convocatorias abiertas" (widget "nuevas desde tu última visita", HU-06).
+  openCallsSeenAt         DateTime?                @map("open_calls_seen_at") @db.Timestamptz(3)
+  applications            Application[]            @relation("ApplicationApplicant")
+  decidedApplications     Application[]            @relation("ApplicationDecidedBy")
+  applicationDocuments    ApplicationDocument[]
+  applicationStatusEvents ApplicationStatusEvent[]
+  scheduledInterviews     ApplicationInterview[]
+
   @@map("users")
 }
 
@@ -500,6 +509,7 @@ model Offer {
   enrollments      Enrollment[]
   libraryResources LibraryResource[]
   finalProjects    FinalProjectSubmission[]
+  applications     Application[]
 
   @@index([publicationStatus, startsAt])
   @@index([publicTopic])
@@ -717,7 +727,7 @@ model Enrollment {
   status        EnrollmentStatus @default(ACTIVE)
   origin        EnrollmentOrigin @default(NAS)
   source        EnrollmentSource
-  /// Fase 04: postulación que originó la inscripción (beca/convocatoria). FK en esa fase.
+  /// Fase 04: postulación que originó la inscripción (beca/convocatoria).
   applicationId String?          @unique @map("application_id") @db.Uuid
   /// Cuándo obtuvo acceso (pago confirmado, alta gratuita, vinculación Moodle).
   activatedAt   DateTime?        @map("activated_at") @db.Timestamptz(3)
@@ -731,6 +741,7 @@ model Enrollment {
 
   user         User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
   offer        Offer                   @relation(fields: [offerId], references: [id], onDelete: Restrict)
+  application  Application?            @relation(fields: [applicationId], references: [id], onDelete: SetNull)
   attendances  SessionAttendance[]
   finalProject FinalProjectSubmission?
 
@@ -939,4 +950,222 @@ model Notification {
   @@index([userId, readAt])
   @@index([userId, pinned, createdAt])
   @@map("notifications")
+}
+
+// =============================================================================
+// Fase 04 — Postulaciones: becas y convocatorias (HU-19, 20, 21; modelo listo para HU-23/31/32)
+// =============================================================================
+//
+// Decisiones (docs/ARCHITECTURE.md → "Postulaciones"):
+//  - Una postulación por persona y oferta (cohorte): @@unique([userId, offerId]). El tipo (beca o
+//    convocatoria) se deriva de la oferta: diplomado NAS con beca → SCHOLARSHIP; OPEN_CALL → OPEN_CALL.
+//  - Máquina de estados pura en applications/policies/application-status.policy.ts. Cada cambio queda
+//    en ApplicationStatusEvent (historial con actor). Los cambios usan update condicionado al estado
+//    previo (concurrencia optimista).
+//  - Al aprobar con saldo se crea la Enrollment PENDING_PAYMENT (source SCHOLARSHIP / OPEN_CALL,
+//    applicationId); la Fase 05 la activa al pagar. Sin costo: la persona confirma y queda ACTIVE.
+//  - Plazos (`responseDueAt`): 7 días desde la aprobación sin superar el inicio de la oferta (Anexo A).
+//    Un job los vence (EXPIRED) salvo con comprobante de transferencia pendiente (`pendingTransferSince`,
+//    lo administra la Fase 05).
+
+enum ApplicationKind {
+  /// Beca de diplomado (HU-19)
+  SCHOLARSHIP
+  /// Convocatoria de programa presencial (HU-20)
+  OPEN_CALL
+}
+
+/// Estados globales de postulación (HU-21 / HU-31). Textos en docs/frontend/fase-04-postulaciones.md.
+enum ApplicationStatus {
+  /// Borrador (editable, sin folio visible para el equipo)
+  DRAFT
+  /// Enviada
+  SUBMITTED
+  /// En revisión (el equipo abrió el detalle; aviso solo en portal)
+  IN_REVIEW
+  /// Entrevista agendada (Zoom)
+  INTERVIEW_SCHEDULED
+  /// Aprobada – pendiente de pago (saldo tras beca o convocatoria con costo; Fase 05 cobra)
+  APPROVED_PENDING_PAYMENT
+  /// Aprobada – confirma tu participación (sin costo, Anexo A HU-20/21)
+  APPROVED_PENDING_CONFIRMATION
+  /// Inscrita
+  ENROLLED
+  /// No seleccionada
+  NOT_SELECTED
+  /// Vencida (no pagó / no confirmó en plazo)
+  EXPIRED
+}
+
+/// Quién provocó un cambio de estado (historial).
+enum ApplicationActorType {
+  PARTICIPANT
+  STAFF
+  SYSTEM
+}
+
+enum ApplicationDocumentKind {
+  /// Evidencia territorial (fotos/videos, HU-19/20)
+  EVIDENCE
+}
+
+enum InterviewStatus {
+  SCHEDULED
+  /// "Realizada" (HU-31: requisito para aprobar beca especial o convocatoria)
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+model Application {
+  id              String            @id @default(uuid()) @db.Uuid
+  /// Consecutivo para el folio legible (BEC-000123 / CONV-000123).
+  number          Int               @unique @default(autoincrement())
+  userId          String            @map("user_id") @db.Uuid
+  offerId         String            @map("offer_id") @db.Uuid
+  kind            ApplicationKind
+  status          ApplicationStatus @default(DRAFT)
+  statusChangedAt DateTime          @default(now()) @map("status_changed_at") @db.Timestamptz(3)
+
+  // --- Datos de contacto (precargados del perfil HU-14; foto al enviar) ---
+  applicantName    String  @map("applicant_name") @db.VarChar(120)
+  applicantEmail   String  @map("applicant_email") @db.VarChar(254)
+  /// WhatsApp con indicativo (editable en el formulario).
+  phoneCountryCode String  @map("phone_country_code") @db.VarChar(5)
+  phoneNumber      String  @map("phone_number") @db.VarChar(15)
+  /// País del perfil: define moneda (MX → MXN) y elegibilidad (HU-20).
+  countryCode      String  @map("country_code") @db.Char(2)
+  divisionName     String  @map("division_name") @db.VarChar(100)
+  municipalityName String  @map("municipality_name") @db.VarChar(100)
+  age              Int?
+  /// Código de iniciativa aliada (opcional, solo identifica quién difundió; Anexo A HU-19).
+  partnerCode      String? @map("partner_code") @db.VarChar(40)
+  organization     String? @db.VarChar(150)
+  organizationRole String? @map("organization_role") @db.VarChar(120)
+
+  // --- Beca (HU-19) ---
+  requestedLevel ScholarshipLevel? @map("requested_level")
+  intentLetter   String?           @map("intent_letter") @db.Text
+
+  // --- Convocatoria (HU-20) ---
+  eligibilityConfirmed Boolean  @default(false) @map("eligibility_confirmed")
+  experience           String?  @db.Text
+  motivation           String?  @db.Text
+  canTravel            Boolean? @map("can_travel")
+
+  /// Enlaces de evidencia (YouTube, Drive, redes), máx. 5.
+  evidenceLinks   String[]  @map("evidence_links")
+  termsAcceptedAt DateTime? @map("terms_accepted_at") @db.Timestamptz(3)
+
+  // --- Montos (moneda del perfil al enviar; centavos) ---
+  currency            Currency?
+  /// Precio de la oferta en `currency` al enviar (null si es gratuita).
+  originalAmountCents Int?      @map("original_amount_cents")
+
+  // --- Decisión (Fase 06, HU-31) ---
+  assignedLevel   ScholarshipLevel? @map("assigned_level")
+  assignedPercent Int?              @map("assigned_percent")
+  /// Saldo a pagar = original − % asignado (HU-23). 0 → confirmación.
+  balanceCents    Int?              @map("balance_cents")
+  decidedById     String?           @map("decided_by_id") @db.Uuid
+  decisionNote    String?           @map("decision_note") @db.VarChar(1000)
+  /// Fecha límite para pagar o confirmar (7 días, sin superar el inicio; HU-23/32 la extienden).
+  responseDueAt   DateTime?         @map("response_due_at") @db.Timestamptz(3)
+
+  // --- Hitos ---
+  submittedAt     DateTime? @map("submitted_at") @db.Timestamptz(3)
+  reviewStartedAt DateTime? @map("review_started_at") @db.Timestamptz(3)
+  decidedAt       DateTime? @map("decided_at") @db.Timestamptz(3)
+  enrolledAt      DateTime? @map("enrolled_at") @db.Timestamptz(3)
+  expiredAt       DateTime? @map("expired_at") @db.Timestamptz(3)
+
+  // --- Fase 05 (pagos) ---
+  /// "Con pago iniciado" (embudo HU-32): abrió Stripe, subió comprobante o creó plan de cuotas.
+  paymentStartedAt     DateTime? @map("payment_started_at") @db.Timestamptz(3)
+  /// Comprobante de transferencia "Pendiente de validación": la postulación NO vence (HU-21/23).
+  pendingTransferSince DateTime? @map("pending_transfer_since") @db.Timestamptz(3)
+
+  // --- Jobs (claims idempotentes) ---
+  /// Recordatorio de saldo enviado (BALANCE_REMINDER_HOURS_BEFORE antes de responseDueAt).
+  dueReminderSentAt DateTime? @map("due_reminder_sent_at") @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user         User                     @relation("ApplicationApplicant", fields: [userId], references: [id], onDelete: Cascade)
+  offer        Offer                    @relation(fields: [offerId], references: [id], onDelete: Restrict)
+  decidedBy    User?                    @relation("ApplicationDecidedBy", fields: [decidedById], references: [id], onDelete: SetNull)
+  documents    ApplicationDocument[]
+  statusEvents ApplicationStatusEvent[]
+  interviews   ApplicationInterview[]
+  enrollment   Enrollment?
+
+  @@unique([userId, offerId])
+  @@index([offerId, status])
+  @@index([status, responseDueAt])
+  @@index([userId, kind])
+  @@map("applications")
+}
+
+/// Archivo adjunto (evidencia) de una postulación. PRIVADO: URL firmada solo para su autor y el equipo.
+model ApplicationDocument {
+  id            String                  @id @default(uuid()) @db.Uuid
+  applicationId String                  @map("application_id") @db.Uuid
+  userId        String                  @map("user_id") @db.Uuid
+  kind          ApplicationDocumentKind @default(EVIDENCE)
+  fileKey       String                  @unique @map("file_key") @db.VarChar(500)
+  fileName      String                  @map("file_name") @db.VarChar(255)
+  mimeType      String                  @map("mime_type") @db.VarChar(120)
+  sizeBytes     Int                     @map("size_bytes")
+  createdAt     DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId])
+  @@map("application_documents")
+}
+
+/// Historial de estados (HU-21 "historial de estados con fecha y hora"; HU-31/32 línea de tiempo).
+model ApplicationStatusEvent {
+  id            String               @id @default(uuid()) @db.Uuid
+  applicationId String               @map("application_id") @db.Uuid
+  fromStatus    ApplicationStatus?   @map("from_status")
+  toStatus      ApplicationStatus    @map("to_status")
+  actorType     ApplicationActorType @map("actor_type")
+  /// Persona que lo provocó (participante o integrante del equipo); null = sistema.
+  actorId       String?              @map("actor_id") @db.Uuid
+  /// Nota interna (nunca visible al postulante).
+  note          String?              @db.VarChar(1000)
+  createdAt     DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  actor       User?       @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([applicationId, createdAt])
+  @@map("application_status_events")
+}
+
+/// Entrevista por Zoom (HU-21 / HU-31). La vigente es la más reciente no cancelada.
+model ApplicationInterview {
+  id             String          @id @default(uuid()) @db.Uuid
+  applicationId  String          @map("application_id") @db.Uuid
+  startsAt       DateTime        @map("starts_at") @db.Timestamptz(3)
+  endsAt         DateTime        @map("ends_at") @db.Timestamptz(3)
+  /// Enlace de Zoom del participante (se entrega 10 min antes, HU-21).
+  joinUrl        String          @map("join_url") @db.VarChar(1000)
+  status         InterviewStatus @default(SCHEDULED)
+  scheduledById  String?         @map("scheduled_by_id") @db.Uuid
+  completedAt    DateTime?       @map("completed_at") @db.Timestamptz(3)
+  /// Recordatorio 24 h antes enviado (claim del job, HU-13).
+  reminderSentAt DateTime?       @map("reminder_sent_at") @db.Timestamptz(3)
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  scheduledBy User?       @relation(fields: [scheduledById], references: [id], onDelete: SetNull)
+
+  @@index([applicationId])
+  @@index([status, startsAt])
+  @@map("application_interviews")
 }

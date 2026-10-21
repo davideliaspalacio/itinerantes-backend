@@ -8,6 +8,8 @@
  *   SEED_DEMO_DATA=true|false (por defecto true fuera de producción y false en producción).
  * - Inscripciones, asistencias y notificaciones demo (Fase 03): solo para el usuario demo, que nunca
  *   existe con NODE_ENV=production.
+ * - Postulaciones demo (Fase 04): solo para el usuario demo y nunca con NODE_ENV=production; se crean
+ *   solo si no existen (no pisan lo que se haga desde el portal).
  *
  * Reglas para las fases:
  * - Usa SIEMPRE `upsert` (o `createMany({ skipDuplicates: true })`) con claves estables (email, slug),
@@ -26,6 +28,7 @@ import { buildImportantDates } from '../src/modules/offers/policies/important-da
 import { cdmxDate, parseScheduleRule } from '../src/modules/offers/policies/schedule-rule';
 import { generateSessions } from '../src/modules/offers/policies/session-generation.policy';
 import { COUNTRIES } from './data/countries';
+import { DEMO_APPLICATIONS } from './data/demo-applications';
 import { DEMO_OFFERS, DEMO_TEACHERS } from './data/demo-offers';
 import {
   DEMO_CALENDAR_EVENTS,
@@ -404,11 +407,80 @@ async function seedDemoPortal(prisma: PrismaClient): Promise<void> {
   console.log(`  ${DEMO_ENROLLMENTS.length} inscripciones demo de participante@example.com.`);
 }
 
+/**
+ * Fase 04: postulaciones demo de `participante@example.com` (beca aprobada pendiente de pago,
+ * convocatoria con entrevista agendada y un borrador). Nunca en producción. Idempotente: se crean
+ * solo si no existe la postulación de esa persona en esa oferta (única por persona y oferta).
+ */
+async function seedDemoApplications(prisma: PrismaClient): Promise<void> {
+  if (process.env.NODE_ENV === 'production' || !demoDataEnabled()) {
+    console.log('  Se omiten las postulaciones demo (producción o SEED_DEMO_DATA desactivado).');
+    return;
+  }
+  const participant = await prisma.user.findUnique({
+    where: { email: 'participante@example.com' },
+  });
+  if (!participant) return;
+
+  let created = 0;
+  for (const demo of DEMO_APPLICATIONS) {
+    const offer = await prisma.offer.findUnique({ where: { slug: demo.offerSlug } });
+    if (!offer) continue;
+    const existing = await prisma.application.findUnique({
+      where: { userId_offerId: { userId: participant.id, offerId: offer.id } },
+    });
+    if (existing) continue;
+    const application = await prisma.application.create({
+      data: {
+        ...demo.data,
+        userId: participant.id,
+        offerId: offer.id,
+        applicantName: participant.fullName,
+        applicantEmail: participant.email,
+        phoneCountryCode: participant.phoneCountryCode,
+        phoneNumber: participant.phoneNumber,
+        countryCode: participant.countryCode,
+        divisionName: participant.divisionName,
+        municipalityName: participant.municipalityName,
+        statusEvents: {
+          create: demo.history.map((event, index) => ({
+            fromStatus: index > 0 ? demo.history[index - 1].status : null,
+            toStatus: event.status,
+            actorType: event.actor,
+            actorId: event.actor === 'PARTICIPANT' ? participant.id : null,
+            createdAt: event.at,
+          })),
+        },
+        ...(demo.interview ? { interviews: { create: [demo.interview] } } : {}),
+      },
+    });
+    created++;
+    if (demo.enrollment) {
+      const enrollment = await prisma.enrollment.findUnique({
+        where: { userId_offerId: { userId: participant.id, offerId: offer.id } },
+      });
+      if (!enrollment) {
+        await prisma.enrollment.create({
+          data: {
+            userId: participant.id,
+            offerId: offer.id,
+            applicationId: application.id,
+            origin: 'NAS',
+            ...demo.enrollment,
+          },
+        });
+      }
+    }
+  }
+  console.log(`  ${created} postulaciones demo nuevas de participante@example.com.`);
+}
+
 const seeders: Array<[name: string, run: Seeder]> = [
   ['Fase 01 — ubicaciones', seedLocations],
   ['Fase 01 — usuarios demo', seedDemoUsers],
   ['Fase 02 — ofertas demo', seedDemoOffers],
   ['Fase 03 — portal demo', seedDemoPortal],
+  ['Fase 04 — postulaciones demo', seedDemoApplications],
 ];
 
 async function main(): Promise<void> {

@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { ApplicationsWidgetDto } from '../applications/dto/applications.response.dto';
 import { CalendarItemDto } from '../calendar/dto/calendar.dto';
 import { FormationCardDto } from '../enrollments/dto/enrollments.response.dto';
 import { LibraryItemDto } from '../library/dto/library.dto';
@@ -10,6 +11,8 @@ export const DASHBOARD_BLOCKS = [
   'upcomingEvents',
   'recommendedResources',
   'notifications',
+  'scholarships',
+  'openCalls',
 ] as const;
 export type DashboardBlock = (typeof DASHBOARD_BLOCKS)[number];
 
@@ -56,13 +59,32 @@ export class DashboardDto {
   notifications!: UnreadCountDto | null;
 
   @ApiProperty({
+    type: ApplicationsWidgetDto,
+    nullable: true,
+    description:
+      'Widget Becas (Fase 04, siempre visible): estado de la postulación más relevante (`latest`, ' +
+      'misma tarjeta y textos que "Mis postulaciones") → enlaza a Mis postulaciones. `latest = null` ' +
+      '→ invitar a postular ("Postula a una beca", `openCount` becas abiertas).',
+  })
+  scholarships!: ApplicationsWidgetDto | null;
+
+  @ApiProperty({
+    type: ApplicationsWidgetDto,
+    nullable: true,
+    description:
+      'Widget Convocatorias (Fase 04): `newCount` = convocatorias abiertas nuevas desde tu última ' +
+      'visita a "Convocatorias abiertas" y estado de mi postulación (`latest`).',
+  })
+  openCalls!: ApplicationsWidgetDto | null;
+
+  @ApiProperty({
     enum: DASHBOARD_BLOCKS,
     isArray: true,
     example: [],
     description:
       'Bloques que no se pudieron cargar: muestra "No se pudo cargar esta información" + reintento ' +
       '(el reintento puede usar el endpoint propio del bloque: /me/enrollments, /me/calendar, ' +
-      '/library, /me/notifications/unread-count).',
+      '/library, /me/notifications/unread-count, /me/applications?kind=…).',
   })
   failedBlocks!: DashboardBlock[];
 }

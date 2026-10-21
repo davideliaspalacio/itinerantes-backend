@@ -35,6 +35,7 @@ renombran una vez publicados.
 | `IS_IANA_TIMEZONE` | Zona horaria IANA no válida (Fase 01). |
 | `INVALID_LOCATION` | País / estado / municipio inexistente o que no corresponde al nivel superior (Fase 01). |
 | `INVALID_PHONE` | Longitud del teléfono no válida para el indicativo (Fase 01). |
+| `NOT_APPLICABLE`, `LEVEL_NOT_ENABLED`, `MIN_FILES`, `MUST_ACCEPT` | Formulario de postulación (Fase 04): campo de otro tipo, nivel de beca no habilitado, faltan evidencias, casilla obligatoria sin marcar. |
 | `IS_EMAIL`, `IS_STRING`, `IS_INT`, `IS_ENUM`, `IS_UUID`, `IS_DATE_STRING`, `MIN_LENGTH`, `MAX_LENGTH`, `MIN`, `MAX`, `MATCHES`, ... | Restricción de validación incumplida (nombre de la regla en `SCREAMING_SNAKE_CASE`). |
 
 ## Por fase
@@ -103,3 +104,27 @@ Validación (`400 VALIDATION_ERROR`): asistencia sin `attended: true` (`details[
 comentario > 500 (`MAX_LENGTH`); calendario con rango inválido (`INVALID_RANGE`) o > 62 días
 (`RANGE_TOO_LARGE`); filtros fuera del enum (`IS_ENUM` / `IS_IN`). Un id de ruta que no es UUID
 responde `404 NOT_FOUND`.
+
+### Fase 04 — Postulaciones
+
+Guía de pantallas: [`fase-04-postulaciones.md`](fase-04-postulaciones.md).
+
+| `code` | HTTP | Mensaje por defecto | `meta` | Cuándo ocurre / qué hacer en la UI |
+|---|---|---|---|---|
+| `APPLICATION_NOT_ALLOWED` | 422 | Esta oferta no recibe postulaciones. | `offerType`, `origin` | Postular a un curso, taller, evento, diplomado sin beca u oferta Moodle (HU-19) → mostrar el motivo, sin botón. |
+| `APPLICATION_WINDOW_CLOSED` | 422 | La convocatoria no está abierta. | `reason`, `availableFrom`, `closesAt` | Crear, editar, subir o enviar fuera de la ventana. `reason` = `SCHOLARSHIP_NOT_OPEN_YET` / `SCHOLARSHIP_CLOSED` / `ENROLLMENT_NOT_OPEN_YET` / `ENROLLMENT_CLOSED` / `OFFER_FINISHED` → "Convocatoria cerrada" (borrador en solo lectura) o "Abre el …". |
+| `APPLICATION_ALREADY_EXISTS` | 409 | Ya tienes una postulación para esta oferta. | `applicationId`, `status`, `folio` | Una postulación por cohorte (HU-19/20) → ir a `/portal/postulaciones/{applicationId}`. |
+| `APPLICATION_NOT_EDITABLE` | 409 | Tu postulación ya fue enviada y no se puede modificar. | `status` | Editar, adjuntar, descartar o reenviar una postulación ya enviada → recargar el detalle. |
+| `APPLICATION_INCOMPLETE` | 422 | Completa los campos obligatorios para enviar tu postulación. | — | Enviar con pendientes: `details[]` por campo (`REQUIRED`, `MIN_LENGTH`, `MAX_LENGTH`, `MIN_FILES`, `MUST_ACCEPT`, `LEVEL_NOT_ENABLED`). |
+| `APPLICATION_NOT_ELIGIBLE` | 422 | No cumples con la elegibilidad de esta convocatoria. | `reasons`, `eligibilityText` | `COUNTRY_NOT_ELIGIBLE` (país del perfil) / `TRAVEL_REQUIRED` ("No" a viajar) (HU-20) → mostrar el motivo; no se puede enviar. |
+| `APPLICATION_INVALID_FILE` | 422 | El archivo debe ser JPG, PNG o HEIC de máximo 10 MB, o MP4/MOV de máximo 100 MB. | — | Tipo o tamaño no permitido (declarado o real) de una evidencia. |
+| `APPLICATION_TOO_MANY_FILES` | 422 | Puedes adjuntar como máximo 10 archivos. | `max` | Límite de evidencias. |
+| `APPLICATION_UPLOAD_NOT_FOUND` | 422 | No encontramos el archivo subido. Vuelve a subirlo. | — | Se confirmó una `key` que no existe en storage o no es de esa postulación. |
+| `APPLICATION_INVALID_TRANSITION` | 409 | Tu postulación no está en un estado que permita esta acción. | `status`, `to` | Confirmar participación cuando la postulación no lo espera (o acción concurrente) → recargar. |
+| `APPLICATION_DEADLINE_PASSED` | 422 | El plazo para responder ya venció. | `dueAt` | Confirmar participación después de la fecha límite (HU-21) → "Vencida, contacta al equipo". |
+| `APPLICATION_INTERVIEW_REQUIRED` | 422 | Esta postulación requiere entrevista por Zoom. | — | Panel (Fase 06, HU-31): aprobar Beca especial o convocatoria sin entrevista "Realizada". |
+
+Validación (`400 VALIDATION_ERROR`) del formulario: `details[].code` = `NOT_APPLICABLE` (campo del otro
+tipo de postulación), `LEVEL_NOT_ENABLED` (nivel no habilitado), `INVALID_PHONE`, `MAX_LENGTH`,
+`IS_URL` / `ARRAY_MAX_SIZE` (enlaces de evidencia), `IS_INT` / `MIN` / `MAX` (edad). Ids de ruta que no
+son UUID y postulaciones ajenas → `404 NOT_FOUND`.

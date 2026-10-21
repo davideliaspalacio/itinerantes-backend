@@ -19,6 +19,58 @@ const summary = (input: OfferActionsInput) =>
   computeOfferActions(input).map((a) => [a.type, a.enabled, a.reason]);
 
 describe('computeOfferActions (HU-16)', () => {
+  describe('con postulación (Fase 04)', () => {
+    const withApp = (status: 'SUBMITTED' | 'APPROVED_PENDING_PAYMENT' | 'DRAFT') => ({
+      ...base,
+      viewer: { authenticated: true, enrolled: false, application: { id: 'app-1', status } },
+    });
+
+    it('beca en curso: [Ver mi postulación] en lugar de [Postular a beca]', () => {
+      const actions = computeOfferActions(withApp('SUBMITTED'));
+      expect(actions.map((a) => a.type)).toEqual([
+        'ENROLL_AND_PAY',
+        'PAY_IN_INSTALLMENTS',
+        'VIEW_APPLICATION',
+      ]);
+      expect(actions[2]).toMatchObject({
+        enabled: true,
+        primary: false,
+        applicationId: 'app-1',
+        applicationStatus: 'SUBMITTED',
+      });
+      expect(actions[0]).toMatchObject({ applicationId: null, applicationStatus: null });
+    });
+
+    it('aprobada con saldo: [Pagar saldo] principal y sin pago completo', () => {
+      const actions = computeOfferActions(withApp('APPROVED_PENDING_PAYMENT'));
+      expect(actions.map((a) => [a.type, a.primary])).toEqual([
+        ['PAY_BALANCE', true],
+        ['VIEW_APPLICATION', false],
+      ]);
+    });
+
+    it('convocatoria: [Ver mi postulación] aunque la ventana haya cerrado', () => {
+      const call = {
+        ...withApp('DRAFT'),
+        type: 'OPEN_CALL' as const,
+        availability: 'ENROLLMENT_CLOSED' as const,
+      };
+      expect(summary(call)).toEqual([['VIEW_APPLICATION', true, null]]);
+    });
+
+    it('inscrito tiene prioridad sobre la postulación', () => {
+      const enrolled = {
+        ...base,
+        viewer: {
+          authenticated: true,
+          enrolled: true,
+          application: { id: 'a', status: 'ENROLLED' as const },
+        },
+      };
+      expect(summary(enrolled)).toEqual([['GO_TO_CLASSROOM', true, null]]);
+    });
+  });
+
   it('diplomado NAS abierto: pagar (primario), cuotas y beca', () => {
     const actions = computeOfferActions(base);
     expect(summary(base)).toEqual([

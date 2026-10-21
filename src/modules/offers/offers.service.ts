@@ -18,6 +18,11 @@ import type {
   OfferSummaryDto,
   TopicAvailabilityDto,
 } from './dto/offers.response.dto';
+import {
+  OFFER_APPLICATION_LOOKUP,
+  type OfferApplicationLookup,
+  type OfferApplicationRef,
+} from './application-lookup';
 import { OFFER_ENROLLMENT_LOOKUP, type OfferEnrollmentLookup } from './enrollment-lookup';
 import {
   type CatalogEntry,
@@ -103,6 +108,7 @@ export class OffersService {
     private readonly users: UsersService,
     private readonly locations: LocationsService,
     @Inject(OFFER_ENROLLMENT_LOOKUP) private readonly enrollments: OfferEnrollmentLookup,
+    @Inject(OFFER_APPLICATION_LOOKUP) private readonly applications: OfferApplicationLookup,
   ) {}
 
   async list(
@@ -191,16 +197,20 @@ export class OffersService {
 
     const viewer = await this.viewerContext(viewerInput);
     const availability = deriveOfferAvailability(offer, now);
-    const [enrolledIds, seatsTaken, countryNames] = await Promise.all([
+    const [enrolledIds, applications, seatsTaken, countryNames] = await Promise.all([
       viewer.userId
         ? this.enrollments.activeOfferIdsForUser(viewer.userId, [offer.id])
         : Promise.resolve(new Set<string>()),
+      viewer.userId
+        ? this.applications.applicationsForUser(viewer.userId, [offer.id])
+        : Promise.resolve(new Map<string, OfferApplicationRef>()),
       offer.capacity !== null
         ? this.enrollments.countSeatsTaken([offer.id])
         : Promise.resolve(new Map<string, number>()),
       this.locations.getCountryNames(offer.eligibleCountryCodes),
     ]);
     const enrolled = enrolledIds.has(offer.id);
+    const application = applications.get(offer.id) ?? null;
     const soldOut = offer.capacity !== null && (seatsTaken.get(offer.id) ?? 0) >= offer.capacity;
     const summary = await this.toSummary(offer, availability, viewer, enrolled);
 
@@ -223,7 +233,7 @@ export class OffersService {
       scholarshipOpensAt,
       hasPriceInCurrency: priceCents !== null && priceCents > 0,
       soldOut,
-      viewer: { authenticated: viewer.userId !== null, enrolled },
+      viewer: { authenticated: viewer.userId !== null, enrolled, application },
     });
 
     const scholarshipRange = scholarshipPercentRange(offer.scholarshipLevels);
@@ -291,7 +301,7 @@ export class OffersService {
         : null,
       capacity: { total: offer.capacity, soldOut },
       moodleCourseUrl: offer.origin === 'MOODLE' ? offer.moodleCourseUrl : null,
-      viewer: { authenticated: viewer.userId !== null, enrolled },
+      viewer: { authenticated: viewer.userId !== null, enrolled, application },
       actions: actions.map((action) => ({ ...action, availableFrom: iso(action.availableFrom) })),
     };
   }

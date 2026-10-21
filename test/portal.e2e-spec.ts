@@ -344,7 +344,11 @@ describe('Portal del participante (e2e) — Fase 03', () => {
 
     it('la ficha y el catálogo usan las inscripciones reales (GO_TO_CLASSROOM)', async () => {
       const detail = await get(`/offers/${slug('course')}`, alice).expect(200);
-      expect(detail.body.viewer).toEqual({ authenticated: true, enrolled: true });
+      expect(detail.body.viewer).toEqual({
+        authenticated: true,
+        enrolled: true,
+        application: null,
+      });
       expect(detail.body.actions.map((a: { type: string }) => a.type)).toEqual(['GO_TO_CLASSROOM']);
       const anonymous = await api()
         .get(`/api/v1/offers/${slug('course')}`)

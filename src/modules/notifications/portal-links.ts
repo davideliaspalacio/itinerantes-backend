@@ -14,4 +14,13 @@ export const PORTAL_LINKS = {
   library: () => '/portal/biblioteca',
   notifications: () => '/portal/notificaciones',
   offer: (slug: string) => `/escuela/oferta/${slug}`,
+  // Fase 04 — Postulaciones (HU-19, 20, 21)
+  /** Detalle de mi postulación (línea de tiempo, entrevista, resultado, acción). */
+  application: (applicationId: string) => `/portal/postulaciones/${applicationId}`,
+  /** Becas: pestañas "Becas disponibles" y "Mis postulaciones". */
+  scholarships: () => '/portal/becas',
+  /** Convocatorias: pestañas "Convocatorias abiertas" y "Mis postulaciones". */
+  openCalls: () => '/portal/convocatorias',
+  /** "Pagar saldo" tras beca (HU-23, pantalla de la Fase 05). */
+  payBalance: (applicationId: string) => `/portal/postulaciones/${applicationId}/pago`,
 } as const;

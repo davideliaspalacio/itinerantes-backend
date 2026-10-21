@@ -3347,6 +3347,1854 @@
         ]
       }
     },
+    "/api/v1/me/applications/opportunities": {
+      "get": {
+        "description": "HU-19 / HU-20: pestaña \"Becas disponibles\" (`kind=SCHOLARSHIP`: diplomados NAS con beca y convocatoria de becas abierta o próxima) o \"Convocatorias abiertas\" (`kind=OPEN_CALL`). Tarjetas con lugar, fechas, costo o \"Gratuito\", cierre (`window.closesAt`, muéstralo en tu zona con cuenta regresiva), elegibilidad (`eligibility.eligible` / `reasons` según tu perfil), niveles de beca con monto estimado en tu moneda y `myApplication` (una postulación por cohorte: [Ver mi postulación] en lugar de [Postular]). Orden: abiertas por cierre más próximo, luego próximas. `kind=OPEN_CALL` marca las convocatorias como vistas (widget \"nuevas\" del Dashboard). Lista vacía → mensaje orientador (\"Te avisaremos cuando abra una convocatoria\").",
+        "operationId": "Applications_opportunities",
+        "parameters": [
+          {
+            "name": "kind",
+            "required": true,
+            "in": "query",
+            "description": "\"Becas disponibles\" (`SCHOLARSHIP`) o \"Convocatorias abiertas\" (`OPEN_CALL`).",
+            "schema": {
+              "example": "OPEN_CALL",
+              "type": "string",
+              "enum": [
+                "SCHOLARSHIP",
+                "OPEN_CALL"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplicationOpportunitiesDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error. `code` posibles: `VALIDATION_ERROR`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "summary": "VALIDATION_ERROR",
+                    "value": {
+                      "statusCode": 400,
+                      "code": "VALIDATION_ERROR",
+                      "message": "Los datos enviados no son válidos.",
+                      "details": [
+                        {
+                          "field": "email",
+                          "code": "IS_EMAIL",
+                          "message": "Debe ser un correo electrónico válido."
+                        }
+                      ],
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error. `code` posibles: `UNAUTHORIZED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "UNAUTHORIZED": {
+                    "summary": "UNAUTHORIZED",
+                    "value": {
+                      "statusCode": 401,
+                      "code": "UNAUTHORIZED",
+                      "message": "Necesitas iniciar sesión para continuar.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Becas disponibles / Convocatorias abiertas",
+        "tags": [
+          "Postulaciones"
+        ]
+      }
+    },
+    "/api/v1/me/applications": {
+      "get": {
+        "description": "HU-21: solo mis postulaciones, filtradas por pestaña (`kind`: Becas o Convocatorias) y opcionalmente por `status`. Cada tarjeta trae oferta, cohorte, folio, fecha de envío, estado, línea de tiempo, entrevista, resultado de la beca y la acción contextual. Orden: las que requieren acción (entrevista, pago o confirmación) arriba por fecha más próxima; luego por último cambio. Lista vacía → acceso a becas disponibles / convocatorias abiertas.",
+        "operationId": "Applications_list",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Página (desde 1).",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "example": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "description": "Elementos por página.",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "kind",
+            "required": false,
+            "in": "query",
+            "description": "Pestaña \"Mis postulaciones\" de Becas (`SCHOLARSHIP`) o de Convocatorias (`OPEN_CALL`).",
+            "schema": {
+              "example": "SCHOLARSHIP",
+              "type": "string",
+              "enum": [
+                "SCHOLARSHIP",
+                "OPEN_CALL"
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Filtro por estado (varios con coma).",
+            "schema": {
+              "example": [
+                "SUBMITTED",
+                "IN_REVIEW"
+              ],
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "DRAFT",
+                  "SUBMITTED",
+                  "IN_REVIEW",
+                  "INTERVIEW_SCHEDULED",
+                  "APPROVED_PENDING_PAYMENT",
+                  "APPROVED_PENDING_CONFIRMATION",
+                  "ENROLLED",
+                  "NOT_SELECTED",
+                  "EXPIRED"
+                ]
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Postulaciones paginadas.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ApplicationCardDto"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PaginationMetaDto"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error. `code` posibles: `VALIDATION_ERROR`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "summary": "VALIDATION_ERROR",
+                    "value": {
+                      "statusCode": 400,
+                      "code": "VALIDATION_ERROR",
+                      "message": "Los datos enviados no son válidos.",
+                      "details": [
+                        {
+                          "field": "email",
+                          "code": "IS_EMAIL",
+                          "message": "Debe ser un correo electrónico válido."
+                        }
+                      ],
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error. `code` posibles: `UNAUTHORIZED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "UNAUTHORIZED": {
+                    "summary": "UNAUTHORIZED",
+                    "value": {
+                      "statusCode": 401,
+                      "code": "UNAUTHORIZED",
+                      "message": "Necesitas iniciar sesión para continuar.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Mis postulaciones",
+        "tags": [
+          "Postulaciones"
+        ]
+      },
+      "post": {
+        "description": "HU-19 / HU-20 ([Postular a beca] / [Postular] de la ficha o de las pestañas): crea el BORRADOR (una postulación por persona y cohorte) con los datos de contacto precargados del perfil y los campos enviados (todos opcionales aquí). El tipo se deduce de la oferta: diplomado con beca → beca; convocatoria → convocatoria. Después: autoguardado con `PATCH`, evidencias y `POST …/submit`. Errores: `APPLICATION_ALREADY_EXISTS` (409, `meta.applicationId`/`status`/`folio`: ve a la existente), `APPLICATION_NOT_ALLOWED` (422: curso, taller, evento, diplomado sin beca u oferta Moodle), `APPLICATION_WINDOW_CLOSED` (422, `meta.reason` = SCHOLARSHIP_NOT_OPEN_YET / SCHOLARSHIP_CLOSED / ENROLLMENT_NOT_OPEN_YET / ENROLLMENT_CLOSED / OFFER_FINISHED, `meta.availableFrom`, `meta.closesAt`), `ENROLLMENT_ALREADY_EXISTS` (409: ya inscrito), `OFFER_NOT_AVAILABLE` (404).",
+        "operationId": "Applications_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateApplicationRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplicationDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error. `code` posibles: `VALIDATION_ERROR`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "summary": "VALIDATION_ERROR",
+                    "value": {
+                      "statusCode": 400,
+                      "code": "VALIDATION_ERROR",
+                      "message": "Los datos enviados no son válidos.",
+                      "details": [
+                        {
+                          "field": "email",
+                          "code": "IS_EMAIL",
+                          "message": "Debe ser un correo electrónico válido."
+                        }
+                      ],
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error. `code` posibles: `UNAUTHORIZED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "UNAUTHORIZED": {
+                    "summary": "UNAUTHORIZED",
+                    "value": {
+                      "statusCode": 401,
+                      "code": "UNAUTHORIZED",
+                      "message": "Necesitas iniciar sesión para continuar.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error. `code` posibles: `OFFER_NOT_AVAILABLE`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "OFFER_NOT_AVAILABLE": {
+                    "summary": "OFFER_NOT_AVAILABLE",
+                    "value": {
+                      "statusCode": 404,
+                      "code": "OFFER_NOT_AVAILABLE",
+                      "message": "Esta oferta ya no está disponible.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error. `code` posibles: `APPLICATION_ALREADY_EXISTS`, `ENROLLMENT_ALREADY_EXISTS`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "APPLICATION_ALREADY_EXISTS": {
+                    "summary": "APPLICATION_ALREADY_EXISTS",
+                    "value": {
+                      "statusCode": 409,
+                      "code": "APPLICATION_ALREADY_EXISTS",
+                      "message": "Ya tienes una postulación para esta oferta.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  },
+                  "ENROLLMENT_ALREADY_EXISTS": {
+                    "summary": "ENROLLMENT_ALREADY_EXISTS",
+                    "value": {
+                      "statusCode": 409,
+                      "code": "ENROLLMENT_ALREADY_EXISTS",
+                      "message": "Ya estás inscrito en esta formación.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Error. `code` posibles: `APPLICATION_NOT_ALLOWED`, `APPLICATION_WINDOW_CLOSED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "APPLICATION_NOT_ALLOWED": {
+                    "summary": "APPLICATION_NOT_ALLOWED",
+                    "value": {
+                      "statusCode": 422,
+                      "code": "APPLICATION_NOT_ALLOWED",
+                      "message": "Esta oferta no recibe postulaciones.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  },
+                  "APPLICATION_WINDOW_CLOSED": {
+                    "summary": "APPLICATION_WINDOW_CLOSED",
+                    "value": {
+                      "statusCode": 422,
+                      "code": "APPLICATION_WINDOW_CLOSED",
+                      "message": "La convocatoria no está abierta.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Iniciar postulación (borrador)",
+        "tags": [
+          "Postulaciones"
+        ]
+      }
+    },
+    "/api/v1/me/applications/{id}": {
+      "get": {
+        "description": "HU-21 (y formulario del borrador de HU-19/20): tarjeta + respuestas, archivos, historial de estados con fecha y hora, datos precargados del perfil, `form` (ventana, niveles con monto estimado, costo, elegibilidad, aviso de entrevista, límites) y `missingRequirements` (validaciones en línea: mientras no esté vacío, \"Enviar postulación\" sigue deshabilitado). Entrevista: hora local + CDMX y `interview.join.url` solo 10 minutos antes. Postulación ajena, inexistente o id mal formado → 404 `NOT_FOUND` (nunca se revela que existe).",
+        "operationId": "Applications_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplicationDetailDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error. `code` posibles: `UNAUTHORIZED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "UNAUTHORIZED": {
+                    "summary": "UNAUTHORIZED",
+                    "value": {
+                      "statusCode": 401,
+                      "code": "UNAUTHORIZED",
+                      "message": "Necesitas iniciar sesión para continuar.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error. `code` posibles: `NOT_FOUND`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "summary": "NOT_FOUND",
+                    "value": {
+                      "statusCode": 404,
+                      "code": "NOT_FOUND",
+                      "message": "El recurso solicitado no existe.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Ver mi postulación",
+        "tags": [
+          "Postulaciones"
+        ]
+      },
+      "patch": {
+        "description": "HU-19/20 \"Borrador guardado · hh:mm\" (usa `updatedAt`): guarda solo los campos enviados (`null` borra; `evidenceLinks` reemplaza la lista). Valida formato y máximos; los mínimos y obligatorios se reportan en `missingRequirements` y se exigen al enviar. `400 VALIDATION_ERROR` con `details[].code` = `NOT_APPLICABLE` (campo del otro tipo), `LEVEL_NOT_ENABLED`, `INVALID_PHONE`, `MAX_LENGTH`, `IS_URL`, `ARRAY_MAX_SIZE`… Conserva lo capturado si falla. Solo en borrador (`APPLICATION_NOT_EDITABLE` 409 si ya se envió) y con la convocatoria abierta (`APPLICATION_WINDOW_CLOSED` 422: el borrador queda en solo lectura). Postulación ajena, inexistente o id mal formado → 404 `NOT_FOUND` (nunca se revela que existe).",
+        "operationId": "Applications_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateApplicationRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplicationDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error. `code` posibles: `VALIDATION_ERROR`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "summary": "VALIDATION_ERROR",
+                    "value": {
+                      "statusCode": 400,
+                      "code": "VALIDATION_ERROR",
+                      "message": "Los datos enviados no son válidos.",
+                      "details": [
+                        {
+                          "field": "email",
+                          "code": "IS_EMAIL",
+                          "message": "Debe ser un correo electrónico válido."
+                        }
+                      ],
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error. `code` posibles: `UNAUTHORIZED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "UNAUTHORIZED": {
+                    "summary": "UNAUTHORIZED",
+                    "value": {
+                      "statusCode": 401,
+                      "code": "UNAUTHORIZED",
+                      "message": "Necesitas iniciar sesión para continuar.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error. `code` posibles: `NOT_FOUND`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "summary": "NOT_FOUND",
+                    "value": {
+                      "statusCode": 404,
+                      "code": "NOT_FOUND",
+                      "message": "El recurso solicitado no existe.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error. `code` posibles: `APPLICATION_NOT_EDITABLE`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "APPLICATION_NOT_EDITABLE": {
+                    "summary": "APPLICATION_NOT_EDITABLE",
+                    "value": {
+                      "statusCode": 409,
+                      "code": "APPLICATION_NOT_EDITABLE",
+                      "message": "Tu postulación ya fue enviada y no se puede modificar.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Error. `code` posibles: `APPLICATION_WINDOW_CLOSED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "APPLICATION_WINDOW_CLOSED": {
+                    "summary": "APPLICATION_WINDOW_CLOSED",
+                    "value": {
+                      "statusCode": 422,
+                      "code": "APPLICATION_WINDOW_CLOSED",
+                      "message": "La convocatoria no está abierta.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Guardar borrador (autoguardado)",
+        "tags": [
+          "Postulaciones"
+        ]
+      },
+      "delete": {
+        "description": "Borra el borrador y sus archivos (permite volver a postular a esa cohorte). Una postulación enviada no se borra (`APPLICATION_NOT_EDITABLE`). Postulación ajena, inexistente o id mal formado → 404 `NOT_FOUND` (nunca se revela que existe).",
+        "operationId": "Applications_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Borrador eliminado."
+          },
+          "401": {
+            "description": "Error. `code` posibles: `UNAUTHORIZED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "UNAUTHORIZED": {
+                    "summary": "UNAUTHORIZED",
+                    "value": {
+                      "statusCode": 401,
+                      "code": "UNAUTHORIZED",
+                      "message": "Necesitas iniciar sesión para continuar.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error. `code` posibles: `NOT_FOUND`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "summary": "NOT_FOUND",
+                    "value": {
+                      "statusCode": 404,
+                      "code": "NOT_FOUND",
+                      "message": "El recurso solicitado no existe.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error. `code` posibles: `APPLICATION_NOT_EDITABLE`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "APPLICATION_NOT_EDITABLE": {
+                    "summary": "APPLICATION_NOT_EDITABLE",
+                    "value": {
+                      "statusCode": 409,
+                      "code": "APPLICATION_NOT_EDITABLE",
+                      "message": "Tu postulación ya fue enviada y no se puede modificar.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Descartar borrador",
+        "tags": [
+          "Postulaciones"
+        ]
+      }
+    },
+    "/api/v1/me/applications/{id}/submit": {
+      "post": {
+        "description": "HU-19 / HU-20: valida y envía el borrador → estado `SUBMITTED` \"Enviada\" con folio (BEC-… / CONV-…), notificación + correo (en convocatorias, con aviso de entrevista por Zoom) y aparece en la revisión del equipo (HU-31). Guarda la moneda (país del perfil) y el costo original. Errores: `APPLICATION_INCOMPLETE` (422, `details[]` por campo: `REQUIRED`, `MIN_LENGTH`, `MAX_LENGTH`, `MIN_FILES` en `documents`, `MUST_ACCEPT` en `termsAccepted` / `eligibilityConfirmed`, `LEVEL_NOT_ENABLED`), `APPLICATION_NOT_ELIGIBLE` (422, `meta.reasons` = COUNTRY_NOT_ELIGIBLE / TRAVEL_REQUIRED, `meta.eligibilityText`). Solo en borrador (`APPLICATION_NOT_EDITABLE` 409 si ya se envió) y con la convocatoria abierta (`APPLICATION_WINDOW_CLOSED` 422: el borrador queda en solo lectura). Postulación ajena, inexistente o id mal formado → 404 `NOT_FOUND` (nunca se revela que existe).",
+        "operationId": "Applications_submit",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplicationDetailDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error. `code` posibles: `UNAUTHORIZED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "UNAUTHORIZED": {
+                    "summary": "UNAUTHORIZED",
+                    "value": {
+                      "statusCode": 401,
+                      "code": "UNAUTHORIZED",
+                      "message": "Necesitas iniciar sesión para continuar.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error. `code` posibles: `NOT_FOUND`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "summary": "NOT_FOUND",
+                    "value": {
+                      "statusCode": 404,
+                      "code": "NOT_FOUND",
+                      "message": "El recurso solicitado no existe.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error. `code` posibles: `APPLICATION_NOT_EDITABLE`, `APPLICATION_INVALID_TRANSITION`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "APPLICATION_NOT_EDITABLE": {
+                    "summary": "APPLICATION_NOT_EDITABLE",
+                    "value": {
+                      "statusCode": 409,
+                      "code": "APPLICATION_NOT_EDITABLE",
+                      "message": "Tu postulación ya fue enviada y no se puede modificar.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  },
+                  "APPLICATION_INVALID_TRANSITION": {
+                    "summary": "APPLICATION_INVALID_TRANSITION",
+                    "value": {
+                      "statusCode": 409,
+                      "code": "APPLICATION_INVALID_TRANSITION",
+                      "message": "Tu postulación no está en un estado que permita esta acción.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Error. `code` posibles: `APPLICATION_WINDOW_CLOSED`, `APPLICATION_INCOMPLETE`, `APPLICATION_NOT_ELIGIBLE`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "APPLICATION_WINDOW_CLOSED": {
+                    "summary": "APPLICATION_WINDOW_CLOSED",
+                    "value": {
+                      "statusCode": 422,
+                      "code": "APPLICATION_WINDOW_CLOSED",
+                      "message": "La convocatoria no está abierta.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  },
+                  "APPLICATION_INCOMPLETE": {
+                    "summary": "APPLICATION_INCOMPLETE",
+                    "value": {
+                      "statusCode": 422,
+                      "code": "APPLICATION_INCOMPLETE",
+                      "message": "Completa los campos obligatorios para enviar tu postulación.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  },
+                  "APPLICATION_NOT_ELIGIBLE": {
+                    "summary": "APPLICATION_NOT_ELIGIBLE",
+                    "value": {
+                      "statusCode": 422,
+                      "code": "APPLICATION_NOT_ELIGIBLE",
+                      "message": "No cumples con la elegibilidad de esta convocatoria.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Enviar postulación",
+        "tags": [
+          "Postulaciones"
+        ]
+      }
+    },
+    "/api/v1/me/applications/{id}/confirm": {
+      "post": {
+        "description": "HU-21 (convocatoria sin costo, Anexo A): en `APPROVED_PENDING_CONFIRMATION` y antes de `response.dueAt` → `ENROLLED` \"Inscrita\", inscripción activa (source OPEN_CALL) y notificación \"Ir a mi aula\". Las aprobadas con saldo se completan pagando (Fase 05, [Pagar saldo]). Errores: `APPLICATION_INVALID_TRANSITION` (409, `meta.status`: no está esperando confirmación), `APPLICATION_DEADLINE_PASSED` (422, `meta.dueAt`). Postulación ajena, inexistente o id mal formado → 404 `NOT_FOUND` (nunca se revela que existe).",
+        "operationId": "Applications_confirm",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplicationDetailDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error. `code` posibles: `UNAUTHORIZED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "UNAUTHORIZED": {
+                    "summary": "UNAUTHORIZED",
+                    "value": {
+                      "statusCode": 401,
+                      "code": "UNAUTHORIZED",
+                      "message": "Necesitas iniciar sesión para continuar.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error. `code` posibles: `NOT_FOUND`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "summary": "NOT_FOUND",
+                    "value": {
+                      "statusCode": 404,
+                      "code": "NOT_FOUND",
+                      "message": "El recurso solicitado no existe.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error. `code` posibles: `APPLICATION_INVALID_TRANSITION`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "APPLICATION_INVALID_TRANSITION": {
+                    "summary": "APPLICATION_INVALID_TRANSITION",
+                    "value": {
+                      "statusCode": 409,
+                      "code": "APPLICATION_INVALID_TRANSITION",
+                      "message": "Tu postulación no está en un estado que permita esta acción.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Error. `code` posibles: `APPLICATION_DEADLINE_PASSED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "APPLICATION_DEADLINE_PASSED": {
+                    "summary": "APPLICATION_DEADLINE_PASSED",
+                    "value": {
+                      "statusCode": 422,
+                      "code": "APPLICATION_DEADLINE_PASSED",
+                      "message": "El plazo para responder ya venció.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Confirmar mi participación",
+        "tags": [
+          "Postulaciones"
+        ]
+      }
+    },
+    "/api/v1/me/applications/{id}/documents/upload-url": {
+      "post": {
+        "description": "HU-19/20 paso 1/3: valida tipo y tamaño declarados (JPG/PNG/HEIC ≤ 10 MB; MP4/MOV ≤ 100 MB; máx. 10 archivos) y devuelve una URL firmada para `PUT` directo a storage con el header `Content-Type` indicado (muestra progreso con XHR). Paso 2: `PUT uploadUrl`. Paso 3: `POST …/documents { key }`. Errores: `APPLICATION_INVALID_FILE`, `APPLICATION_TOO_MANY_FILES` (`meta.max`). Solo en borrador (`APPLICATION_NOT_EDITABLE` 409 si ya se envió) y con la convocatoria abierta (`APPLICATION_WINDOW_CLOSED` 422: el borrador queda en solo lectura). Postulación ajena, inexistente o id mal formado → 404 `NOT_FOUND` (nunca se revela que existe).",
+        "operationId": "Applications_uploadUrl",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EvidenceUploadRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplicationUploadUrlDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error. `code` posibles: `VALIDATION_ERROR`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "summary": "VALIDATION_ERROR",
+                    "value": {
+                      "statusCode": 400,
+                      "code": "VALIDATION_ERROR",
+                      "message": "Los datos enviados no son válidos.",
+                      "details": [
+                        {
+                          "field": "email",
+                          "code": "IS_EMAIL",
+                          "message": "Debe ser un correo electrónico válido."
+                        }
+                      ],
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error. `code` posibles: `UNAUTHORIZED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "UNAUTHORIZED": {
+                    "summary": "UNAUTHORIZED",
+                    "value": {
+                      "statusCode": 401,
+                      "code": "UNAUTHORIZED",
+                      "message": "Necesitas iniciar sesión para continuar.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error. `code` posibles: `NOT_FOUND`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "summary": "NOT_FOUND",
+                    "value": {
+                      "statusCode": 404,
+                      "code": "NOT_FOUND",
+                      "message": "El recurso solicitado no existe.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error. `code` posibles: `APPLICATION_NOT_EDITABLE`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "APPLICATION_NOT_EDITABLE": {
+                    "summary": "APPLICATION_NOT_EDITABLE",
+                    "value": {
+                      "statusCode": 409,
+                      "code": "APPLICATION_NOT_EDITABLE",
+                      "message": "Tu postulación ya fue enviada y no se puede modificar.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Error. `code` posibles: `APPLICATION_WINDOW_CLOSED`, `APPLICATION_INVALID_FILE`, `APPLICATION_TOO_MANY_FILES`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "APPLICATION_WINDOW_CLOSED": {
+                    "summary": "APPLICATION_WINDOW_CLOSED",
+                    "value": {
+                      "statusCode": 422,
+                      "code": "APPLICATION_WINDOW_CLOSED",
+                      "message": "La convocatoria no está abierta.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  },
+                  "APPLICATION_INVALID_FILE": {
+                    "summary": "APPLICATION_INVALID_FILE",
+                    "value": {
+                      "statusCode": 422,
+                      "code": "APPLICATION_INVALID_FILE",
+                      "message": "El archivo debe ser JPG, PNG o HEIC de máximo 10 MB, o MP4/MOV de máximo 100 MB.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  },
+                  "APPLICATION_TOO_MANY_FILES": {
+                    "summary": "APPLICATION_TOO_MANY_FILES",
+                    "value": {
+                      "statusCode": 422,
+                      "code": "APPLICATION_TOO_MANY_FILES",
+                      "message": "Puedes adjuntar como máximo 10 archivos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Evidencia: pedir URL de carga",
+        "tags": [
+          "Postulaciones"
+        ]
+      }
+    },
+    "/api/v1/me/applications/{id}/documents": {
+      "post": {
+        "description": "HU-19/20 paso 3/3: el backend verifica en storage que el archivo exista y su tipo y tamaño REALES; si no cumplen lo borra (`APPLICATION_INVALID_FILE`). `APPLICATION_UPLOAD_NOT_FOUND` → el PUT no llegó: vuelve a subirlo. Idempotente por `key`. Solo en borrador (`APPLICATION_NOT_EDITABLE` 409 si ya se envió) y con la convocatoria abierta (`APPLICATION_WINDOW_CLOSED` 422: el borrador queda en solo lectura). Postulación ajena, inexistente o id mal formado → 404 `NOT_FOUND` (nunca se revela que existe).",
+        "operationId": "Applications_confirmDocument",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmDocumentRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplicationDocumentDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error. `code` posibles: `VALIDATION_ERROR`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "summary": "VALIDATION_ERROR",
+                    "value": {
+                      "statusCode": 400,
+                      "code": "VALIDATION_ERROR",
+                      "message": "Los datos enviados no son válidos.",
+                      "details": [
+                        {
+                          "field": "email",
+                          "code": "IS_EMAIL",
+                          "message": "Debe ser un correo electrónico válido."
+                        }
+                      ],
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error. `code` posibles: `UNAUTHORIZED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "UNAUTHORIZED": {
+                    "summary": "UNAUTHORIZED",
+                    "value": {
+                      "statusCode": 401,
+                      "code": "UNAUTHORIZED",
+                      "message": "Necesitas iniciar sesión para continuar.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error. `code` posibles: `NOT_FOUND`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "summary": "NOT_FOUND",
+                    "value": {
+                      "statusCode": 404,
+                      "code": "NOT_FOUND",
+                      "message": "El recurso solicitado no existe.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error. `code` posibles: `APPLICATION_NOT_EDITABLE`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "APPLICATION_NOT_EDITABLE": {
+                    "summary": "APPLICATION_NOT_EDITABLE",
+                    "value": {
+                      "statusCode": 409,
+                      "code": "APPLICATION_NOT_EDITABLE",
+                      "message": "Tu postulación ya fue enviada y no se puede modificar.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Error. `code` posibles: `APPLICATION_WINDOW_CLOSED`, `APPLICATION_INVALID_FILE`, `APPLICATION_TOO_MANY_FILES`, `APPLICATION_UPLOAD_NOT_FOUND`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "APPLICATION_WINDOW_CLOSED": {
+                    "summary": "APPLICATION_WINDOW_CLOSED",
+                    "value": {
+                      "statusCode": 422,
+                      "code": "APPLICATION_WINDOW_CLOSED",
+                      "message": "La convocatoria no está abierta.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  },
+                  "APPLICATION_INVALID_FILE": {
+                    "summary": "APPLICATION_INVALID_FILE",
+                    "value": {
+                      "statusCode": 422,
+                      "code": "APPLICATION_INVALID_FILE",
+                      "message": "El archivo debe ser JPG, PNG o HEIC de máximo 10 MB, o MP4/MOV de máximo 100 MB.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  },
+                  "APPLICATION_TOO_MANY_FILES": {
+                    "summary": "APPLICATION_TOO_MANY_FILES",
+                    "value": {
+                      "statusCode": 422,
+                      "code": "APPLICATION_TOO_MANY_FILES",
+                      "message": "Puedes adjuntar como máximo 10 archivos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  },
+                  "APPLICATION_UPLOAD_NOT_FOUND": {
+                    "summary": "APPLICATION_UPLOAD_NOT_FOUND",
+                    "value": {
+                      "statusCode": 422,
+                      "code": "APPLICATION_UPLOAD_NOT_FOUND",
+                      "message": "No encontramos el archivo subido. Vuelve a subirlo.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Evidencia: confirmar archivo subido",
+        "tags": [
+          "Postulaciones"
+        ]
+      }
+    },
+    "/api/v1/me/applications/{id}/documents/{documentId}": {
+      "delete": {
+        "description": "Quita un archivo del borrador (y lo borra del storage). Solo en borrador (`APPLICATION_NOT_EDITABLE` 409 si ya se envió) y con la convocatoria abierta (`APPLICATION_WINDOW_CLOSED` 422: el borrador queda en solo lectura). Postulación ajena, inexistente o id mal formado → 404 `NOT_FOUND` (nunca se revela que existe).",
+        "operationId": "Applications_deleteDocument",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "documentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Archivo eliminado."
+          },
+          "401": {
+            "description": "Error. `code` posibles: `UNAUTHORIZED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "UNAUTHORIZED": {
+                    "summary": "UNAUTHORIZED",
+                    "value": {
+                      "statusCode": 401,
+                      "code": "UNAUTHORIZED",
+                      "message": "Necesitas iniciar sesión para continuar.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error. `code` posibles: `NOT_FOUND`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "summary": "NOT_FOUND",
+                    "value": {
+                      "statusCode": 404,
+                      "code": "NOT_FOUND",
+                      "message": "El recurso solicitado no existe.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error. `code` posibles: `APPLICATION_NOT_EDITABLE`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "APPLICATION_NOT_EDITABLE": {
+                    "summary": "APPLICATION_NOT_EDITABLE",
+                    "value": {
+                      "statusCode": 409,
+                      "code": "APPLICATION_NOT_EDITABLE",
+                      "message": "Tu postulación ya fue enviada y no se puede modificar.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Error. `code` posibles: `APPLICATION_WINDOW_CLOSED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "APPLICATION_WINDOW_CLOSED": {
+                    "summary": "APPLICATION_WINDOW_CLOSED",
+                    "value": {
+                      "statusCode": 422,
+                      "code": "APPLICATION_WINDOW_CLOSED",
+                      "message": "La convocatoria no está abierta.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Evidencia: quitar archivo",
+        "tags": [
+          "Postulaciones"
+        ]
+      }
+    },
+    "/api/v1/me/applications/{id}/documents/{documentId}/download": {
+      "get": {
+        "description": "HU-21 \"Ver mi postulación\": URL firmada temporal (~10 min) de un archivo propio. Al vencer, pide otra. Postulación ajena, inexistente o id mal formado → 404 `NOT_FOUND` (nunca se revela que existe).",
+        "operationId": "Applications_download",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "documentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessUrlDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error. `code` posibles: `UNAUTHORIZED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "UNAUTHORIZED": {
+                    "summary": "UNAUTHORIZED",
+                    "value": {
+                      "statusCode": 401,
+                      "code": "UNAUTHORIZED",
+                      "message": "Necesitas iniciar sesión para continuar.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error. `code` posibles: `NOT_FOUND`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "summary": "NOT_FOUND",
+                    "value": {
+                      "statusCode": 404,
+                      "code": "NOT_FOUND",
+                      "message": "El recurso solicitado no existe.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Evidencia: descargar / ver archivo",
+        "tags": [
+          "Postulaciones"
+        ]
+      }
+    },
     "/api/v1/me/sessions": {
       "get": {
         "description": "HU-12: próximas (`scope=UPCOMING`, incluye la que está en curso) o historial (`scope=PAST`) de las formaciones EN LÍNEA con inscripción activa (los talleres presenciales se ven en Calendario y Aula; con `offerId` se listan todas las de esa oferta). Cada sesión trae `join` (el join_url solo con `state = OPEN`, desde 10 min antes; nunca el de anfitrión), `recording` (\"Ver grabación\" / \"Grabación pendiente\") y `attendance` (Pendiente / Registrada / No registrada y ventana de 24 h). Canceladas: `status = CANCELLED`, sin enlace.",
@@ -5538,7 +7386,7 @@
     },
     "/api/v1/me/dashboard": {
       "get": {
-        "description": "HU-06: \"Próxima actividad\" (con acceso HU-12), \"Mi formación\" (máx. 3 activas con % de progreso y [Continuar]), widget Calendario (próximos eventos con color), widget Biblioteca (material recomendado) y contador de notificaciones. Cada bloque es independiente: si uno falla llega `null` y aparece en `failedBlocks` (los demás se muestran). Los widgets de Becas / Convocatorias (Fase 04) y el aviso de cuota (Fase 05) se agregarán a esta respuesta.",
+        "description": "HU-06: \"Próxima actividad\" (con acceso HU-12), \"Mi formación\" (máx. 3 activas con % de progreso y [Continuar]), widget Calendario (próximos eventos con color), widget Biblioteca (material recomendado) y contador de notificaciones. Cada bloque es independiente: si uno falla llega `null` y aparece en `failedBlocks` (los demás se muestran). Fase 04: widgets Becas (`scholarships`) y Convocatorias (`openCalls`) con el estado de mi postulación y las abiertas/nuevas. El aviso de cuota (Fase 05) se agregará a esta respuesta.",
         "operationId": "Dashboard_get",
         "parameters": [],
         "responses": {
@@ -5741,7 +7589,19 @@
               "FINAL_PROJECT_NOT_AVAILABLE",
               "FINAL_PROJECT_DEADLINE_PASSED",
               "FINAL_PROJECT_INVALID_FILE",
-              "FINAL_PROJECT_UPLOAD_NOT_FOUND"
+              "FINAL_PROJECT_UPLOAD_NOT_FOUND",
+              "APPLICATION_NOT_ALLOWED",
+              "APPLICATION_WINDOW_CLOSED",
+              "APPLICATION_ALREADY_EXISTS",
+              "APPLICATION_NOT_EDITABLE",
+              "APPLICATION_INCOMPLETE",
+              "APPLICATION_NOT_ELIGIBLE",
+              "APPLICATION_INVALID_FILE",
+              "APPLICATION_TOO_MANY_FILES",
+              "APPLICATION_UPLOAD_NOT_FOUND",
+              "APPLICATION_INVALID_TRANSITION",
+              "APPLICATION_DEADLINE_PASSED",
+              "APPLICATION_INTERVIEW_REQUIRED"
             ]
           },
           "message": {
@@ -7884,6 +9744,49 @@
           "soldOut"
         ]
       },
+      "OfferViewerApplicationDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "3a1f5c2e-7b9d-4e8a-9c1b-2d3e4f5a6b7c"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "SCHOLARSHIP",
+              "OPEN_CALL"
+            ],
+            "example": "SCHOLARSHIP"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "SUBMITTED",
+              "IN_REVIEW",
+              "INTERVIEW_SCHEDULED",
+              "APPROVED_PENDING_PAYMENT",
+              "APPROVED_PENDING_CONFIRMATION",
+              "ENROLLED",
+              "NOT_SELECTED",
+              "EXPIRED"
+            ],
+            "example": "SUBMITTED"
+          },
+          "folio": {
+            "type": "string",
+            "example": "BEC-000123"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "status",
+          "folio"
+        ]
+      },
       "OfferViewerDto": {
         "type": "object",
         "properties": {
@@ -7895,11 +9798,22 @@
             "type": "boolean",
             "example": false,
             "description": "\"Ya estás inscrito\"."
+          },
+          "application": {
+            "nullable": true,
+            "description": "Fase 04: mi postulación (beca o convocatoria) en esta oferta, una por cohorte (HU-16: \"con una postulación a beca en curso veo su estado o [Pagar saldo]\"). null sin sesión o sin postulación.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OfferViewerApplicationDto"
+              }
+            ]
           }
         },
         "required": [
           "authenticated",
-          "enrolled"
+          "enrolled",
+          "application"
         ]
       },
       "OfferActionDto": {
@@ -7914,7 +9828,9 @@
               "APPLY_SCHOLARSHIP",
               "APPLY_OPEN_CALL",
               "ACTIVATE_MOODLE_ACCESS",
-              "GO_TO_CLASSROOM"
+              "GO_TO_CLASSROOM",
+              "VIEW_APPLICATION",
+              "PAY_BALANCE"
             ],
             "example": "ENROLL_AND_PAY"
           },
@@ -7953,6 +9869,30 @@
             "nullable": true,
             "example": null,
             "description": "Para *_NOT_OPEN_YET: cuándo se habilita."
+          },
+          "applicationId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "example": null,
+            "description": "Fase 04: en `VIEW_APPLICATION` / `PAY_BALANCE`, id de mi postulación → `/portal/postulaciones/{applicationId}` (`GET /me/applications/{id}`)."
+          },
+          "applicationStatus": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "SUBMITTED",
+              "IN_REVIEW",
+              "INTERVIEW_SCHEDULED",
+              "APPROVED_PENDING_PAYMENT",
+              "APPROVED_PENDING_CONFIRMATION",
+              "ENROLLED",
+              "NOT_SELECTED",
+              "EXPIRED"
+            ],
+            "nullable": true,
+            "example": null,
+            "description": "Fase 04: estado de mi postulación (mismos textos que \"Mis postulaciones\")."
           }
         },
         "required": [
@@ -7961,7 +9901,9 @@
           "primary",
           "requiresLogin",
           "reason",
-          "availableFrom"
+          "availableFrom",
+          "applicationId",
+          "applicationStatus"
         ]
       },
       "OfferDetailDto": {
@@ -8676,6 +10618,1631 @@
           "updated"
         ]
       },
+      "ApplicationOfferVenueDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Ecoaldea Río Vivo"
+          },
+          "city": {
+            "type": "string",
+            "nullable": true,
+            "example": "San José del Pacífico, Oaxaca"
+          }
+        },
+        "required": [
+          "name",
+          "city"
+        ]
+      },
+      "ApplicationOfferDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "9d3c6a1e-2b4f-4c8d-9e0a-1b2c3d4e5f60"
+          },
+          "slug": {
+            "type": "string",
+            "example": "diplomado-en-ecotecnologias-del-agua",
+            "description": "Para \"Ver ficha\"."
+          },
+          "name": {
+            "type": "string",
+            "example": "Diplomado en Ecotecnologías del Agua"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "DIPLOMA",
+              "COURSE",
+              "WORKSHOP",
+              "EVENT",
+              "OPEN_CALL"
+            ],
+            "example": "DIPLOMA"
+          },
+          "modality": {
+            "type": "string",
+            "enum": [
+              "ONLINE_LIVE",
+              "IN_PERSON"
+            ],
+            "example": "ONLINE_LIVE"
+          },
+          "cohortLabel": {
+            "type": "string",
+            "nullable": true,
+            "example": "Convocatoria 2027"
+          },
+          "coverImageUrl": {
+            "type": "string",
+            "nullable": true,
+            "example": "https://placehold.co/1200x630.png"
+          },
+          "startsAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "example": "2027-02-15T15:00:00.000Z"
+          },
+          "endsAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "example": "2027-02-20T00:00:00.000Z"
+          },
+          "venue": {
+            "nullable": true,
+            "description": "Presencial (\"Presencial\" en la tarjeta).",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ApplicationOfferVenueDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "type",
+          "modality",
+          "cohortLabel",
+          "coverImageUrl",
+          "startsAt",
+          "endsAt",
+          "venue"
+        ]
+      },
+      "ApplicationWindowDto": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "OPEN",
+              "UPCOMING",
+              "CLOSED"
+            ],
+            "example": "OPEN",
+            "description": "Ventana de postulación: OPEN \"Abierta\", UPCOMING \"Próximamente\", CLOSED \"Cerrada\"."
+          },
+          "opensAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "example": "2026-10-01T06:00:00.000Z"
+          },
+          "closesAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "example": "2026-12-01T05:59:00.000Z",
+            "description": "Cierre (cuenta regresiva \"Cierra en 5 días\", en la zona del usuario)."
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "ENROLLMENT_NOT_OPEN_YET",
+              "ENROLLMENT_CLOSED",
+              "OFFER_FINISHED",
+              "SOLD_OUT",
+              "SCHOLARSHIP_NOT_OPEN_YET",
+              "SCHOLARSHIP_CLOSED",
+              "PRICE_NOT_AVAILABLE"
+            ],
+            "nullable": true,
+            "example": null,
+            "description": "Motivo si no está abierta (mismos textos que la ficha): SCHOLARSHIP_NOT_OPEN_YET, SCHOLARSHIP_CLOSED, ENROLLMENT_NOT_OPEN_YET, ENROLLMENT_CLOSED (\"Convocatoria cerrada\"), OFFER_FINISHED."
+          }
+        },
+        "required": [
+          "state",
+          "opensAt",
+          "closesAt",
+          "reason"
+        ]
+      },
+      "ApplicationEligibilityDto": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "nullable": true,
+            "example": "Dirigida a mujeres lideresas de Centroamérica y México.",
+            "description": "Texto destacado al inicio del formulario."
+          },
+          "countries": {
+            "description": "Vacío = cualquier país.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EligibleCountryDto"
+            }
+          },
+          "requiresTravel": {
+            "type": "boolean",
+            "example": true,
+            "description": "Exige disponibilidad para viajar."
+          },
+          "eligible": {
+            "type": "boolean",
+            "example": true,
+            "description": "¿Cumple hoy? (país del perfil y respuesta de viaje). false → envío bloqueado."
+          },
+          "reasons": {
+            "type": "array",
+            "example": [],
+            "description": "`COUNTRY_NOT_ELIGIBLE` → muestra `text` (\"dirigida a …\"); `TRAVEL_REQUIRED` → \"Debes poder asistir de forma presencial\".",
+            "items": {
+              "type": "string",
+              "enum": [
+                "COUNTRY_NOT_ELIGIBLE",
+                "TRAVEL_REQUIRED"
+              ]
+            }
+          }
+        },
+        "required": [
+          "text",
+          "countries",
+          "requiresTravel",
+          "eligible",
+          "reasons"
+        ]
+      },
+      "MyApplicationRefDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "3a1f5c2e-7b9d-4e8a-9c1b-2d3e4f5a6b7c"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "SUBMITTED",
+              "IN_REVIEW",
+              "INTERVIEW_SCHEDULED",
+              "APPROVED_PENDING_PAYMENT",
+              "APPROVED_PENDING_CONFIRMATION",
+              "ENROLLED",
+              "NOT_SELECTED",
+              "EXPIRED"
+            ],
+            "example": "SUBMITTED"
+          },
+          "folio": {
+            "type": "string",
+            "example": "CONV-000045"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "folio"
+        ]
+      },
+      "ApplicationOpportunityDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "SCHOLARSHIP",
+              "OPEN_CALL"
+            ],
+            "example": "OPEN_CALL"
+          },
+          "offer": {
+            "$ref": "#/components/schemas/ApplicationOfferDto"
+          },
+          "window": {
+            "$ref": "#/components/schemas/ApplicationWindowDto"
+          },
+          "price": {
+            "nullable": true,
+            "description": "Costo en tu moneda; null = \"Gratuito\".",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MoneyDto"
+              }
+            ]
+          },
+          "levels": {
+            "description": "Beca: niveles y monto estimado. Vacío en convocatorias.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScholarshipLevelDto"
+            }
+          },
+          "eligibility": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ApplicationEligibilityDto"
+              }
+            ]
+          },
+          "myApplication": {
+            "nullable": true,
+            "description": "Mi postulación (una por cohorte): en vez de [Postular] → [Ver mi postulación].",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MyApplicationRefDto"
+              }
+            ]
+          },
+          "canApply": {
+            "type": "boolean",
+            "example": true,
+            "description": "[Postular] habilitado (ventana abierta, sin postulación previa ni inscripción)."
+          },
+          "enrolled": {
+            "type": "boolean",
+            "example": false,
+            "description": "Ya inscrito en la oferta (no se postula)."
+          }
+        },
+        "required": [
+          "kind",
+          "offer",
+          "window",
+          "price",
+          "levels",
+          "eligibility",
+          "myApplication",
+          "canApply",
+          "enrolled"
+        ]
+      },
+      "ApplicationOpportunitiesDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "description": "Abiertas primero, ordenadas por cierre más próximo; luego las próximas.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApplicationOpportunityDto"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "ApplicationActionDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "CONTINUE_DRAFT",
+              "JOIN_INTERVIEW",
+              "PAY_BALANCE",
+              "CONFIRM_PARTICIPATION",
+              "GO_TO_CLASSROOM",
+              "VIEW"
+            ],
+            "example": "PAY_BALANCE",
+            "description": "CONTINUE_DRAFT [Continuar] · JOIN_INTERVIEW [Entrar a la entrevista] (abre `interview.join.url`) · PAY_BALANCE [Pagar saldo] (Fase 05: `/portal/postulaciones/{id}/pago`) · CONFIRM_PARTICIPATION [Confirmar mi participación] (`POST …/confirm`) · GO_TO_CLASSROOM [Ir a mi aula] · VIEW [Ver mi postulación]."
+          },
+          "enabled": {
+            "type": "boolean",
+            "example": true
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "WINDOW_CLOSED",
+              "INTERVIEW_NOT_OPEN_YET",
+              "INTERVIEW_LINK_PENDING",
+              "INTERVIEW_ENDED"
+            ],
+            "nullable": true,
+            "example": null,
+            "description": "Si `enabled = false`: WINDOW_CLOSED (borrador en solo lectura), INTERVIEW_NOT_OPEN_YET (\"Disponible 10 min antes\"), INTERVIEW_LINK_PENDING, INTERVIEW_ENDED."
+          },
+          "dueAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "example": "2026-11-14T05:59:00.000Z",
+            "description": "Cuenta regresiva: inicio de la entrevista o fecha límite de pago/confirmación."
+          }
+        },
+        "required": [
+          "type",
+          "enabled",
+          "reason",
+          "dueAt"
+        ]
+      },
+      "TimelineStepDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "enum": [
+              "SUBMITTED",
+              "IN_REVIEW",
+              "INTERVIEW",
+              "RESULT",
+              "PAYMENT",
+              "CONFIRMATION",
+              "ENROLLED"
+            ],
+            "example": "SUBMITTED",
+            "description": "SUBMITTED Enviada · IN_REVIEW En revisión · INTERVIEW Entrevista · RESULT Resultado · PAYMENT Pago del saldo · CONFIRMATION Confirmación · ENROLLED Inscrita."
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "DONE",
+              "CURRENT",
+              "UPCOMING",
+              "SKIPPED",
+              "FAILED"
+            ],
+            "example": "DONE",
+            "description": "DONE (con fecha), CURRENT (etapa actual), UPCOMING, SKIPPED (no aplicó) o FAILED (No seleccionada / Vencida)."
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "example": "2026-10-21T17:30:00.000Z"
+          }
+        },
+        "required": [
+          "key",
+          "state",
+          "at"
+        ]
+      },
+      "SessionJoinDto": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "NOT_YET",
+              "OPEN",
+              "LINK_PENDING",
+              "ENDED",
+              "CANCELLED",
+              "IN_PERSON"
+            ],
+            "example": "NOT_YET",
+            "description": "`OPEN` → [Entrar a sesión] con `url`; `NOT_YET` → deshabilitado hasta `opensAt` (cuenta regresiva; vuelve a pedir la sesión al llegar); `LINK_PENDING` \"Enlace aún no disponible\"; `CANCELLED` \"Cancelada\"; `ENDED`; `IN_PERSON` (sin enlace)."
+          },
+          "opensAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-07T15:50:00.000Z",
+            "description": "Inicio − 10 min (BUSINESS_RULES.SESSION_JOIN_WINDOW_MINUTES_BEFORE)."
+          },
+          "url": {
+            "type": "string",
+            "nullable": true,
+            "example": null,
+            "description": "join_url (Zoom/Meet) SOLO con `state = OPEN`. Nunca el enlace de anfitrión."
+          }
+        },
+        "required": [
+          "state",
+          "opensAt",
+          "url"
+        ]
+      },
+      "InterviewDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "7c1e2d3f-4a5b-4c6d-8e9f-0a1b2c3d4e5f"
+          },
+          "startsAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-12T16:00:00.000Z"
+          },
+          "endsAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-12T16:30:00.000Z"
+          },
+          "timezone": {
+            "type": "string",
+            "example": "America/Mexico_City",
+            "description": "Referencia CDMX: muestra \"11:00 tu hora · 10:00 hora CDMX\" (HU-11)."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "SCHEDULED",
+              "COMPLETED",
+              "CANCELLED",
+              "NO_SHOW"
+            ],
+            "example": "SCHEDULED",
+            "description": "SCHEDULED Agendada · COMPLETED Realizada · CANCELLED · NO_SHOW No asistió."
+          },
+          "join": {
+            "description": "Enlace de Zoom: `url` solo con `state = OPEN` (10 minutos antes y hasta el fin). Mismas reglas que las sesiones (HU-12).",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SessionJoinDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "startsAt",
+          "endsAt",
+          "timezone",
+          "status",
+          "join"
+        ]
+      },
+      "ScholarshipResultDto": {
+        "type": "object",
+        "properties": {
+          "requestedLevel": {
+            "type": "string",
+            "enum": [
+              "AGUA_VIVA",
+              "RIOS_VIVOS",
+              "AGUAS_LIBRES",
+              "CENOTES_VIVOS",
+              "SPECIAL"
+            ],
+            "nullable": true,
+            "example": "AGUAS_LIBRES"
+          },
+          "assignedLevel": {
+            "type": "string",
+            "enum": [
+              "AGUA_VIVA",
+              "RIOS_VIVOS",
+              "AGUAS_LIBRES",
+              "CENOTES_VIVOS",
+              "SPECIAL"
+            ],
+            "example": "AGUAS_LIBRES"
+          },
+          "assignedPercent": {
+            "type": "number",
+            "example": 50,
+            "description": "% asignado (Beca especial: 71–80)."
+          },
+          "originalAmount": {
+            "nullable": true,
+            "description": "Monto original de la oferta.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MoneyDto"
+              }
+            ]
+          },
+          "balance": {
+            "description": "Saldo a pagar en tu moneda (HU-23).",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MoneyDto"
+              }
+            ]
+          },
+          "dueAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "example": "2026-11-14T05:59:00.000Z",
+            "description": "Fecha límite de pago (7 días naturales)."
+          }
+        },
+        "required": [
+          "requestedLevel",
+          "assignedLevel",
+          "assignedPercent",
+          "originalAmount",
+          "balance",
+          "dueAt"
+        ]
+      },
+      "ApplicationResponseDeadlineDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "PAYMENT",
+              "CONFIRMATION"
+            ],
+            "example": "CONFIRMATION",
+            "description": "Qué debe hacer la persona: pagar (saldo / costo) o confirmar su participación."
+          },
+          "dueAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "example": "2026-11-14T05:59:00.000Z"
+          },
+          "amount": {
+            "nullable": true,
+            "description": "Monto a pagar (null en confirmación).",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MoneyDto"
+              }
+            ]
+          },
+          "transferPendingValidation": {
+            "type": "boolean",
+            "example": false,
+            "description": "Comprobante de transferencia \"Pendiente de validación\" (Fase 05): la postulación no vence."
+          }
+        },
+        "required": [
+          "kind",
+          "dueAt",
+          "amount",
+          "transferPendingValidation"
+        ]
+      },
+      "ApplicationCardDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "3a1f5c2e-7b9d-4e8a-9c1b-2d3e4f5a6b7c"
+          },
+          "folio": {
+            "type": "string",
+            "example": "BEC-000123",
+            "description": "Folio (BEC-… beca, CONV-… convocatoria). Se muestra desde el envío."
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "SCHOLARSHIP",
+              "OPEN_CALL"
+            ],
+            "example": "SCHOLARSHIP"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "SUBMITTED",
+              "IN_REVIEW",
+              "INTERVIEW_SCHEDULED",
+              "APPROVED_PENDING_PAYMENT",
+              "APPROVED_PENDING_CONFIRMATION",
+              "ENROLLED",
+              "NOT_SELECTED",
+              "EXPIRED"
+            ],
+            "example": "APPROVED_PENDING_PAYMENT",
+            "description": "Estado global (tabla enum → texto en la guía de la Fase 04)."
+          },
+          "statusChangedAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-30T18:00:00.000Z"
+          },
+          "offer": {
+            "$ref": "#/components/schemas/ApplicationOfferDto"
+          },
+          "submittedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "example": "2026-10-21T17:30:00.000Z",
+            "description": "Envío."
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-21T17:29:10.000Z",
+            "description": "Último guardado (\"Borrador guardado · hh:mm\")."
+          },
+          "requiresAction": {
+            "type": "boolean",
+            "example": true,
+            "description": "Requiere acción (entrevista, pago o confirmación): destácala arriba con cuenta regresiva."
+          },
+          "action": {
+            "description": "Acción contextual (un botón).",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ApplicationActionDto"
+              }
+            ]
+          },
+          "timeline": {
+            "description": "Línea de tiempo (vertical en mobile).",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimelineStepDto"
+            }
+          },
+          "interview": {
+            "nullable": true,
+            "description": "Solo en \"Entrevista agendada\" (y como referencia después).",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/InterviewDto"
+              }
+            ]
+          },
+          "scholarshipResult": {
+            "nullable": true,
+            "description": "Solo becas aprobadas: nivel solicitado y asignado, saldo y fecha límite.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ScholarshipResultDto"
+              }
+            ]
+          },
+          "response": {
+            "nullable": true,
+            "description": "Solo en \"Aprobada – …\": qué hacer y hasta cuándo.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ApplicationResponseDeadlineDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "folio",
+          "kind",
+          "status",
+          "statusChangedAt",
+          "offer",
+          "submittedAt",
+          "updatedAt",
+          "requiresAction",
+          "action",
+          "timeline",
+          "interview",
+          "scholarshipResult",
+          "response"
+        ]
+      },
+      "CreateApplicationRequestDto": {
+        "type": "object",
+        "properties": {
+          "phone": {
+            "description": "WhatsApp con indicativo. Se precarga del perfil (HU-14); editable.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PhoneDto"
+              }
+            ]
+          },
+          "age": {
+            "type": "number",
+            "nullable": true,
+            "example": 29,
+            "minimum": 15,
+            "maximum": 100,
+            "description": "Edad (entero). Obligatoria en becas."
+          },
+          "partnerCode": {
+            "type": "string",
+            "nullable": true,
+            "example": "RED-AGUA-OAX",
+            "maxLength": 40,
+            "description": "Código de iniciativa aliada (opcional; no aplica descuento)."
+          },
+          "organization": {
+            "type": "string",
+            "nullable": true,
+            "example": "Colectivo Agua Viva de la Sierra",
+            "maxLength": 150,
+            "description": "Organización (obligatoria en convocatorias)."
+          },
+          "organizationRole": {
+            "type": "string",
+            "nullable": true,
+            "example": "Coordinadora de proyectos",
+            "maxLength": 120,
+            "description": "Rol en la organización (obligatorio en convocatorias)."
+          },
+          "requestedLevel": {
+            "type": "string",
+            "enum": [
+              "AGUA_VIVA",
+              "RIOS_VIVOS",
+              "AGUAS_LIBRES",
+              "CENOTES_VIVOS",
+              "SPECIAL"
+            ],
+            "nullable": true,
+            "example": "AGUAS_LIBRES",
+            "description": "Beca: nivel solicitado (solo niveles habilitados en el diplomado: `form.levels`). `SPECIAL` (Beca especial, > 70%) requiere entrevista por Zoom."
+          },
+          "intentLetter": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 4000,
+            "example": "Necesito la beca porque…",
+            "description": "Beca: carta de intención (800–4000 caracteres al enviar)."
+          },
+          "eligibilityConfirmed": {
+            "type": "boolean",
+            "example": true,
+            "description": "Convocatoria: \"Confirmo que cumplo con la elegibilidad\" (obligatoria)."
+          },
+          "experience": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 2000,
+            "example": "Desde 2021 coordino la captación de lluvia en mi comunidad…",
+            "description": "Convocatoria: experiencia en cuidado del agua (300–2000 al enviar)."
+          },
+          "motivation": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 2000,
+            "example": "Replicaré lo aprendido con las mujeres de mi cooperativa…",
+            "description": "Convocatoria: motivación y cómo replicará lo aprendido (300–2000 al enviar)."
+          },
+          "canTravel": {
+            "type": "boolean",
+            "nullable": true,
+            "example": true,
+            "description": "Convocatoria: disponibilidad para viajar (asistencia presencial completa). Debe ser `true` para enviar si la convocatoria lo exige (`false` → `APPLICATION_NOT_ELIGIBLE`)."
+          },
+          "evidenceLinks": {
+            "example": [
+              "https://www.youtube.com/watch?v=abc123"
+            ],
+            "maxItems": 5,
+            "description": "Enlaces de evidencia (YouTube, Drive, redes), máximo 5. Reemplaza la lista completa.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "termsAccepted": {
+            "type": "boolean",
+            "example": true,
+            "description": "Términos (veracidad, asistencia, proyecto final, datos y pago del saldo / entrevista por Zoom en convocatorias; una postulación por cohorte). Obligatorio para enviar."
+          },
+          "offerId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "9d3c6a1e-2b4f-4c8d-9e0a-1b2c3d4e5f60",
+            "description": "`id` de la oferta (ficha HU-16 o \"Becas disponibles\" / \"Convocatorias abiertas\"): diplomado con beca → postulación a beca; convocatoria → postulación a convocatoria."
+          }
+        },
+        "required": [
+          "offerId"
+        ]
+      },
+      "ApplicantDto": {
+        "type": "object",
+        "properties": {
+          "fullName": {
+            "type": "string",
+            "example": "María José Núñez"
+          },
+          "email": {
+            "type": "string",
+            "example": "maria@example.com",
+            "description": "No editable."
+          },
+          "phone": {
+            "description": "WhatsApp con indicativo.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PhoneDto"
+              }
+            ]
+          },
+          "countryCode": {
+            "type": "string",
+            "example": "MX"
+          },
+          "countryName": {
+            "type": "string",
+            "example": "México"
+          },
+          "divisionName": {
+            "type": "string",
+            "example": "Oaxaca",
+            "description": "Territorio: estado/departamento."
+          },
+          "municipalityName": {
+            "type": "string",
+            "example": "San José del Pacífico"
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "MXN",
+              "USD"
+            ],
+            "example": "MXN",
+            "description": "Moneda de cobro (país del perfil)."
+          }
+        },
+        "required": [
+          "fullName",
+          "email",
+          "phone",
+          "countryCode",
+          "countryName",
+          "divisionName",
+          "municipalityName",
+          "currency"
+        ]
+      },
+      "ApplicationAnswersDto": {
+        "type": "object",
+        "properties": {
+          "age": {
+            "type": "number",
+            "nullable": true,
+            "example": 29
+          },
+          "partnerCode": {
+            "type": "string",
+            "nullable": true,
+            "example": null
+          },
+          "organization": {
+            "type": "string",
+            "nullable": true,
+            "example": "Colectivo Agua Viva"
+          },
+          "organizationRole": {
+            "type": "string",
+            "nullable": true,
+            "example": "Coordinadora"
+          },
+          "requestedLevel": {
+            "type": "string",
+            "enum": [
+              "AGUA_VIVA",
+              "RIOS_VIVOS",
+              "AGUAS_LIBRES",
+              "CENOTES_VIVOS",
+              "SPECIAL"
+            ],
+            "nullable": true,
+            "example": "AGUAS_LIBRES"
+          },
+          "intentLetter": {
+            "type": "string",
+            "nullable": true,
+            "example": "Necesito la beca porque…"
+          },
+          "eligibilityConfirmed": {
+            "type": "boolean",
+            "example": false
+          },
+          "experience": {
+            "type": "string",
+            "nullable": true,
+            "example": null
+          },
+          "motivation": {
+            "type": "string",
+            "nullable": true,
+            "example": null
+          },
+          "canTravel": {
+            "type": "boolean",
+            "nullable": true,
+            "example": null
+          },
+          "evidenceLinks": {
+            "example": [
+              "https://www.youtube.com/watch?v=abc123"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "termsAccepted": {
+            "type": "boolean",
+            "example": true
+          },
+          "termsAcceptedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "example": "2026-10-21T17:29:10.000Z"
+          }
+        },
+        "required": [
+          "age",
+          "partnerCode",
+          "organization",
+          "organizationRole",
+          "requestedLevel",
+          "intentLetter",
+          "eligibilityConfirmed",
+          "experience",
+          "motivation",
+          "canTravel",
+          "evidenceLinks",
+          "termsAccepted",
+          "termsAcceptedAt"
+        ]
+      },
+      "ApplicationDocumentDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "5b2c3d4e-6f70-4a81-92b3-c4d5e6f70812"
+          },
+          "fileName": {
+            "type": "string",
+            "example": "huerto-comunitario.jpg"
+          },
+          "mimeType": {
+            "type": "string",
+            "example": "image/jpeg"
+          },
+          "sizeBytes": {
+            "type": "number",
+            "example": 2400000
+          },
+          "mediaType": {
+            "type": "string",
+            "enum": [
+              "IMAGE",
+              "VIDEO"
+            ],
+            "example": "IMAGE",
+            "description": "Ícono / previsualización."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-21T17:20:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "fileName",
+          "mimeType",
+          "sizeBytes",
+          "mediaType",
+          "createdAt"
+        ]
+      },
+      "FieldIssueDto": {
+        "type": "object",
+        "properties": {
+          "field": {
+            "type": "string",
+            "example": "intentLetter",
+            "description": "Campo del formulario (o `documents`)."
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "REQUIRED",
+              "MIN_LENGTH",
+              "MAX_LENGTH",
+              "MIN_FILES",
+              "MUST_ACCEPT",
+              "LEVEL_NOT_ENABLED",
+              "NOT_APPLICABLE"
+            ],
+            "example": "MIN_LENGTH"
+          },
+          "message": {
+            "type": "string",
+            "example": "La carta de intención debe tener al menos 800 caracteres (llevas 120)."
+          }
+        },
+        "required": [
+          "field",
+          "code",
+          "message"
+        ]
+      },
+      "StatusHistoryItemDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "SUBMITTED",
+              "IN_REVIEW",
+              "INTERVIEW_SCHEDULED",
+              "APPROVED_PENDING_PAYMENT",
+              "APPROVED_PENDING_CONFIRMATION",
+              "ENROLLED",
+              "NOT_SELECTED",
+              "EXPIRED"
+            ],
+            "example": "SUBMITTED"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-21T17:30:00.000Z"
+          }
+        },
+        "required": [
+          "status",
+          "at"
+        ]
+      },
+      "FileLimitDto": {
+        "type": "object",
+        "properties": {
+          "mimeTypes": {
+            "example": [
+              "image/jpeg",
+              "image/png",
+              "image/heic"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "maxBytes": {
+            "type": "number",
+            "example": 10485760
+          }
+        },
+        "required": [
+          "mimeTypes",
+          "maxBytes"
+        ]
+      },
+      "ApplicationFormLimitsDto": {
+        "type": "object",
+        "properties": {
+          "letterMinLength": {
+            "type": "number",
+            "example": 800
+          },
+          "letterMaxLength": {
+            "type": "number",
+            "example": 4000
+          },
+          "answerMinLength": {
+            "type": "number",
+            "example": 300
+          },
+          "answerMaxLength": {
+            "type": "number",
+            "example": 2000
+          },
+          "minFiles": {
+            "type": "number",
+            "example": 1,
+            "description": "Mínimo de archivos (0 en convocatorias: evidencia opcional)."
+          },
+          "maxFiles": {
+            "type": "number",
+            "example": 10
+          },
+          "maxLinks": {
+            "type": "number",
+            "example": 5
+          },
+          "image": {
+            "$ref": "#/components/schemas/FileLimitDto"
+          },
+          "video": {
+            "$ref": "#/components/schemas/FileLimitDto"
+          }
+        },
+        "required": [
+          "letterMinLength",
+          "letterMaxLength",
+          "answerMinLength",
+          "answerMaxLength",
+          "minFiles",
+          "maxFiles",
+          "maxLinks",
+          "image",
+          "video"
+        ]
+      },
+      "ApplicationFormDto": {
+        "type": "object",
+        "properties": {
+          "window": {
+            "$ref": "#/components/schemas/ApplicationWindowDto"
+          },
+          "levels": {
+            "description": "Beca: niveles habilitados con monto estimado en tu moneda (\"el nivel final lo asigna el equipo\"). Vacío en convocatorias.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScholarshipLevelDto"
+            }
+          },
+          "price": {
+            "nullable": true,
+            "description": "Costo de la oferta en tu moneda.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MoneyDto"
+              }
+            ]
+          },
+          "eligibility": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ApplicationEligibilityDto"
+              }
+            ]
+          },
+          "interviewNotice": {
+            "type": "boolean",
+            "example": false,
+            "description": "Mostrar aviso de entrevista por Zoom: siempre en convocatorias; en becas al elegir Beca especial."
+          },
+          "limits": {
+            "$ref": "#/components/schemas/ApplicationFormLimitsDto"
+          }
+        },
+        "required": [
+          "window",
+          "levels",
+          "price",
+          "eligibility",
+          "interviewNotice",
+          "limits"
+        ]
+      },
+      "ApplicationDetailDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "3a1f5c2e-7b9d-4e8a-9c1b-2d3e4f5a6b7c"
+          },
+          "folio": {
+            "type": "string",
+            "example": "BEC-000123",
+            "description": "Folio (BEC-… beca, CONV-… convocatoria). Se muestra desde el envío."
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "SCHOLARSHIP",
+              "OPEN_CALL"
+            ],
+            "example": "SCHOLARSHIP"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "SUBMITTED",
+              "IN_REVIEW",
+              "INTERVIEW_SCHEDULED",
+              "APPROVED_PENDING_PAYMENT",
+              "APPROVED_PENDING_CONFIRMATION",
+              "ENROLLED",
+              "NOT_SELECTED",
+              "EXPIRED"
+            ],
+            "example": "APPROVED_PENDING_PAYMENT",
+            "description": "Estado global (tabla enum → texto en la guía de la Fase 04)."
+          },
+          "statusChangedAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-30T18:00:00.000Z"
+          },
+          "offer": {
+            "$ref": "#/components/schemas/ApplicationOfferDto"
+          },
+          "submittedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "example": "2026-10-21T17:30:00.000Z",
+            "description": "Envío."
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-21T17:29:10.000Z",
+            "description": "Último guardado (\"Borrador guardado · hh:mm\")."
+          },
+          "requiresAction": {
+            "type": "boolean",
+            "example": true,
+            "description": "Requiere acción (entrevista, pago o confirmación): destácala arriba con cuenta regresiva."
+          },
+          "action": {
+            "description": "Acción contextual (un botón).",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ApplicationActionDto"
+              }
+            ]
+          },
+          "timeline": {
+            "description": "Línea de tiempo (vertical en mobile).",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimelineStepDto"
+            }
+          },
+          "interview": {
+            "nullable": true,
+            "description": "Solo en \"Entrevista agendada\" (y como referencia después).",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/InterviewDto"
+              }
+            ]
+          },
+          "scholarshipResult": {
+            "nullable": true,
+            "description": "Solo becas aprobadas: nivel solicitado y asignado, saldo y fecha límite.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ScholarshipResultDto"
+              }
+            ]
+          },
+          "response": {
+            "nullable": true,
+            "description": "Solo en \"Aprobada – …\": qué hacer y hasta cuándo.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ApplicationResponseDeadlineDto"
+              }
+            ]
+          },
+          "editable": {
+            "type": "boolean",
+            "example": true,
+            "description": "Borrador editable (ventana abierta y estado DRAFT)."
+          },
+          "applicant": {
+            "description": "Datos precargados del perfil (HU-14).",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ApplicantDto"
+              }
+            ]
+          },
+          "answers": {
+            "$ref": "#/components/schemas/ApplicationAnswersDto"
+          },
+          "documents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApplicationDocumentDto"
+            }
+          },
+          "missingRequirements": {
+            "description": "Pendientes para poder enviar (solo en borrador): validaciones en línea; mientras no esté vacío, \"Enviar postulación\" sigue deshabilitado.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FieldIssueDto"
+            }
+          },
+          "history": {
+            "description": "Historial de estados con fecha y hora.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StatusHistoryItemDto"
+            }
+          },
+          "form": {
+            "$ref": "#/components/schemas/ApplicationFormDto"
+          }
+        },
+        "required": [
+          "id",
+          "folio",
+          "kind",
+          "status",
+          "statusChangedAt",
+          "offer",
+          "submittedAt",
+          "updatedAt",
+          "requiresAction",
+          "action",
+          "timeline",
+          "interview",
+          "scholarshipResult",
+          "response",
+          "editable",
+          "applicant",
+          "answers",
+          "documents",
+          "missingRequirements",
+          "history",
+          "form"
+        ]
+      },
+      "UpdateApplicationRequestDto": {
+        "type": "object",
+        "properties": {
+          "phone": {
+            "description": "WhatsApp con indicativo. Se precarga del perfil (HU-14); editable.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PhoneDto"
+              }
+            ]
+          },
+          "age": {
+            "type": "number",
+            "nullable": true,
+            "example": 29,
+            "minimum": 15,
+            "maximum": 100,
+            "description": "Edad (entero). Obligatoria en becas."
+          },
+          "partnerCode": {
+            "type": "string",
+            "nullable": true,
+            "example": "RED-AGUA-OAX",
+            "maxLength": 40,
+            "description": "Código de iniciativa aliada (opcional; no aplica descuento)."
+          },
+          "organization": {
+            "type": "string",
+            "nullable": true,
+            "example": "Colectivo Agua Viva de la Sierra",
+            "maxLength": 150,
+            "description": "Organización (obligatoria en convocatorias)."
+          },
+          "organizationRole": {
+            "type": "string",
+            "nullable": true,
+            "example": "Coordinadora de proyectos",
+            "maxLength": 120,
+            "description": "Rol en la organización (obligatorio en convocatorias)."
+          },
+          "requestedLevel": {
+            "type": "string",
+            "enum": [
+              "AGUA_VIVA",
+              "RIOS_VIVOS",
+              "AGUAS_LIBRES",
+              "CENOTES_VIVOS",
+              "SPECIAL"
+            ],
+            "nullable": true,
+            "example": "AGUAS_LIBRES",
+            "description": "Beca: nivel solicitado (solo niveles habilitados en el diplomado: `form.levels`). `SPECIAL` (Beca especial, > 70%) requiere entrevista por Zoom."
+          },
+          "intentLetter": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 4000,
+            "example": "Necesito la beca porque…",
+            "description": "Beca: carta de intención (800–4000 caracteres al enviar)."
+          },
+          "eligibilityConfirmed": {
+            "type": "boolean",
+            "example": true,
+            "description": "Convocatoria: \"Confirmo que cumplo con la elegibilidad\" (obligatoria)."
+          },
+          "experience": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 2000,
+            "example": "Desde 2021 coordino la captación de lluvia en mi comunidad…",
+            "description": "Convocatoria: experiencia en cuidado del agua (300–2000 al enviar)."
+          },
+          "motivation": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 2000,
+            "example": "Replicaré lo aprendido con las mujeres de mi cooperativa…",
+            "description": "Convocatoria: motivación y cómo replicará lo aprendido (300–2000 al enviar)."
+          },
+          "canTravel": {
+            "type": "boolean",
+            "nullable": true,
+            "example": true,
+            "description": "Convocatoria: disponibilidad para viajar (asistencia presencial completa). Debe ser `true` para enviar si la convocatoria lo exige (`false` → `APPLICATION_NOT_ELIGIBLE`)."
+          },
+          "evidenceLinks": {
+            "example": [
+              "https://www.youtube.com/watch?v=abc123"
+            ],
+            "maxItems": 5,
+            "description": "Enlaces de evidencia (YouTube, Drive, redes), máximo 5. Reemplaza la lista completa.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "termsAccepted": {
+            "type": "boolean",
+            "example": true,
+            "description": "Términos (veracidad, asistencia, proyecto final, datos y pago del saldo / entrevista por Zoom en convocatorias; una postulación por cohorte). Obligatorio para enviar."
+          }
+        }
+      },
+      "EvidenceUploadRequestDto": {
+        "type": "object",
+        "properties": {
+          "fileName": {
+            "type": "string",
+            "example": "huerto-comunitario.jpg",
+            "maxLength": 255
+          },
+          "contentType": {
+            "type": "string",
+            "example": "image/jpeg",
+            "enum": [
+              "image/jpeg",
+              "image/png",
+              "image/heic",
+              "video/mp4",
+              "video/quicktime"
+            ],
+            "description": "Content-Type exacto que enviarás en el PUT."
+          },
+          "sizeBytes": {
+            "type": "number",
+            "example": 2400000,
+            "description": "Tamaño en bytes (imágenes ≤ 10 MB; videos ≤ 100 MB)."
+          }
+        },
+        "required": [
+          "fileName",
+          "contentType",
+          "sizeBytes"
+        ]
+      },
+      "ApplicationUploadUrlDto": {
+        "type": "object",
+        "properties": {
+          "uploadUrl": {
+            "type": "string",
+            "example": "https://storage.example.com/eia-prod/applications/…?X-Amz-Signature=…"
+          },
+          "method": {
+            "type": "string",
+            "example": "PUT",
+            "enum": [
+              "PUT"
+            ]
+          },
+          "headers": {
+            "type": "object",
+            "example": {
+              "Content-Type": "image/jpeg"
+            },
+            "description": "Headers obligatorios del PUT."
+          },
+          "key": {
+            "type": "string",
+            "example": "applications/3a1f…/evidence/2f0e…-huerto-comunitario.jpg",
+            "description": "Envíala a `POST …/documents` para confirmar el archivo."
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-21T18:00:00.000Z"
+          }
+        },
+        "required": [
+          "uploadUrl",
+          "method",
+          "headers",
+          "key",
+          "expiresAt"
+        ]
+      },
+      "ConfirmDocumentRequestDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "applications/3a1f…/evidence/2f0e…-huerto-comunitario.jpg",
+            "description": "`key` devuelta por `…/documents/upload-url`, tras hacer el PUT."
+          },
+          "fileName": {
+            "type": "string",
+            "example": "huerto-comunitario.jpg",
+            "description": "Nombre a mostrar."
+          }
+        },
+        "required": [
+          "key"
+        ]
+      },
+      "AccessUrlDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "FILE",
+              "EXTERNAL_LINK"
+            ],
+            "example": "FILE"
+          },
+          "url": {
+            "type": "string",
+            "example": "https://storage.example.com/eia-prod/offers/…?X-Amz-Signature=…"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "example": "2026-11-07T16:10:00.000Z",
+            "description": "Vencimiento de la URL firmada (null para enlaces externos). Al vencer, pide otra."
+          },
+          "fileName": {
+            "type": "string",
+            "nullable": true,
+            "example": "Presentacion-modulo-1.pdf"
+          }
+        },
+        "required": [
+          "kind",
+          "url",
+          "expiresAt",
+          "fileName"
+        ]
+      },
       "PortalOfferRefDto": {
         "type": "object",
         "properties": {
@@ -8743,41 +12310,6 @@
           "id",
           "number",
           "title"
-        ]
-      },
-      "SessionJoinDto": {
-        "type": "object",
-        "properties": {
-          "state": {
-            "type": "string",
-            "enum": [
-              "NOT_YET",
-              "OPEN",
-              "LINK_PENDING",
-              "ENDED",
-              "CANCELLED",
-              "IN_PERSON"
-            ],
-            "example": "NOT_YET",
-            "description": "`OPEN` → [Entrar a sesión] con `url`; `NOT_YET` → deshabilitado hasta `opensAt` (cuenta regresiva; vuelve a pedir la sesión al llegar); `LINK_PENDING` \"Enlace aún no disponible\"; `CANCELLED` \"Cancelada\"; `ENDED`; `IN_PERSON` (sin enlace)."
-          },
-          "opensAt": {
-            "type": "string",
-            "format": "date-time",
-            "example": "2026-11-07T15:50:00.000Z",
-            "description": "Inicio − 10 min (BUSINESS_RULES.SESSION_JOIN_WINDOW_MINUTES_BEFORE)."
-          },
-          "url": {
-            "type": "string",
-            "nullable": true,
-            "example": null,
-            "description": "join_url (Zoom/Meet) SOLO con `state = OPEN`. Nunca el enlace de anfitrión."
-          }
-        },
-        "required": [
-          "state",
-          "opensAt",
-          "url"
         ]
       },
       "SessionRecordingDto": {
@@ -9730,41 +13262,6 @@
           "modules"
         ]
       },
-      "AccessUrlDto": {
-        "type": "object",
-        "properties": {
-          "kind": {
-            "type": "string",
-            "enum": [
-              "FILE",
-              "EXTERNAL_LINK"
-            ],
-            "example": "FILE"
-          },
-          "url": {
-            "type": "string",
-            "example": "https://storage.example.com/eia-prod/offers/…?X-Amz-Signature=…"
-          },
-          "expiresAt": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true,
-            "example": "2026-11-07T16:10:00.000Z",
-            "description": "Vencimiento de la URL firmada (null para enlaces externos). Al vencer, pide otra."
-          },
-          "fileName": {
-            "type": "string",
-            "nullable": true,
-            "example": "Presentacion-modulo-1.pdf"
-          }
-        },
-        "required": [
-          "kind",
-          "url",
-          "expiresAt",
-          "fileName"
-        ]
-      },
       "FinalProjectUploadRequestDto": {
         "type": "object",
         "properties": {
@@ -9861,10 +13358,11 @@
             "enum": [
               "CLASSROOM",
               "OFFER",
+              "APPLICATION",
               "NONE"
             ],
             "example": "CLASSROOM",
-            "description": "`CLASSROOM` → Aula (`offerId`); `OFFER` → ficha `/escuela/oferta/{slug}`."
+            "description": "`CLASSROOM` → Aula (`offerId`); `OFFER` → ficha `/escuela/oferta/{slug}`; `APPLICATION` (Fase 04, entrevistas) → mi postulación `/portal/postulaciones/{applicationId}`."
           },
           "offerId": {
             "type": "string",
@@ -9876,12 +13374,20 @@
             "type": "string",
             "nullable": true,
             "example": "diplomado-en-ecotecnologias-del-agua"
+          },
+          "applicationId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid",
+            "example": null,
+            "description": "Fase 04: postulación de la entrevista (`kind = APPLICATION`)."
           }
         },
         "required": [
           "kind",
           "offerId",
-          "slug"
+          "slug",
+          "applicationId"
         ]
       },
       "CalendarItemDto": {
@@ -9897,16 +13403,18 @@
             "enum": [
               "SESSION",
               "EVENT",
-              "ACTIVITY"
+              "ACTIVITY",
+              "APPLICATION"
             ],
             "example": "SESSION",
-            "description": "`SESSION` = clase generada desde el horario (no editable); `EVENT` = evento manual o fecha importante; `ACTIVITY` = fecha de una actividad de módulo (HU-08, \"Fecha importante\")."
+            "description": "`SESSION` = clase generada desde el horario (no editable); `EVENT` = evento manual o fecha importante; `ACTIVITY` = fecha de una actividad de módulo (HU-08, \"Fecha importante\"); `APPLICATION` = entrevista por Zoom de una postulación (Fase 04, \"Fecha importante\")."
           },
           "kind": {
             "type": "string",
             "enum": [
               "SESSION",
               "ACTIVITY_DUE",
+              "INTERVIEW",
               "MANUAL",
               "ENROLLMENT_OPENS",
               "ENROLLMENT_CLOSES",
@@ -9915,7 +13423,7 @@
               "FINAL_PROJECT"
             ],
             "example": "SESSION",
-            "description": "Tipo: SESSION, ACTIVITY_DUE, MANUAL (webinar/encuentro) o fecha importante automática (ENROLLMENT_OPENS, ENROLLMENT_CLOSES, OFFER_STARTS, SCHOLARSHIP_DEADLINE, FINAL_PROJECT)."
+            "description": "Tipo: SESSION, ACTIVITY_DUE, INTERVIEW (entrevista de postulación, Fase 04), MANUAL (webinar/encuentro) o fecha importante automática (ENROLLMENT_OPENS, ENROLLMENT_CLOSES, OFFER_STARTS, SCHOLARSHIP_DEADLINE, FINAL_PROJECT)."
           },
           "title": {
             "type": "string",
@@ -10202,6 +13710,42 @@
           "total"
         ]
       },
+      "ApplicationsWidgetDto": {
+        "type": "object",
+        "properties": {
+          "latest": {
+            "nullable": true,
+            "description": "Postulación más reciente de este tipo (mismo estado que \"Mis postulaciones\"). null → invitar a postular (enlace a Becas / Convocatorias).",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ApplicationCardDto"
+              }
+            ]
+          },
+          "actionRequired": {
+            "type": "number",
+            "example": 1,
+            "description": "Postulaciones de este tipo que requieren acción."
+          },
+          "openCount": {
+            "type": "number",
+            "example": 2,
+            "description": "Becas / convocatorias con postulación abierta ahora."
+          },
+          "newCount": {
+            "type": "number",
+            "example": 1,
+            "description": "Convocatorias abiertas publicadas desde tu última visita a \"Convocatorias abiertas\" (todas si nunca la abriste). En Becas siempre 0."
+          }
+        },
+        "required": [
+          "latest",
+          "actionRequired",
+          "openCount",
+          "newCount"
+        ]
+      },
       "DashboardDto": {
         "type": "object",
         "properties": {
@@ -10249,10 +13793,30 @@
               }
             ]
           },
+          "scholarships": {
+            "nullable": true,
+            "description": "Widget Becas (Fase 04, siempre visible): estado de la postulación más relevante (`latest`, misma tarjeta y textos que \"Mis postulaciones\") → enlaza a Mis postulaciones. `latest = null` → invitar a postular (\"Postula a una beca\", `openCount` becas abiertas).",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ApplicationsWidgetDto"
+              }
+            ]
+          },
+          "openCalls": {
+            "nullable": true,
+            "description": "Widget Convocatorias (Fase 04): `newCount` = convocatorias abiertas nuevas desde tu última visita a \"Convocatorias abiertas\" y estado de mi postulación (`latest`).",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ApplicationsWidgetDto"
+              }
+            ]
+          },
           "failedBlocks": {
             "type": "array",
             "example": [],
-            "description": "Bloques que no se pudieron cargar: muestra \"No se pudo cargar esta información\" + reintento (el reintento puede usar el endpoint propio del bloque: /me/enrollments, /me/calendar, /library, /me/notifications/unread-count).",
+            "description": "Bloques que no se pudieron cargar: muestra \"No se pudo cargar esta información\" + reintento (el reintento puede usar el endpoint propio del bloque: /me/enrollments, /me/calendar, /library, /me/notifications/unread-count, /me/applications?kind=…).",
             "items": {
               "type": "string",
               "enum": [
@@ -10260,7 +13824,9 @@
                 "formations",
                 "upcomingEvents",
                 "recommendedResources",
-                "notifications"
+                "notifications",
+                "scholarships",
+                "openCalls"
               ]
             }
           }
@@ -10271,6 +13837,8 @@
           "upcomingEvents",
           "recommendedResources",
           "notifications",
+          "scholarships",
+          "openCalls",
           "failedBlocks"
         ]
       }

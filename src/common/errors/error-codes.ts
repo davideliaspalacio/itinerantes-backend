@@ -196,6 +196,56 @@ export const ERROR_CODES = {
     status: HttpStatus.UNPROCESSABLE_ENTITY,
     message: 'No encontramos el archivo subido. Vuelve a subirlo.',
   },
+
+  // --- Fase 04: Postulaciones (HU-19, 20, 21) ---
+  APPLICATION_NOT_ALLOWED: {
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    message: 'Esta oferta no recibe postulaciones.',
+  },
+  APPLICATION_WINDOW_CLOSED: {
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    message: 'La convocatoria no está abierta.',
+  },
+  APPLICATION_ALREADY_EXISTS: {
+    status: HttpStatus.CONFLICT,
+    message: 'Ya tienes una postulación para esta oferta.',
+  },
+  APPLICATION_NOT_EDITABLE: {
+    status: HttpStatus.CONFLICT,
+    message: 'Tu postulación ya fue enviada y no se puede modificar.',
+  },
+  APPLICATION_INCOMPLETE: {
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    message: 'Completa los campos obligatorios para enviar tu postulación.',
+  },
+  APPLICATION_NOT_ELIGIBLE: {
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    message: 'No cumples con la elegibilidad de esta convocatoria.',
+  },
+  APPLICATION_INVALID_FILE: {
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    message: 'El archivo debe ser JPG, PNG o HEIC de máximo 10 MB, o MP4/MOV de máximo 100 MB.',
+  },
+  APPLICATION_TOO_MANY_FILES: {
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    message: 'Puedes adjuntar como máximo 10 archivos.',
+  },
+  APPLICATION_UPLOAD_NOT_FOUND: {
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    message: 'No encontramos el archivo subido. Vuelve a subirlo.',
+  },
+  APPLICATION_INVALID_TRANSITION: {
+    status: HttpStatus.CONFLICT,
+    message: 'Tu postulación no está en un estado que permita esta acción.',
+  },
+  APPLICATION_DEADLINE_PASSED: {
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    message: 'El plazo para responder ya venció.',
+  },
+  APPLICATION_INTERVIEW_REQUIRED: {
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    message: 'Esta postulación requiere entrevista por Zoom.',
+  },
 } as const satisfies Record<string, ErrorDefinition>;
 
 export type ErrorCode = keyof typeof ERROR_CODES;
@@ -215,6 +265,14 @@ export const FIELD_ERROR_CODES = {
   INVALID_LOCATION: 'INVALID_LOCATION',
   /** Longitud del teléfono no válida para el indicativo. */
   INVALID_PHONE: 'INVALID_PHONE',
+  /** Fase 04: faltan archivos de evidencia (mínimo 1 en becas). */
+  MIN_FILES: 'MIN_FILES',
+  /** Fase 04: casilla obligatoria sin marcar (términos, elegibilidad). */
+  MUST_ACCEPT: 'MUST_ACCEPT',
+  /** Fase 04: nivel de beca no habilitado en la oferta. */
+  LEVEL_NOT_ENABLED: 'LEVEL_NOT_ENABLED',
+  /** Fase 04: campo que no corresponde al tipo de postulación (beca / convocatoria). */
+  NOT_APPLICABLE: 'NOT_APPLICABLE',
 } as const;
 
 export function getErrorDefinition(code: ErrorCode): ErrorDefinition {

@@ -1,6 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { BUSINESS_RULES } from '../../../config/business-rules';
 import {
+  ApplicationKind,
+  ApplicationStatus,
   CalendarCategory,
   OfferModality,
   OfferOrigin,
@@ -439,6 +441,39 @@ export class OfferActionDto {
     description: 'Para *_NOT_OPEN_YET: cuándo se habilita.',
   })
   availableFrom!: string | null;
+
+  @ApiProperty({
+    type: String,
+    format: 'uuid',
+    nullable: true,
+    example: null,
+    description:
+      'Fase 04: en `VIEW_APPLICATION` / `PAY_BALANCE`, id de mi postulación → ' +
+      '`/portal/postulaciones/{applicationId}` (`GET /me/applications/{id}`).',
+  })
+  applicationId!: string | null;
+
+  @ApiProperty({
+    enum: ApplicationStatus,
+    nullable: true,
+    example: null,
+    description: 'Fase 04: estado de mi postulación (mismos textos que "Mis postulaciones").',
+  })
+  applicationStatus!: ApplicationStatus | null;
+}
+
+export class OfferViewerApplicationDto {
+  @ApiProperty({ format: 'uuid', example: '3a1f5c2e-7b9d-4e8a-9c1b-2d3e4f5a6b7c' })
+  id!: string;
+
+  @ApiProperty({ enum: ApplicationKind, example: 'SCHOLARSHIP' })
+  kind!: ApplicationKind;
+
+  @ApiProperty({ enum: ApplicationStatus, example: 'SUBMITTED' })
+  status!: ApplicationStatus;
+
+  @ApiProperty({ example: 'BEC-000123' })
+  folio!: string;
 }
 
 export class OfferViewerDto {
@@ -447,6 +482,15 @@ export class OfferViewerDto {
 
   @ApiProperty({ example: false, description: '"Ya estás inscrito".' })
   enrolled!: boolean;
+
+  @ApiProperty({
+    type: OfferViewerApplicationDto,
+    nullable: true,
+    description:
+      'Fase 04: mi postulación (beca o convocatoria) en esta oferta, una por cohorte (HU-16: "con una ' +
+      'postulación a beca en curso veo su estado o [Pagar saldo]"). null sin sesión o sin postulación.',
+  })
+  application!: OfferViewerApplicationDto | null;
 }
 
 export class OfferDetailDto extends OfferSummaryDto {

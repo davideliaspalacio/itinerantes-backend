@@ -13,6 +13,7 @@ import { CaptchaModule } from './infra/captcha/captcha.module';
 import { MailModule } from './infra/mail/mail.module';
 import { PrismaModule } from './infra/prisma/prisma.module';
 import { StorageModule } from './infra/storage/storage.module';
+import { ApplicationsModule } from './modules/applications/applications.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CalendarModule } from './modules/calendar/calendar.module';
 import { ClassroomModule } from './modules/classroom/classroom.module';
@@ -90,6 +91,8 @@ import { UsersModule } from './modules/users/users.module';
     CalendarModule,
     LibraryModule,
     DashboardModule,
+    // Fase 04 — Postulaciones
+    ApplicationsModule,
   ],
   providers: [
     // Orden: rate limit → autenticación (respeta @Public()) → roles (@Roles()).

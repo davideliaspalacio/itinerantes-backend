@@ -84,8 +84,9 @@ Una formación **finalizada** sigue accesible (consulta de recursos y grabacione
   `notifications`). Muestra "No se pudo cargar esta información" + [Reintentar] solo en ese bloque.
   El reintento puede llamar al endpoint del bloque (`/me/enrollments`, `/me/calendar`, `/library`,
   `/me/notifications/unread-count`) o volver a pedir el dashboard.
-- **Widgets Becas / Convocatorias** (Fase 04) y **aviso de cuota** (Fase 05) se agregarán a esta
-  respuesta; mientras tanto muestra el estado vacío ("Postula a una beca", enlace a Becas).
+- **Widgets Becas / Convocatorias**: bloques `scholarships` y `openCalls` desde la Fase 04 (ver
+  [`fase-04-postulaciones.md`](fase-04-postulaciones.md#dashboard-hu-06)). El **aviso de cuota** llega en
+  la Fase 05.
 
 ---
 
@@ -307,7 +308,8 @@ La ventana es de 24 h por defecto y puede cambiar por oferta o sesión: usa siem
 
 Audiencias (ya filtradas por el backend): sesiones solo de mis formaciones; eventos "para todos los
 registrados" o "solo inscritos" de mis ofertas; fechas importantes de ofertas publicadas. Mes sin
-eventos → cuadrícula vacía, sin error. Las entrevistas (Fase 04) se agregarán como fechas importantes.
+eventos → cuadrícula vacía, sin error. Desde la Fase 04 las entrevistas de postulación llegan como
+fechas importantes (`source = APPLICATION`, `kind = INTERVIEW`, `link.kind = APPLICATION`).
 
 ---
 

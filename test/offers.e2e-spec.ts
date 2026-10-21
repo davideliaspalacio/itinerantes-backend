@@ -424,7 +424,11 @@ describe('Oferta formativa (e2e) — HU-15, HU-16, HU-34', () => {
           .get(`/api/v1/offers/${slug('course')}`)
           .set('Authorization', `Bearer ${accessToken}`)
           .expect(200);
-        expect(course.body.viewer).toEqual({ authenticated: true, enrolled: true });
+        expect(course.body.viewer).toEqual({
+          authenticated: true,
+          enrolled: true,
+          application: null,
+        });
         expect(course.body.enrolled).toBe(true);
         expect(course.body.actions).toEqual([
           {
@@ -434,6 +438,8 @@ describe('Oferta formativa (e2e) — HU-15, HU-16, HU-34', () => {
             requiresLogin: false,
             reason: null,
             availableFrom: null,
+            applicationId: null,
+            applicationStatus: null,
           },
         ]);
       } finally {

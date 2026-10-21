@@ -136,6 +136,27 @@ export const BUSINESS_RULES = {
   DEADLINE_ALERT_DAYS: 2,
   /** HU-13 (Anexo A): recordatorio N horas antes de vencer el saldo. */
   BALANCE_REMINDER_HOURS_BEFORE: 48,
+  /** HU-13 / HU-21: recordatorio de la entrevista por Zoom N horas antes. */
+  INTERVIEW_REMINDER_HOURS_BEFORE: 24,
+  /** HU-21: el enlace de Zoom de la entrevista se habilita N minutos antes (igual que las sesiones). */
+  INTERVIEW_JOIN_WINDOW_MINUTES_BEFORE: 10,
+  /** HU-19: hasta 5 enlaces de evidencia (YouTube, Drive, redes). */
+  EVIDENCE_MAX_LINKS: 5,
+  /** HU-19: edad entera declarada en el formulario (rango de validación). */
+  APPLICANT_MIN_AGE: 15,
+  APPLICANT_MAX_AGE: 100,
+  /** HU-19: código de iniciativa aliada (opcional; no aplica descuento, Anexo A). */
+  PARTNER_CODE_MAX_LENGTH: 40,
+  /** HU-20: organización y rol. */
+  ORGANIZATION_MAX_LENGTH: 150,
+  ORGANIZATION_ROLE_MAX_LENGTH: 120,
+  /** HU-19/20: URL firmada para subir una evidencia (PUT directo a storage). */
+  EVIDENCE_UPLOAD_URL_TTL_SECONDS: 30 * 60,
+  /**
+   * HU-21 / HU-13: cada cuánto corre el job de postulaciones (vencimientos, recordatorio de saldo y
+   * de entrevista). Solo con SCHEDULER_ENABLED=true.
+   */
+  APPLICATION_JOBS_CRON: '*/5 * * * *',
 
   // ---------------------------------------------------------------------------
   // Pagos (Fase 05)

@@ -19,8 +19,9 @@ export class DashboardController {
       'HU-06: "Próxima actividad" (con acceso HU-12), "Mi formación" (máx. 3 activas con % de ' +
       'progreso y [Continuar]), widget Calendario (próximos eventos con color), widget Biblioteca ' +
       '(material recomendado) y contador de notificaciones. Cada bloque es independiente: si uno ' +
-      'falla llega `null` y aparece en `failedBlocks` (los demás se muestran). Los widgets de Becas / ' +
-      'Convocatorias (Fase 04) y el aviso de cuota (Fase 05) se agregarán a esta respuesta.',
+      'falla llega `null` y aparece en `failedBlocks` (los demás se muestran). Fase 04: widgets Becas ' +
+      '(`scholarships`) y Convocatorias (`openCalls`) con el estado de mi postulación y las ' +
+      'abiertas/nuevas. El aviso de cuota (Fase 05) se agregará a esta respuesta.',
   })
   @ApiOkResponse({ type: DashboardDto })
   @ApiErrorResponses('UNAUTHORIZED', 'RATE_LIMITED')

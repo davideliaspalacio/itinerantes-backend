@@ -49,11 +49,13 @@ export class CalendarQueryDto {
 
 export class CalendarLinkDto {
   @ApiProperty({
-    enum: ['CLASSROOM', 'OFFER', 'NONE'],
+    enum: ['CLASSROOM', 'OFFER', 'APPLICATION', 'NONE'],
     example: 'CLASSROOM',
-    description: '`CLASSROOM` → Aula (`offerId`); `OFFER` → ficha `/escuela/oferta/{slug}`.',
+    description:
+      '`CLASSROOM` → Aula (`offerId`); `OFFER` → ficha `/escuela/oferta/{slug}`; `APPLICATION` ' +
+      '(Fase 04, entrevistas) → mi postulación `/portal/postulaciones/{applicationId}`.',
   })
-  kind!: 'CLASSROOM' | 'OFFER' | 'NONE';
+  kind!: 'CLASSROOM' | 'OFFER' | 'APPLICATION' | 'NONE';
 
   @ApiProperty({
     type: String,
@@ -65,6 +67,15 @@ export class CalendarLinkDto {
 
   @ApiProperty({ type: String, nullable: true, example: 'diplomado-en-ecotecnologias-del-agua' })
   slug!: string | null;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    format: 'uuid',
+    example: null,
+    description: 'Fase 04: postulación de la entrevista (`kind = APPLICATION`).',
+  })
+  applicationId!: string | null;
 }
 
 export class CalendarItemDto {
@@ -72,22 +83,24 @@ export class CalendarItemDto {
   id!: string;
 
   @ApiProperty({
-    enum: ['SESSION', 'EVENT', 'ACTIVITY'],
+    enum: ['SESSION', 'EVENT', 'ACTIVITY', 'APPLICATION'],
     example: 'SESSION',
     description:
       '`SESSION` = clase generada desde el horario (no editable); `EVENT` = evento manual o fecha ' +
-      'importante; `ACTIVITY` = fecha de una actividad de módulo (HU-08, "Fecha importante").',
+      'importante; `ACTIVITY` = fecha de una actividad de módulo (HU-08, "Fecha importante"); ' +
+      '`APPLICATION` = entrevista por Zoom de una postulación (Fase 04, "Fecha importante").',
   })
-  source!: 'SESSION' | 'EVENT' | 'ACTIVITY';
+  source!: 'SESSION' | 'EVENT' | 'ACTIVITY' | 'APPLICATION';
 
   @ApiProperty({
-    enum: ['SESSION', 'ACTIVITY_DUE', ...Object.values(CalendarEventKind)],
+    enum: ['SESSION', 'ACTIVITY_DUE', 'INTERVIEW', ...Object.values(CalendarEventKind)],
     example: 'SESSION',
     description:
-      'Tipo: SESSION, ACTIVITY_DUE, MANUAL (webinar/encuentro) o fecha importante automática ' +
-      '(ENROLLMENT_OPENS, ENROLLMENT_CLOSES, OFFER_STARTS, SCHOLARSHIP_DEADLINE, FINAL_PROJECT).',
+      'Tipo: SESSION, ACTIVITY_DUE, INTERVIEW (entrevista de postulación, Fase 04), MANUAL ' +
+      '(webinar/encuentro) o fecha importante automática (ENROLLMENT_OPENS, ENROLLMENT_CLOSES, ' +
+      'OFFER_STARTS, SCHOLARSHIP_DEADLINE, FINAL_PROJECT).',
   })
-  kind!: 'SESSION' | 'ACTIVITY_DUE' | CalendarEventKind;
+  kind!: 'SESSION' | 'ACTIVITY_DUE' | 'INTERVIEW' | CalendarEventKind;
 
   @ApiProperty({ example: 'Diplomado en Ecotecnologías del Agua' })
   title!: string;

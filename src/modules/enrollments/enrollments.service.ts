@@ -136,6 +136,67 @@ export class EnrollmentsService {
     return this.cardFor(userId, offerId, now);
   }
 
+  // --- Fase 04: inscripciones originadas por una postulación (beca / convocatoria) ---------------
+
+  /**
+   * Reserva (PENDING_PAYMENT, saldo tras beca: la Fase 05 la activa al pagar) o activa (ACTIVE,
+   * convocatoria confirmada / pago confirmado) la inscripción de una postulación aprobada. Corre
+   * dentro de la transacción de la transición (`tx`). Si la persona ya tiene una inscripción vigente
+   * por otra vía (p. ej. pagó el precio completo), no la toca y devuelve null.
+   */
+  async upsertFromApplication(
+    tx: Prisma.TransactionClient,
+    input: {
+      userId: string;
+      offerId: string;
+      applicationId: string;
+      source: 'SCHOLARSHIP' | 'OPEN_CALL';
+      status: 'PENDING_PAYMENT' | 'ACTIVE';
+      now: Date;
+    },
+  ): Promise<Enrollment | null> {
+    const existing = await tx.enrollment.findUnique({
+      where: { userId_offerId: { userId: input.userId, offerId: input.offerId } },
+    });
+    if (
+      existing &&
+      existing.applicationId !== input.applicationId &&
+      (SEAT_HOLDING_STATUSES as readonly string[]).includes(existing.status)
+    ) {
+      this.logger.warn(
+        { enrollmentId: existing.id, applicationId: input.applicationId },
+        'La persona ya tenía una inscripción vigente: no se modifica',
+      );
+      return null;
+    }
+    const data = {
+      status: input.status,
+      origin: 'NAS' as const,
+      source: input.source,
+      applicationId: input.applicationId,
+      activatedAt: input.status === 'ACTIVE' ? input.now : null,
+      cancelledAt: null,
+      statusReason: null,
+    };
+    return existing
+      ? tx.enrollment.update({ where: { id: existing.id }, data })
+      : tx.enrollment.create({ data: { userId: input.userId, offerId: input.offerId, ...data } });
+  }
+
+  /** Cancela la reserva PENDING_PAYMENT de una postulación vencida (libera la inscripción). */
+  async cancelPendingForApplication(
+    tx: Prisma.TransactionClient,
+    applicationId: string,
+    reason: string,
+    now: Date,
+  ): Promise<number> {
+    const result = await tx.enrollment.updateMany({
+      where: { applicationId, status: 'PENDING_PAYMENT' },
+      data: { status: 'CANCELLED', cancelledAt: now, statusReason: reason },
+    });
+    return result.count;
+  }
+
   async cardFor(userId: string, offerId: string, now: Date = nowUtc()): Promise<FormationCardDto> {
     const row = await this.prisma.enrollment.findUniqueOrThrow({
       where: { userId_offerId: { userId, offerId } },

@@ -135,7 +135,8 @@ paginar (p. ej. `/locations/countries`) responden `{ "data": [ ... ] }` sin `met
 - Prisma 7: la URL NO va en `schema.prisma`. El CLI la toma de `prisma.config.ts` (`DIRECT_URL` si existe, si no `DATABASE_URL`); la app usa `DATABASE_URL` con el driver adapter de `pg` en `PrismaService`. Importa tipos/enums de Prisma desde `src/generated/prisma/client`.
 - Producción: Postgres administrado (recomendado Supabase; alternativa Neon o Railway Postgres). Solo se usa `DATABASE_URL` (+ `DIRECT_URL` para migraciones si hay pooler).
 - Cada fase crea su migración con nombre descriptivo (`pnpm db:migrate --name fase01_identity`).
-- `prisma/seed.ts` es idempotente: catálogos de referencia (siempre), usuarios demo (nunca con `NODE_ENV=production`), ofertas demo de Fase 02 y contenido demo del portal de Fase 03 (biblioteca, recursos, eventos; `SEED_DEMO_DATA`, por defecto solo fuera de producción) e inscripciones/asistencias/notificaciones del usuario demo (nunca en producción). En producción corre compilado (`pnpm build:seed` → `dist/seed/prisma/seed.js`) desde `scripts/docker-entrypoint.sh` en cada arranque; cualquier seeder nuevo debe ser seguro de repetir en producción.
+- `prisma/seed.ts` es idempotente: catálogos de referencia (siempre), usuarios demo (nunca con `NODE_ENV=production`), ofertas demo de Fase 02 y contenido demo del portal de Fase 03 (biblioteca, recursos, eventos; `SEED_DEMO_DATA`, por defecto solo fuera de producción) e inscripciones/asistencias/notificaciones del usuario demo (nunca en producción), y postulaciones demo
+del usuario demo (Fase 04; nunca en producción, solo se crean si no existen). En producción corre compilado (`pnpm build:seed` → `dist/seed/prisma/seed.js`) desde `scripts/docker-entrypoint.sh` en cada arranque; cualquier seeder nuevo debe ser seguro de repetir en producción.
 
 ## Oferta formativa (Fase 02)
 
@@ -223,6 +224,45 @@ autorización del portal), `live-sessions` (HU-12/18 + jobs), `classroom` (HU-08
   WhatsApp disponible" al llegar `whatsappVisibleFrom`. Idempotentes: claim atómico
   (`attendanceNotifiedAt` / `whatsappNotifiedAt`) + `dedupeKey`.
 - **Dashboard**: compone bloques en paralelo; un bloque que falla llega `null` y en `failedBlocks`.
+
+## Postulaciones (Fase 04)
+
+Módulo `src/modules/applications/` (HU-19, 20, 21). Dependencias: `applications` → (`enrollments`,
+`notifications`, `locations`); `offers`, `calendar` y `dashboard` importan `applications` (nunca al revés).
+Reglas puras con pruebas en `applications/policies/`: `application-status` (máquina de estados, acción
+contextual, línea de tiempo), `application-rules` (tipo, ventana, elegibilidad, validación de envío,
+evidencias, folio, % asignado, saldo y plazos) y `application-messages` (textos de notificación).
+
+- **Application** (única por `(userId, offerId)` = una por cohorte). El tipo se deriva de la oferta:
+  diplomado NAS con beca → `SCHOLARSHIP`; convocatoria NAS → `OPEN_CALL`. Folio legible derivado de un
+  consecutivo (`BEC-000123` / `CONV-000123`). Datos de contacto: foto del perfil (se refresca al guardar y
+  al enviar); al enviar se guardan `currency` (país del perfil) y `originalAmountCents`.
+- **Estados** (`ApplicationStatus`): `DRAFT → SUBMITTED → IN_REVIEW → INTERVIEW_SCHEDULED →
+  APPROVED_PENDING_PAYMENT | APPROVED_PENDING_CONFIRMATION | NOT_SELECTED`; aprobadas → `ENROLLED` o
+  `EXPIRED`; `EXPIRED → APPROVED_*` (extender plazo, HU-32). Cada transición declara qué actor la puede
+  hacer (`PARTICIPANT`, `STAFF`, `SYSTEM`); `ApplicationWorkflowService.transition()` la aplica con
+  update condicionado al estado previo + `ApplicationStatusEvent` (historial con actor y nota interna)
+  + efectos (inscripción) en una transacción, y notifica después del commit
+  (`dedupeKey = app-status:{id}:{estado}:{eventId}`; "En revisión" con `email: false`).
+- **Inscripción**: al aprobar con saldo se crea/reutiliza la `Enrollment` en `PENDING_PAYMENT`
+  (`source` SCHOLARSHIP/OPEN_CALL, `applicationId` con FK); `markEnrolled()` (Fase 05) la activa. Sin
+  costo, la persona confirma (`POST /me/applications/{id}/confirm`) y queda `ACTIVE`. Al vencer se
+  cancela la reserva. Si ya tenía una inscripción vigente por otra vía no se toca.
+- **Plazo** (`responseDueAt`): `PAYMENT_DEADLINE_AFTER_APPROVAL_DAYS` (o
+  `OPEN_CALL_CONFIRMATION_DEADLINE_DAYS`) desde la decisión, sin superar el inicio de la oferta.
+  `pendingTransferSince` (lo administra la Fase 05 con `setPendingTransfer`) impide el vencimiento.
+- **Entrevistas** (`ApplicationInterview`): la vigente es la más reciente no cancelada; reprogramar
+  cancela la anterior. `join` con las reglas de HU-12 (`INTERVIEW_JOIN_WINDOW_MINUTES_BEFORE`). Aparecen
+  en el calendario como fecha importante (`source = APPLICATION`).
+- **Evidencias** (`ApplicationDocument`): upload-url → PUT → confirmación con `head()` (tipo/tamaño
+  reales), key bajo `applications/{applicationId}/evidence/`; editable solo en borrador.
+- **Jobs** (`ApplicationJobsService`, `APPLICATION_JOBS_CRON`, `SCHEDULER_ENABLED`): vencimientos
+  (`expireIfDue`, condición atómica), recordatorio de saldo (claim `dueReminderSentAt`) y de entrevista
+  (claim `reminderSentAt`). Idempotentes.
+- **Ficha** (HU-16): `OfferApplicationLookup` (token `OFFER_APPLICATION_LOOKUP`, implementado por
+  `ApplicationLookupService`) → `viewer.application` y acciones `VIEW_APPLICATION` / `PAY_BALANCE`.
+- Para la Fase 06 quedan listos en `ApplicationWorkflowService`: `startReview`, `scheduleInterview`,
+  `completeInterview`, `cancelInterview`, `approve`, `reject`, `extendDeadline` (sin endpoints admin).
 
 ## Reglas de negocio configurables
 

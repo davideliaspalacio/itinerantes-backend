@@ -4,6 +4,7 @@ import { addDaysInZone, nowUtc, OFFICIAL_TIMEZONE } from '../../common/utils/tim
 import { BUSINESS_RULES } from '../../config/business-rules';
 import type { CalendarCategory } from '../../generated/prisma/client';
 import { PrismaService } from '../../infra/prisma/prisma.service';
+import { ApplicationsService } from '../applications/applications.service';
 import { publishedNowWhere } from '../classroom/policies/classroom.policy';
 import { EnrollmentAccessService } from '../enrollments/enrollment-access.service';
 import { joinInfo } from '../live-sessions/policies/session.policy';
@@ -25,6 +26,7 @@ export class CalendarService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly access: EnrollmentAccessService,
+    private readonly applications: ApplicationsService,
   ) {}
 
   async range(
@@ -42,7 +44,7 @@ export class CalendarService {
     const now = nowUtc();
     const offerIds = await this.access.accessibleOfferIds(userId);
 
-    const [sessions, events, activities] = await Promise.all([
+    const [sessions, events, activities, interviews] = await Promise.all([
       this.prisma.offerSession.findMany({
         where: { offerId: { in: [...offerIds] }, startsAt: { lt: to }, endsAt: { gte: from } },
         select: sessionViewSelect(userId),
@@ -90,9 +92,41 @@ export class CalendarService {
           },
         },
       }),
+      // Fase 04 (HU-10/21): entrevistas por Zoom de mis postulaciones → "Fecha importante".
+      this.applications.interviewsInRange(userId, from, to),
     ]);
 
     const items: CalendarItemDto[] = [];
+    for (const interview of interviews) {
+      items.push({
+        id: interview.id,
+        source: 'APPLICATION',
+        kind: 'INTERVIEW',
+        title: `Entrevista por Zoom: ${interview.offer.name}`,
+        description: `Postulación ${interview.folio}`,
+        category: 'IMPORTANT_DATES',
+        startsAt: interview.startsAt.toISOString(),
+        endsAt: interview.endsAt.toISOString(),
+        allDay: false,
+        timezone: OFFICIAL_TIMEZONE,
+        status: 'SCHEDULED',
+        offer: interview.offer,
+        module: null,
+        venue: null,
+        location: null,
+        join: {
+          state: interview.join.state,
+          opensAt: interview.join.opensAt.toISOString(),
+          url: interview.join.url,
+        },
+        link: {
+          kind: 'APPLICATION',
+          offerId: interview.offer.id,
+          slug: interview.offer.slug,
+          applicationId: interview.applicationId,
+        },
+      });
+    }
     for (const activity of activities) {
       const { offer } = activity.module;
       items.push({
@@ -116,7 +150,7 @@ export class CalendarService {
         venue: null,
         location: null,
         join: null,
-        link: { kind: 'CLASSROOM', offerId: offer.id, slug: offer.slug },
+        link: { kind: 'CLASSROOM', offerId: offer.id, slug: offer.slug, applicationId: null },
       });
     }
     for (const row of sessions) {
@@ -138,7 +172,12 @@ export class CalendarService {
         venue: card.venue,
         location: null,
         join: card.join,
-        link: { kind: 'CLASSROOM', offerId: card.offer.id, slug: card.offer.slug },
+        link: {
+          kind: 'CLASSROOM',
+          offerId: card.offer.id,
+          slug: card.offer.slug,
+          applicationId: null,
+        },
       });
     }
 
@@ -195,9 +234,9 @@ export class CalendarService {
           : null,
         link: offerRef
           ? offerIds.has(offerRef.id) && event.audience === 'OFFER_ENROLLED'
-            ? { kind: 'CLASSROOM', offerId: offerRef.id, slug: offerRef.slug }
-            : { kind: 'OFFER', offerId: offerRef.id, slug: offerRef.slug }
-          : { kind: 'NONE', offerId: null, slug: null },
+            ? { kind: 'CLASSROOM', offerId: offerRef.id, slug: offerRef.slug, applicationId: null }
+            : { kind: 'OFFER', offerId: offerRef.id, slug: offerRef.slug, applicationId: null }
+          : { kind: 'NONE', offerId: null, slug: null, applicationId: null },
       });
     }
 

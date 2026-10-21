@@ -1,4 +1,4 @@
-import type { OfferOrigin, OfferType } from '../../../generated/prisma/client';
+import type { ApplicationStatus, OfferOrigin, OfferType } from '../../../generated/prisma/client';
 import { OfferAvailability } from './offer-status.policy';
 
 /**
@@ -21,6 +21,10 @@ export const OfferActionType = {
   ACTIVATE_MOODLE_ACCESS: 'ACTIVATE_MOODLE_ACCESS',
   /** [Ir a mi aula] (HU-17) */
   GO_TO_CLASSROOM: 'GO_TO_CLASSROOM',
+  /** [Ver mi postulación] (HU-16/21): ya existe una postulación (beca o convocatoria) en esta oferta */
+  VIEW_APPLICATION: 'VIEW_APPLICATION',
+  /** [Pagar saldo] — "Pendiente de pago" (HU-16/21/23): postulación aprobada con saldo */
+  PAY_BALANCE: 'PAY_BALANCE',
 } as const;
 export type OfferActionType = (typeof OfferActionType)[keyof typeof OfferActionType];
 
@@ -53,6 +57,9 @@ export interface OfferAction {
   reason: OfferActionReason | null;
   /** Para *_NOT_OPEN_YET: cuándo se habilita. */
   availableFrom: Date | null;
+  /** VIEW_APPLICATION / PAY_BALANCE: postulación de la persona (ruta /portal/postulaciones/{id}). */
+  applicationId: string | null;
+  applicationStatus: ApplicationStatus | null;
 }
 
 export type WindowState = 'OPEN' | 'UPCOMING' | 'CLOSED';
@@ -71,7 +78,12 @@ export interface OfferActionsInput {
   /** La oferta tiene precio (> 0) en la moneda del visitante. */
   hasPriceInCurrency: boolean;
   soldOut: boolean;
-  viewer: { authenticated: boolean; enrolled: boolean };
+  viewer: {
+    authenticated: boolean;
+    enrolled: boolean;
+    /** Postulación (beca o convocatoria) de la persona en esta oferta (Fase 04). */
+    application?: { id: string; status: ApplicationStatus } | null;
+  };
 }
 
 /**
@@ -82,6 +94,9 @@ export interface OfferActionsInput {
  * - NAS → [Inscribirme y pagar] (o [Inscribirme] si es gratuita), [Pagar en cuotas] si hay cuotas,
  *   [Postular a beca] si es diplomado con beca. Se deshabilitan con motivo: próximamente, cerradas,
  *   finalizada, cupo agotado.
+ * - Con postulación (Fase 04, una por cohorte): [Postular] / [Postular a beca] se reemplazan por
+ *   [Ver mi postulación]; si está "Aprobada – pendiente de pago" → [Pagar saldo] (principal) y
+ *   [Ver mi postulación], sin [Inscribirme y pagar] (evita pagar el precio completo dos veces).
  */
 export function computeOfferActions(input: OfferActionsInput): OfferAction[] {
   const requiresLogin = !input.viewer.authenticated;
@@ -96,13 +111,30 @@ export function computeOfferActions(input: OfferActionsInput): OfferAction[] {
     requiresLogin,
     reason: block?.reason ?? null,
     availableFrom: block?.availableFrom ?? null,
+    applicationId: null,
+    applicationStatus: null,
+  });
+  const application = input.viewer.application ?? null;
+  const applicationAction = (type: OfferActionType, primary: boolean): OfferAction => ({
+    ...action(type, primary, null),
+    applicationId: application?.id ?? null,
+    applicationStatus: application?.status ?? null,
   });
 
   if (input.viewer.enrolled) return [action('GO_TO_CLASSROOM', true, null)];
   if (input.origin === 'MOODLE') return [action('ACTIVATE_MOODLE_ACCESS', true, null)];
 
+  if (application?.status === 'APPROVED_PENDING_PAYMENT') {
+    return [applicationAction('PAY_BALANCE', true), applicationAction('VIEW_APPLICATION', false)];
+  }
   const enrollmentBlock = enrollmentBlockFor(input);
-  if (input.type === 'OPEN_CALL') return [action('APPLY_OPEN_CALL', true, enrollmentBlock)];
+  if (input.type === 'OPEN_CALL') {
+    return [
+      application
+        ? applicationAction('VIEW_APPLICATION', true)
+        : action('APPLY_OPEN_CALL', true, enrollmentBlock),
+    ];
+  }
 
   const actions: OfferAction[] = [];
   if (input.isFree) {
@@ -117,7 +149,11 @@ export function computeOfferActions(input: OfferActionsInput): OfferAction[] {
       actions.push(action('PAY_IN_INSTALLMENTS', false, purchaseBlock));
   }
   if (input.scholarshipOffered) {
-    actions.push(action('APPLY_SCHOLARSHIP', false, scholarshipBlockFor(input)));
+    actions.push(
+      application
+        ? applicationAction('VIEW_APPLICATION', false)
+        : action('APPLY_SCHOLARSHIP', false, scholarshipBlockFor(input)),
+    );
   }
   return actions;
 }

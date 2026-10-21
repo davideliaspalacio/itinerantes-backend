@@ -423,6 +423,61 @@ export const DEMO_OFFERS: DemoOffer[] = [
     generateSessions: true,
   },
   {
+    // Fase 04: diplomado con convocatoria de becas abierta (demo de "Becas disponibles" y de una beca
+    // aprobada pendiente de pago del usuario demo).
+    data: {
+      slug: 'diplomado-gestion-comunitaria-del-agua-2027',
+      name: 'Diplomado en Gestión Comunitaria del Agua',
+      type: 'DIPLOMA',
+      modality: 'ONLINE_LIVE',
+      origin: 'NAS',
+      publicationStatus: 'PUBLISHED',
+      publishedAt: cdmxToUtc('2026-10-01', '00:00'),
+      cohortLabel: 'Generación 2027',
+      summary:
+        'Herramientas para organizar, gobernar y financiar sistemas comunitarios de agua con enfoque territorial.',
+      description:
+        'Nueve módulos en vivo (60 h) sobre gobernanza comunitaria del agua, comités de agua, tarifas justas, monitoreo participativo y proyectos de regeneración, con un proyecto final aplicado.',
+      learningOutcomes: [
+        'Diseñar un modelo de gobernanza comunitaria del agua',
+        'Calcular tarifas justas y sostenibles',
+        'Coordinar monitoreo participativo de la calidad del agua',
+      ],
+      requirements: 'Participar en un comité, colectivo u organización vinculada al agua.',
+      coverImageKey: img('Gestión Comunitaria del Agua', '0369A1'),
+      carouselImageKeys: [],
+      publicTopic: null,
+      enrollmentOpensAt: cdmxToUtc('2026-10-01', '00:00'),
+      enrollmentClosesAt: cdmxToUtc('2027-01-31', '23:59'),
+      startsAt: cdmxToUtc('2027-02-06', '10:00'),
+      endsAt: cdmxToUtc('2027-04-25', '13:00'),
+      totalMinutes: 60 * 60,
+      scheduleRule: { weekdays: [6, 7], startTime: '10:00', endTime: '13:00' },
+      calendarCategory: 'TRAINING',
+      priceMxnCents: 1_020_000,
+      priceUsdCents: 58_500,
+      installmentsEnabled: true,
+      installmentsMax: 4,
+      scholarshipEnabled: true,
+      scholarshipLevels: ['AGUA_VIVA', 'RIOS_VIVOS', 'AGUAS_LIBRES', 'CENOTES_VIVOS', 'SPECIAL'],
+      scholarshipOpensAt: cdmxToUtc('2026-10-01', '00:00'),
+      scholarshipClosesAt: cdmxToUtc('2027-01-15', '23:59'),
+      attendanceWindowHours: 24,
+    },
+    teacherSlugs: ['lucia-herrera-mendoza', 'ana-solis-rios'],
+    modules: [
+      {
+        title: 'Gobernanza comunitaria del agua',
+        description: 'Comités, asambleas y reglamentos comunitarios.',
+      },
+      {
+        title: 'Tarifas justas y sostenibilidad financiera',
+        description: 'Costos de operación, tarifas y fondos de reserva.',
+      },
+    ],
+    generateSessions: false,
+  },
+  {
     data: {
       slug: 'diplomado-de-ecopedagogias',
       name: 'Diplomado de Ecopedagogías',

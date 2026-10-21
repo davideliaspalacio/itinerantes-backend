@@ -12,7 +12,7 @@ agrega su guía específica en `docs/frontend/fase-XX-<nombre>.md`.
 | [`fase-01-identidad.md`](fase-01-identidad.md) | Registro, OTP, login, recuperación, perfil, ubicaciones, zonas horarias, contacto | Fase 01 ✔ |
 | [`fase-02-oferta.md`](fase-02-oferta.md) | Catálogo, ficha (acciones/CTA, moneda, beca) y disponibilidad por temática (HU-34) | Fase 02 ✔ |
 | [`fase-03-portal.md`](fase-03-portal.md) | Dashboard, Mi formación, inscripción gratuita, Aula, materiales, sesiones en vivo, asistencia, calendario, biblioteca, notificaciones | Fase 03 ✔ |
-| `fase-04-postulaciones.md` | Becas y convocatorias | Fase 04 (pendiente) |
+| [`fase-04-postulaciones.md`](fase-04-postulaciones.md) | Becas disponibles, convocatorias abiertas, formulario con borrador y evidencias, envío, Mis postulaciones (línea de tiempo, entrevista, resultado, confirmación) + widgets, calendario y acciones de la ficha | Fase 04 ✔ |
 | `fase-05-pagos.md` | Stripe, transferencias, cuotas, Mis pagos | Fase 05 (pendiente) |
 | `fase-06-admin.md` | Panel administrativo | Fase 06 (pendiente) |
 
@@ -72,7 +72,8 @@ Detalle completo (pantallas HU-02 a HU-05, HU-14): [`fase-01-identidad.md`](fase
 - `403 FORBIDDEN` → el usuario no tiene el rol/permiso.
 - Recursos del usuario autenticado: `GET/PATCH /api/v1/me`, `PATCH /me/timezone`, `POST /me/password`
   y, desde Fase 03, el portal bajo `/me/...` (`/me/dashboard`, `/me/enrollments`, `/me/classrooms/{offerId}`,
-  `/me/sessions`, `/me/calendar`, `/me/notifications`) más `/library`.
+  `/me/sessions`, `/me/calendar`, `/me/notifications`) más `/library` y, desde Fase 04,
+  `/me/applications` (postulaciones a becas y convocatorias).
 - Acceso a una formación sin inscripción → `403 ENROLLMENT_REQUIRED` (`meta.offerSlug` para ofrecer la
   ficha); recursos ajenos u ocultos → `404`. Ver [`fase-03-portal.md`](fase-03-portal.md).
 
