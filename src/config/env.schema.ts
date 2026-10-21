@@ -105,6 +105,13 @@ export const envSchema = z
      */
     STORAGE_PUBLIC_BASE_URL: optionalString.pipe(z.url().optional()),
 
+    // --- Tareas programadas (Fase 03) ---
+    /**
+     * Activa los jobs en proceso (@nestjs/schedule): avisos de "registro de asistencia abierto" y
+     * "grupo de WhatsApp disponible" (HU-13/HU-18). Con varias réplicas, déjalo en true solo en una.
+     */
+    SCHEDULER_ENABLED: bool(true),
+
     // --- Stripe (Fase 05; opcionales por ahora) ---
     STRIPE_SECRET_KEY: optionalString,
     STRIPE_WEBHOOK_SECRET: optionalString,

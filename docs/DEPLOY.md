@@ -75,7 +75,8 @@ de lectura/escritura del bucket.
    - Healthcheck: `GET /api/v1/health` (120 s de margen: migraciones + seed tardan unos segundos).
    - `numReplicas: 1` (las tareas programadas con `@nestjs/schedule` corren en proceso; no escalar
      horizontalmente sin mover los cron a un worker o usar un lock). Con más réplicas, pon
-     `RUN_MIGRATIONS=false` y `RUN_SEED=false` en todas menos una.
+     `RUN_MIGRATIONS=false`, `RUN_SEED=false` y `SCHEDULER_ENABLED=false` en todas menos una (los jobs
+     son idempotentes, pero así se evita trabajo duplicado).
 2. **Variables** (Service → Variables). Mínimas:
 
 ```env
@@ -98,6 +99,7 @@ TURNSTILE_SECRET_KEY=                               # opcional: activa el captch
 STORAGE_ENDPOINT=... STORAGE_REGION=... STORAGE_BUCKET=... STORAGE_ACCESS_KEY_ID=... STORAGE_SECRET_ACCESS_KEY=...
 STORAGE_PUBLIC_BASE_URL=                            # opcional: URL pública de imágenes (ver abajo)
 SEED_DEMO_DATA=true                                 # ofertas demo para integrar el frontend (quitar al cargar datos reales)
+SCHEDULER_ENABLED=true                              # jobs en proceso (avisos de asistencia/WhatsApp); true en UNA sola réplica
 ```
 
    `PORT` lo inyecta Railway (la app lo lee). Los catálogos (países, estados y municipios) se cargan

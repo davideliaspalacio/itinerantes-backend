@@ -135,7 +135,7 @@ paginar (p. ej. `/locations/countries`) responden `{ "data": [ ... ] }` sin `met
 - Prisma 7: la URL NO va en `schema.prisma`. El CLI la toma de `prisma.config.ts` (`DIRECT_URL` si existe, si no `DATABASE_URL`); la app usa `DATABASE_URL` con el driver adapter de `pg` en `PrismaService`. Importa tipos/enums de Prisma desde `src/generated/prisma/client`.
 - Producción: Postgres administrado (recomendado Supabase; alternativa Neon o Railway Postgres). Solo se usa `DATABASE_URL` (+ `DIRECT_URL` para migraciones si hay pooler).
 - Cada fase crea su migración con nombre descriptivo (`pnpm db:migrate --name fase01_identity`).
-- `prisma/seed.ts` es idempotente: catálogos de referencia (siempre), usuarios demo (nunca con `NODE_ENV=production`) y ofertas demo de Fase 02 (`SEED_DEMO_DATA`, por defecto solo fuera de producción). En producción corre compilado (`pnpm build:seed` → `dist/seed/prisma/seed.js`) desde `scripts/docker-entrypoint.sh` en cada arranque; cualquier seeder nuevo debe ser seguro de repetir en producción.
+- `prisma/seed.ts` es idempotente: catálogos de referencia (siempre), usuarios demo (nunca con `NODE_ENV=production`), ofertas demo de Fase 02 y contenido demo del portal de Fase 03 (biblioteca, recursos, eventos; `SEED_DEMO_DATA`, por defecto solo fuera de producción) e inscripciones/asistencias/notificaciones del usuario demo (nunca en producción). En producción corre compilado (`pnpm build:seed` → `dist/seed/prisma/seed.js`) desde `scripts/docker-entrypoint.sh` en cada arranque; cualquier seeder nuevo debe ser seguro de repetir en producción.
 
 ## Oferta formativa (Fase 02)
 
@@ -175,11 +175,54 @@ Decisiones de modelo (`prisma/schema.prisma`):
 - Catálogo: se cargan las ofertas publicadas y se filtran/ordenan/paginan en memoria (decenas de
   ofertas; el estado depende de `now` y la búsqueda ignora acentos). Si el volumen crece, mover el
   estado a SQL (`CASE` sobre fechas) y la búsqueda a `unaccent`/`pg_trgm`.
-- Badge "Inscrito" y cupo: interfaz `OfferEnrollmentLookup` (token `OFFER_ENROLLMENT_LOOKUP`); Fase 02
-  registra `NoEnrollmentLookup` (nadie inscrito). La Fase 03 provee la implementación real.
+- Badge "Inscrito" y cupo: interfaz `OfferEnrollmentLookup` (token `OFFER_ENROLLMENT_LOOKUP`),
+  implementada desde Fase 03 por `EnrollmentLookupService` (`useExisting` en `OffersModule`).
 - Imágenes públicas (portada, carrusel, foto de docente): se guarda la key de storage (o una URL https
   absoluta). `StorageService.getPublicUrl` devuelve `${STORAGE_PUBLIC_BASE_URL}/${key}` si existe esa
   variable (bucket público/CDN, recomendado en prod) o una URL firmada de 7 días.
+
+## Portal del participante (Fase 03)
+
+Módulos (`src/modules/`): `notifications` (HU-13), `enrollments` (HU-07 + inscripción gratuita +
+autorización del portal), `live-sessions` (HU-12/18 + jobs), `classroom` (HU-08/17 + proyecto final),
+`calendar` (HU-10), `library` (HU-09) y `dashboard` (HU-06). Dependencias en un solo sentido:
+`notifications` ← `enrollments` ← (`offers`, `live-sessions`, `calendar`, `library`) ← `classroom`,
+`dashboard`. Reglas puras con pruebas en `*/policies/*.policy.ts` y `*.policy.ts`.
+
+- **Enrollment** (única por `(userId, offerId)`): `status` PENDING_PAYMENT / ACTIVE / COMPLETED /
+  SUSPENDED / CANCELLED, `origin` NAS/MOODLE, `source` (FREE_SIGNUP, PAYMENT, INSTALLMENTS, SCHOLARSHIP,
+  OPEN_CALL, MOODLE_LIST, MOODLE_ACCESS_CODE, MANUAL) y `applicationId` (FK en Fase 04). Acceso al
+  Aula = ACTIVE o COMPLETED (`CLASSROOM_ACCESS_STATUSES`); ocupan cupo ACTIVE, COMPLETED, SUSPENDED
+  (`SEAT_HOLDING_STATUSES`). "Activa/Completada" en Mi formación se deriva también de `offer.endsAt`
+  (sin cron). La inscripción gratuita bloquea la fila de la oferta (`SELECT … FOR UPDATE`) para el cupo.
+- **Autorización** (`EnrollmentAccessService.requireClassroomAccess`): oferta inexistente o no publicada
+  sin inscripción → 404; publicada sin acceso → 403 `ENROLLMENT_REQUIRED` (`meta.offerSlug`);
+  suspendida → 403 `ENROLLMENT_SUSPENDED`. Recursos ocultos/ajenos → 404. Ids de ruta no UUID → 404
+  (`uuidOr404`).
+- **Sesión vista por el participante** (`live-sessions/session-view.ts`): selección sin `hostUrl`;
+  `join_url` solo con `join.state = OPEN` (desde `SESSION_JOIN_WINDOW_MINUTES_BEFORE` antes del inicio
+  hasta el fin); grabación solo para inscritos. Ventana de asistencia = `session.attendanceWindowHours
+  ?? offer.attendanceWindowHours`, abre al terminar la sesión. Estado Pendiente/Registrada/No
+  registrada **derivado** (no hay cron que cierre). `SessionAttendance` única por `(sessionId, userId)`.
+- **Contenido visible**: `visibility = PUBLISHED` y `publishAt` null o pasado (módulo Y recurso). Archivos
+  privados con `StorageService.getDownloadUrl` (URL firmada ~10 min), nunca `getPublicUrl`. Un recurso
+  de módulo puede enlazar uno de la Biblioteca (`libraryResourceId`).
+- **Calendario**: sesiones de ofertas con acceso + `CalendarEvent` (ALL_REGISTERED de ofertas publicadas o
+  generales, OFFER_ENROLLED de mis ofertas) + actividades con `activityDueAt` (Fecha importante). Las
+  canceladas se devuelven con `status = CANCELLED` y sin enlace (HU-10 §5.1). Rango máx. 62 días.
+- **Proyecto final**: `Offer.finalProjectSubmissionEnabled` (carga opcional, Anexo A); flujo
+  upload-url → PUT a storage → confirmación con `head()` (tipo y tamaño reales); key bajo
+  `final-projects/{offerId}/{userId}/`; reemplazable hasta `finalProjectDueAt`.
+- **Notificaciones**: `NotificationsService.notify({ userIds, type, title, body, action, data,
+  priority?, email?, dedupeKey? })` crea la notificación in-app (omite duplicados por
+  `(userId, dedupeKey)`) y envía el correo con `MailService` (fallo de correo → `emailStatus = FAILED`,
+  nunca rompe el flujo). `email: false` = solo portal ("En revisión"). Prioridad alta (cobro fallido,
+  mora) → `pinned` hasta `resolve()`. Rutas del frontend en `notifications/portal-links.ts`.
+- **Jobs** (`@nestjs/schedule` 6.x — la 12 es solo-ESM; `PortalJobsService`, cada 5 min, solo con
+  `SCHEDULER_ENABLED=true`): aviso "registro de asistencia abierto" al terminar cada sesión y "grupo de
+  WhatsApp disponible" al llegar `whatsappVisibleFrom`. Idempotentes: claim atómico
+  (`attendanceNotifiedAt` / `whatsappNotifiedAt`) + `dedupeKey`.
+- **Dashboard**: compone bloques en paralelo; un bloque que falla llega `null` y en `failedBlocks`.
 
 ## Reglas de negocio configurables
 

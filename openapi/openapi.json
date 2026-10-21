@@ -2576,6 +2576,3035 @@
           "Oferta formativa"
         ]
       }
+    },
+    "/api/v1/me/enrollments": {
+      "get": {
+        "description": "HU-07: mis inscripciones (activas, completadas o suspendidas; nunca las pendientes de pago ni canceladas) filtradas por tipo (`type`, sub-ítems Diplomados/Cursos/Talleres) y pestaña (`phase`: ACTIVE, COMPLETED, ALL). Cada tarjeta trae portada, % de progreso (asistidas ÷ programadas sin canceladas), próxima sesión (UTC: muestra tu hora + CDMX), `origin = MOODLE` (\"Vía Moodle\") y `canContinue` ([Continuar] → Aula `GET /me/classrooms/{offer.id}`). Orden: activas por próxima sesión; completadas por fecha de fin (más reciente primero). Lista vacía → estado vacío con botón al catálogo filtrado (`/escuela/oferta?type=…`).",
+        "operationId": "Enrollments_list",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Página (desde 1).",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "example": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "description": "Elementos por página.",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "type",
+            "required": false,
+            "in": "query",
+            "description": "Sub-ítem del menú \"Formación\": `DIPLOMA` (Diplomados), `COURSE` (Cursos), `WORKSHOP` (Talleres). Acepta varios (`?type=EVENT,OPEN_CALL`). Sin filtro: todas.",
+            "schema": {
+              "example": [
+                "DIPLOMA"
+              ],
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "DIPLOMA",
+                  "COURSE",
+                  "WORKSHOP",
+                  "EVENT",
+                  "OPEN_CALL"
+                ]
+              }
+            }
+          },
+          {
+            "name": "phase",
+            "required": false,
+            "in": "query",
+            "description": "Pestaña: Activos / Completados / Todos.",
+            "schema": {
+              "default": "ALL",
+              "example": "ACTIVE",
+              "type": "string",
+              "enum": [
+                "ACTIVE",
+                "COMPLETED",
+                "ALL"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Inscripciones paginadas.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/FormationCardDto"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PaginationMetaDto"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error. `code` posibles: `VALIDATION_ERROR`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "summary": "VALIDATION_ERROR",
+                    "value": {
+                      "statusCode": 400,
+                      "code": "VALIDATION_ERROR",
+                      "message": "Los datos enviados no son válidos.",
+                      "details": [
+                        {
+                          "field": "email",
+                          "code": "IS_EMAIL",
+                          "message": "Debe ser un correo electrónico válido."
+                        }
+                      ],
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error. `code` posibles: `UNAUTHORIZED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "UNAUTHORIZED": {
+                    "summary": "UNAUTHORIZED",
+                    "value": {
+                      "statusCode": 401,
+                      "code": "UNAUTHORIZED",
+                      "message": "Necesitas iniciar sesión para continuar.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Mi formación",
+        "tags": [
+          "Mi formación"
+        ]
+      },
+      "post": {
+        "description": "Acción `ENROLL_FREE` de la ficha (HU-16): inscripción directa en una oferta NAS **gratuita** (no convocatoria) con inscripciones abiertas y cupo. Crea la inscripción ACTIVE, envía notificación + correo \"Inscripción confirmada\" y responde la tarjeta de Mi formación. Errores: `ENROLLMENT_ALREADY_EXISTS` (409, `meta.enrollmentStatus`) → \"Ya estás inscrito · Ir a mi aula\"; `OFFER_SOLD_OUT` (409) → \"Cupo agotado\"; `ENROLLMENT_CLOSED` (422, `meta.reason` = ENROLLMENT_NOT_OPEN_YET/ENROLLMENT_CLOSED/OFFER_FINISHED y `meta.availableFrom`); `ENROLLMENT_NOT_FREE` (422, `meta.requiredAction` = ENROLL_AND_PAY / APPLY_OPEN_CALL / ACTIVATE_MOODLE_ACCESS: usa ese flujo); `OFFER_NOT_AVAILABLE` (404). Las inscripciones de pago llegan en la Fase 05.",
+        "operationId": "Enrollments_enroll",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateEnrollmentRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FormationCardDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error. `code` posibles: `VALIDATION_ERROR`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "summary": "VALIDATION_ERROR",
+                    "value": {
+                      "statusCode": 400,
+                      "code": "VALIDATION_ERROR",
+                      "message": "Los datos enviados no son válidos.",
+                      "details": [
+                        {
+                          "field": "email",
+                          "code": "IS_EMAIL",
+                          "message": "Debe ser un correo electrónico válido."
+                        }
+                      ],
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error. `code` posibles: `UNAUTHORIZED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "UNAUTHORIZED": {
+                    "summary": "UNAUTHORIZED",
+                    "value": {
+                      "statusCode": 401,
+                      "code": "UNAUTHORIZED",
+                      "message": "Necesitas iniciar sesión para continuar.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error. `code` posibles: `OFFER_NOT_AVAILABLE`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "OFFER_NOT_AVAILABLE": {
+                    "summary": "OFFER_NOT_AVAILABLE",
+                    "value": {
+                      "statusCode": 404,
+                      "code": "OFFER_NOT_AVAILABLE",
+                      "message": "Esta oferta ya no está disponible.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error. `code` posibles: `ENROLLMENT_ALREADY_EXISTS`, `OFFER_SOLD_OUT`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "ENROLLMENT_ALREADY_EXISTS": {
+                    "summary": "ENROLLMENT_ALREADY_EXISTS",
+                    "value": {
+                      "statusCode": 409,
+                      "code": "ENROLLMENT_ALREADY_EXISTS",
+                      "message": "Ya estás inscrito en esta formación.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  },
+                  "OFFER_SOLD_OUT": {
+                    "summary": "OFFER_SOLD_OUT",
+                    "value": {
+                      "statusCode": 409,
+                      "code": "OFFER_SOLD_OUT",
+                      "message": "Cupo agotado.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Error. `code` posibles: `ENROLLMENT_CLOSED`, `ENROLLMENT_NOT_FREE`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "ENROLLMENT_CLOSED": {
+                    "summary": "ENROLLMENT_CLOSED",
+                    "value": {
+                      "statusCode": 422,
+                      "code": "ENROLLMENT_CLOSED",
+                      "message": "Las inscripciones para esta oferta no están abiertas.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  },
+                  "ENROLLMENT_NOT_FREE": {
+                    "summary": "ENROLLMENT_NOT_FREE",
+                    "value": {
+                      "statusCode": 422,
+                      "code": "ENROLLMENT_NOT_FREE",
+                      "message": "Esta oferta no admite inscripción directa gratuita.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Inscribirme en una oferta gratuita",
+        "tags": [
+          "Mi formación"
+        ]
+      }
+    },
+    "/api/v1/me/notifications": {
+      "get": {
+        "description": "HU-13: panel de la campana e historial. Orden: fijadas primero (prioridad alta sin regularizar: cobro fallido, mora) y luego de la más reciente a la más antigua. Filtros `unread=true` y `category`.",
+        "operationId": "Notifications_list",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Página (desde 1).",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "example": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "description": "Elementos por página.",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "unread",
+            "required": false,
+            "in": "query",
+            "description": "Solo no leídas.",
+            "schema": {
+              "example": true,
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "category",
+            "required": false,
+            "in": "query",
+            "description": "Grupo: Formación, Postulaciones y becas, Pagos o General.",
+            "schema": {
+              "example": "TRAINING",
+              "type": "string",
+              "enum": [
+                "TRAINING",
+                "APPLICATIONS",
+                "PAYMENTS",
+                "GENERAL"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Notificaciones paginadas.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/NotificationDto"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PaginationMetaDto"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error. `code` posibles: `VALIDATION_ERROR`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "summary": "VALIDATION_ERROR",
+                    "value": {
+                      "statusCode": 400,
+                      "code": "VALIDATION_ERROR",
+                      "message": "Los datos enviados no son válidos.",
+                      "details": [
+                        {
+                          "field": "email",
+                          "code": "IS_EMAIL",
+                          "message": "Debe ser un correo electrónico válido."
+                        }
+                      ],
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error. `code` posibles: `UNAUTHORIZED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "UNAUTHORIZED": {
+                    "summary": "UNAUTHORIZED",
+                    "value": {
+                      "statusCode": 401,
+                      "code": "UNAUTHORIZED",
+                      "message": "Necesitas iniciar sesión para continuar.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Mis notificaciones",
+        "tags": [
+          "Notificaciones"
+        ]
+      }
+    },
+    "/api/v1/me/notifications/unread-count": {
+      "get": {
+        "description": "HU-13: número del indicador de la campana (consúltalo al navegar o cada minuto).",
+        "operationId": "Notifications_unreadCount",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnreadCountDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error. `code` posibles: `UNAUTHORIZED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "UNAUTHORIZED": {
+                    "summary": "UNAUTHORIZED",
+                    "value": {
+                      "statusCode": 401,
+                      "code": "UNAUTHORIZED",
+                      "message": "Necesitas iniciar sesión para continuar.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Contador de no leídas",
+        "tags": [
+          "Notificaciones"
+        ]
+      }
+    },
+    "/api/v1/me/notifications/read-all": {
+      "post": {
+        "description": "HU-13 \"Marcar todas como leídas\". Las fijadas siguen fijadas hasta regularizar.",
+        "operationId": "Notifications_markAllRead",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarkAllReadResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error. `code` posibles: `UNAUTHORIZED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "UNAUTHORIZED": {
+                    "summary": "UNAUTHORIZED",
+                    "value": {
+                      "statusCode": 401,
+                      "code": "UNAUTHORIZED",
+                      "message": "Necesitas iniciar sesión para continuar.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Marcar todas como leídas",
+        "tags": [
+          "Notificaciones"
+        ]
+      }
+    },
+    "/api/v1/me/notifications/{id}/read": {
+      "post": {
+        "description": "HU-13. Idempotente. Una notificación de otra persona responde 404 `NOT_FOUND` (no se revela).",
+        "operationId": "Notifications_markRead",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error. `code` posibles: `UNAUTHORIZED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "UNAUTHORIZED": {
+                    "summary": "UNAUTHORIZED",
+                    "value": {
+                      "statusCode": 401,
+                      "code": "UNAUTHORIZED",
+                      "message": "Necesitas iniciar sesión para continuar.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error. `code` posibles: `NOT_FOUND`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "summary": "NOT_FOUND",
+                    "value": {
+                      "statusCode": 404,
+                      "code": "NOT_FOUND",
+                      "message": "El recurso solicitado no existe.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Marcar una notificación como leída",
+        "tags": [
+          "Notificaciones"
+        ]
+      }
+    },
+    "/api/v1/me/sessions": {
+      "get": {
+        "description": "HU-12: próximas (`scope=UPCOMING`, incluye la que está en curso) o historial (`scope=PAST`) de las formaciones EN LÍNEA con inscripción activa (los talleres presenciales se ven en Calendario y Aula; con `offerId` se listan todas las de esa oferta). Cada sesión trae `join` (el join_url solo con `state = OPEN`, desde 10 min antes; nunca el de anfitrión), `recording` (\"Ver grabación\" / \"Grabación pendiente\") y `attendance` (Pendiente / Registrada / No registrada y ventana de 24 h). Canceladas: `status = CANCELLED`, sin enlace.",
+        "operationId": "LiveSessions_list",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Página (desde 1).",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "example": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "description": "Elementos por página.",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "scope",
+            "required": false,
+            "in": "query",
+            "description": "`UPCOMING`: próximas y en curso (de la más cercana a la más lejana). `PAST`: historial (de la más reciente a la más antigua).",
+            "schema": {
+              "default": "UPCOMING",
+              "type": "string",
+              "enum": [
+                "UPCOMING",
+                "PAST"
+              ]
+            }
+          },
+          {
+            "name": "offerId",
+            "required": false,
+            "in": "query",
+            "description": "Solo las sesiones de una oferta.",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sesiones paginadas.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/SessionCardDto"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PaginationMetaDto"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error. `code` posibles: `VALIDATION_ERROR`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "summary": "VALIDATION_ERROR",
+                    "value": {
+                      "statusCode": 400,
+                      "code": "VALIDATION_ERROR",
+                      "message": "Los datos enviados no son válidos.",
+                      "details": [
+                        {
+                          "field": "email",
+                          "code": "IS_EMAIL",
+                          "message": "Debe ser un correo electrónico válido."
+                        }
+                      ],
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error. `code` posibles: `UNAUTHORIZED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "UNAUTHORIZED": {
+                    "summary": "UNAUTHORIZED",
+                    "value": {
+                      "statusCode": 401,
+                      "code": "UNAUTHORIZED",
+                      "message": "Necesitas iniciar sesión para continuar.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error. `code` posibles: `ENROLLMENT_REQUIRED`, `ENROLLMENT_SUSPENDED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "ENROLLMENT_REQUIRED": {
+                    "summary": "ENROLLMENT_REQUIRED",
+                    "value": {
+                      "statusCode": 403,
+                      "code": "ENROLLMENT_REQUIRED",
+                      "message": "No estás inscrito en esta formación.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  },
+                  "ENROLLMENT_SUSPENDED": {
+                    "summary": "ENROLLMENT_SUSPENDED",
+                    "value": {
+                      "statusCode": 403,
+                      "code": "ENROLLMENT_SUSPENDED",
+                      "message": "Tu acceso a esta formación está suspendido. Regulariza tu pago para recuperarlo.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error. `code` posibles: `NOT_FOUND`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "summary": "NOT_FOUND",
+                    "value": {
+                      "statusCode": 404,
+                      "code": "NOT_FOUND",
+                      "message": "El recurso solicitado no existe.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Mis sesiones en vivo",
+        "tags": [
+          "Sesiones en vivo y asistencia"
+        ]
+      }
+    },
+    "/api/v1/me/sessions/{sessionId}": {
+      "get": {
+        "description": "HU-12 / HU-18: datos de la sesión (oferta, módulo, docente, hora UTC → tu hora y CDMX), acceso, grabación y asistencia. Úsalo en la ruta `/portal/asistencia/[sesión]` (enlace de la notificación/correo) y para refrescar el botón al llegar `join.opensAt`. Sin inscripción activa → 403 `ENROLLMENT_REQUIRED` (sin enlaces); sesión inexistente → 404.",
+        "operationId": "LiveSessions_detail",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionCardDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error. `code` posibles: `UNAUTHORIZED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "UNAUTHORIZED": {
+                    "summary": "UNAUTHORIZED",
+                    "value": {
+                      "statusCode": 401,
+                      "code": "UNAUTHORIZED",
+                      "message": "Necesitas iniciar sesión para continuar.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error. `code` posibles: `ENROLLMENT_REQUIRED`, `ENROLLMENT_SUSPENDED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "ENROLLMENT_REQUIRED": {
+                    "summary": "ENROLLMENT_REQUIRED",
+                    "value": {
+                      "statusCode": 403,
+                      "code": "ENROLLMENT_REQUIRED",
+                      "message": "No estás inscrito en esta formación.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  },
+                  "ENROLLMENT_SUSPENDED": {
+                    "summary": "ENROLLMENT_SUSPENDED",
+                    "value": {
+                      "statusCode": 403,
+                      "code": "ENROLLMENT_SUSPENDED",
+                      "message": "Tu acceso a esta formación está suspendido. Regulariza tu pago para recuperarlo.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error. `code` posibles: `NOT_FOUND`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "summary": "NOT_FOUND",
+                    "value": {
+                      "statusCode": 404,
+                      "code": "NOT_FOUND",
+                      "message": "El recurso solicitado no existe.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Detalle de una sesión",
+        "tags": [
+          "Sesiones en vivo y asistencia"
+        ]
+      }
+    },
+    "/api/v1/me/sessions/{sessionId}/attendance": {
+      "post": {
+        "description": "HU-18: \"Asistí a la sesión\" (`attended: true`, obligatorio) + comentario opcional (máx. 500). Solo dentro de la ventana (abre al terminar la sesión; 24 h por defecto, configurable por oferta/sesión). No editable ni duplicable. Responde la sesión con `attendance.status = REGISTERED` y el progreso recalculado. Errores (todos con `meta.opensAt`, `meta.closesAt`, `meta.registeredAt`): `ATTENDANCE_NOT_OPEN_YET` (422), `ATTENDANCE_WINDOW_CLOSED` (422: \"El registro de asistencia para esta sesión está cerrado\"; pedir corrección al equipo), `ATTENDANCE_ALREADY_REGISTERED` (409: muestra \"Asistencia registrada el …\"), `SESSION_CANCELLED` (422), `ENROLLMENT_REQUIRED` (403).",
+        "operationId": "LiveSessions_registerAttendance",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterAttendanceRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttendanceResultDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error. `code` posibles: `VALIDATION_ERROR`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "summary": "VALIDATION_ERROR",
+                    "value": {
+                      "statusCode": 400,
+                      "code": "VALIDATION_ERROR",
+                      "message": "Los datos enviados no son válidos.",
+                      "details": [
+                        {
+                          "field": "email",
+                          "code": "IS_EMAIL",
+                          "message": "Debe ser un correo electrónico válido."
+                        }
+                      ],
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error. `code` posibles: `UNAUTHORIZED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "UNAUTHORIZED": {
+                    "summary": "UNAUTHORIZED",
+                    "value": {
+                      "statusCode": 401,
+                      "code": "UNAUTHORIZED",
+                      "message": "Necesitas iniciar sesión para continuar.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error. `code` posibles: `ENROLLMENT_REQUIRED`, `ENROLLMENT_SUSPENDED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "ENROLLMENT_REQUIRED": {
+                    "summary": "ENROLLMENT_REQUIRED",
+                    "value": {
+                      "statusCode": 403,
+                      "code": "ENROLLMENT_REQUIRED",
+                      "message": "No estás inscrito en esta formación.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  },
+                  "ENROLLMENT_SUSPENDED": {
+                    "summary": "ENROLLMENT_SUSPENDED",
+                    "value": {
+                      "statusCode": 403,
+                      "code": "ENROLLMENT_SUSPENDED",
+                      "message": "Tu acceso a esta formación está suspendido. Regulariza tu pago para recuperarlo.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error. `code` posibles: `NOT_FOUND`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "summary": "NOT_FOUND",
+                    "value": {
+                      "statusCode": 404,
+                      "code": "NOT_FOUND",
+                      "message": "El recurso solicitado no existe.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error. `code` posibles: `ATTENDANCE_ALREADY_REGISTERED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "ATTENDANCE_ALREADY_REGISTERED": {
+                    "summary": "ATTENDANCE_ALREADY_REGISTERED",
+                    "value": {
+                      "statusCode": 409,
+                      "code": "ATTENDANCE_ALREADY_REGISTERED",
+                      "message": "Tu asistencia a esta sesión ya está registrada.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Error. `code` posibles: `ATTENDANCE_NOT_OPEN_YET`, `ATTENDANCE_WINDOW_CLOSED`, `SESSION_CANCELLED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "ATTENDANCE_NOT_OPEN_YET": {
+                    "summary": "ATTENDANCE_NOT_OPEN_YET",
+                    "value": {
+                      "statusCode": 422,
+                      "code": "ATTENDANCE_NOT_OPEN_YET",
+                      "message": "El registro de asistencia se abre al terminar la sesión.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  },
+                  "ATTENDANCE_WINDOW_CLOSED": {
+                    "summary": "ATTENDANCE_WINDOW_CLOSED",
+                    "value": {
+                      "statusCode": 422,
+                      "code": "ATTENDANCE_WINDOW_CLOSED",
+                      "message": "El registro de asistencia para esta sesión está cerrado.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  },
+                  "SESSION_CANCELLED": {
+                    "summary": "SESSION_CANCELLED",
+                    "value": {
+                      "statusCode": 422,
+                      "code": "SESSION_CANCELLED",
+                      "message": "Esta sesión fue cancelada.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Registrar mi asistencia",
+        "tags": [
+          "Sesiones en vivo y asistencia"
+        ]
+      }
+    },
+    "/api/v1/me/classrooms/{offerId}": {
+      "get": {
+        "description": "HU-17 (destino de [Continuar]): encabezado (portada, nombre, docentes, \"Ver ficha\" con `offer.slug`), progreso (asistidas ÷ programadas sin canceladas), \"Antes de empezar\" + grupo de WhatsApp (solo inscritos, desde la fecha del equipo), próxima sesión ([Entrar a sesión] 10 min antes; presencial: lugar y \"Cómo llegar\"), módulos con estado Próximo/En curso/Completado y \"Proyecto final\" (solo diplomados). Bloques que fallen por separado: materiales (`/materials`) y sesiones (`/sessions`) tienen endpoint propio para reintentar. Sin inscripción activa → 403 `ENROLLMENT_REQUIRED` (`meta.offerSlug` para ofrecer la ficha; nunca se exponen enlaces); acceso suspendido por mora → 403 `ENROLLMENT_SUSPENDED`; oferta inexistente → 404.",
+        "operationId": "Classroom_get",
+        "parameters": [
+          {
+            "name": "offerId",
+            "required": true,
+            "in": "path",
+            "description": "`offer.id` de la tarjeta de Mi formación.",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassroomDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error. `code` posibles: `UNAUTHORIZED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "UNAUTHORIZED": {
+                    "summary": "UNAUTHORIZED",
+                    "value": {
+                      "statusCode": 401,
+                      "code": "UNAUTHORIZED",
+                      "message": "Necesitas iniciar sesión para continuar.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error. `code` posibles: `ENROLLMENT_REQUIRED`, `ENROLLMENT_SUSPENDED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "ENROLLMENT_REQUIRED": {
+                    "summary": "ENROLLMENT_REQUIRED",
+                    "value": {
+                      "statusCode": 403,
+                      "code": "ENROLLMENT_REQUIRED",
+                      "message": "No estás inscrito en esta formación.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  },
+                  "ENROLLMENT_SUSPENDED": {
+                    "summary": "ENROLLMENT_SUSPENDED",
+                    "value": {
+                      "statusCode": 403,
+                      "code": "ENROLLMENT_SUSPENDED",
+                      "message": "Tu acceso a esta formación está suspendido. Regulariza tu pago para recuperarlo.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error. `code` posibles: `NOT_FOUND`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "summary": "NOT_FOUND",
+                    "value": {
+                      "statusCode": 404,
+                      "code": "NOT_FOUND",
+                      "message": "El recurso solicitado no existe.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Aula de mi formación",
+        "tags": [
+          "Aula"
+        ]
+      }
+    },
+    "/api/v1/me/classrooms/{offerId}/materials": {
+      "get": {
+        "description": "HU-08: módulos PUBLICADOS (ocultos o programados a futuro nunca aparecen) con sus cuatro grupos en orden: Presentación del módulo, Lecturas previas, Actividades y Grabación de la sesión (una por sesión: \"Ver grabación\", \"Disponible después de la sesión\" o \"Grabación pendiente\"). Los archivos NO traen URL: pide una temporal con `…/resources/{id}/access`. Sin inscripción activa → 403 `ENROLLMENT_REQUIRED` (`meta.offerSlug` para ofrecer la ficha; nunca se exponen enlaces); acceso suspendido por mora → 403 `ENROLLMENT_SUSPENDED`; oferta inexistente → 404.",
+        "operationId": "Classroom_materials",
+        "parameters": [
+          {
+            "name": "offerId",
+            "required": true,
+            "in": "path",
+            "description": "`offer.id` de la tarjeta de Mi formación.",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MaterialsDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error. `code` posibles: `UNAUTHORIZED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "UNAUTHORIZED": {
+                    "summary": "UNAUTHORIZED",
+                    "value": {
+                      "statusCode": 401,
+                      "code": "UNAUTHORIZED",
+                      "message": "Necesitas iniciar sesión para continuar.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error. `code` posibles: `ENROLLMENT_REQUIRED`, `ENROLLMENT_SUSPENDED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "ENROLLMENT_REQUIRED": {
+                    "summary": "ENROLLMENT_REQUIRED",
+                    "value": {
+                      "statusCode": 403,
+                      "code": "ENROLLMENT_REQUIRED",
+                      "message": "No estás inscrito en esta formación.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  },
+                  "ENROLLMENT_SUSPENDED": {
+                    "summary": "ENROLLMENT_SUSPENDED",
+                    "value": {
+                      "statusCode": 403,
+                      "code": "ENROLLMENT_SUSPENDED",
+                      "message": "Tu acceso a esta formación está suspendido. Regulariza tu pago para recuperarlo.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error. `code` posibles: `NOT_FOUND`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "summary": "NOT_FOUND",
+                    "value": {
+                      "statusCode": 404,
+                      "code": "NOT_FOUND",
+                      "message": "El recurso solicitado no existe.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Materiales del curso",
+        "tags": [
+          "Aula"
+        ]
+      }
+    },
+    "/api/v1/me/classrooms/{offerId}/resources/{resourceId}/access": {
+      "get": {
+        "description": "HU-08 [Descargar]/[Ver]: archivo → URL firmada temporal (`expiresAt`, ~10 min; si vence, vuelve a llamar); enlace externo → la URL (abrir en pestaña nueva). Recurso oculto, programado o de otra oferta → 404 `NOT_FOUND`. Sin archivo ni enlace → 404 `RESOURCE_FILE_UNAVAILABLE`. Sin inscripción activa → 403 `ENROLLMENT_REQUIRED` (`meta.offerSlug` para ofrecer la ficha; nunca se exponen enlaces); acceso suspendido por mora → 403 `ENROLLMENT_SUSPENDED`; oferta inexistente → 404.",
+        "operationId": "Classroom_resourceAccess",
+        "parameters": [
+          {
+            "name": "offerId",
+            "required": true,
+            "in": "path",
+            "description": "`offer.id` de la tarjeta de Mi formación.",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "resourceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessUrlDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error. `code` posibles: `UNAUTHORIZED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "UNAUTHORIZED": {
+                    "summary": "UNAUTHORIZED",
+                    "value": {
+                      "statusCode": 401,
+                      "code": "UNAUTHORIZED",
+                      "message": "Necesitas iniciar sesión para continuar.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error. `code` posibles: `ENROLLMENT_REQUIRED`, `ENROLLMENT_SUSPENDED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "ENROLLMENT_REQUIRED": {
+                    "summary": "ENROLLMENT_REQUIRED",
+                    "value": {
+                      "statusCode": 403,
+                      "code": "ENROLLMENT_REQUIRED",
+                      "message": "No estás inscrito en esta formación.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  },
+                  "ENROLLMENT_SUSPENDED": {
+                    "summary": "ENROLLMENT_SUSPENDED",
+                    "value": {
+                      "statusCode": 403,
+                      "code": "ENROLLMENT_SUSPENDED",
+                      "message": "Tu acceso a esta formación está suspendido. Regulariza tu pago para recuperarlo.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error. `code` posibles: `NOT_FOUND`, `RESOURCE_FILE_UNAVAILABLE`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "summary": "NOT_FOUND",
+                    "value": {
+                      "statusCode": 404,
+                      "code": "NOT_FOUND",
+                      "message": "El recurso solicitado no existe.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  },
+                  "RESOURCE_FILE_UNAVAILABLE": {
+                    "summary": "RESOURCE_FILE_UNAVAILABLE",
+                    "value": {
+                      "statusCode": 404,
+                      "code": "RESOURCE_FILE_UNAVAILABLE",
+                      "message": "El archivo no está disponible. Intenta de nuevo más tarde.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Abrir / descargar un recurso",
+        "tags": [
+          "Aula"
+        ]
+      }
+    },
+    "/api/v1/me/classrooms/{offerId}/sessions": {
+      "get": {
+        "description": "HU-17 \"Sesiones pasadas\" (`scope=PAST`: fecha, módulo, [Ver grabación] o \"Grabación pendiente\" y asistencia Pendiente/Registrada/No registrada) y próximas (`scope=UPCOMING`). Incluye talleres presenciales (registro de asistencia con el mismo formulario). Sin inscripción activa → 403 `ENROLLMENT_REQUIRED` (`meta.offerSlug` para ofrecer la ficha; nunca se exponen enlaces); acceso suspendido por mora → 403 `ENROLLMENT_SUSPENDED`; oferta inexistente → 404.",
+        "operationId": "Classroom_sessions",
+        "parameters": [
+          {
+            "name": "offerId",
+            "required": true,
+            "in": "path",
+            "description": "`offer.id` de la tarjeta de Mi formación.",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Página (desde 1).",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "example": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "description": "Elementos por página.",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "scope",
+            "required": false,
+            "in": "query",
+            "description": "`UPCOMING`: próximas y en curso (de la más cercana a la más lejana). `PAST`: historial (de la más reciente a la más antigua).",
+            "schema": {
+              "default": "UPCOMING",
+              "type": "string",
+              "enum": [
+                "UPCOMING",
+                "PAST"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sesiones paginadas.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/SessionCardDto"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PaginationMetaDto"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error. `code` posibles: `VALIDATION_ERROR`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "summary": "VALIDATION_ERROR",
+                    "value": {
+                      "statusCode": 400,
+                      "code": "VALIDATION_ERROR",
+                      "message": "Los datos enviados no son válidos.",
+                      "details": [
+                        {
+                          "field": "email",
+                          "code": "IS_EMAIL",
+                          "message": "Debe ser un correo electrónico válido."
+                        }
+                      ],
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error. `code` posibles: `UNAUTHORIZED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "UNAUTHORIZED": {
+                    "summary": "UNAUTHORIZED",
+                    "value": {
+                      "statusCode": 401,
+                      "code": "UNAUTHORIZED",
+                      "message": "Necesitas iniciar sesión para continuar.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error. `code` posibles: `ENROLLMENT_REQUIRED`, `ENROLLMENT_SUSPENDED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "ENROLLMENT_REQUIRED": {
+                    "summary": "ENROLLMENT_REQUIRED",
+                    "value": {
+                      "statusCode": 403,
+                      "code": "ENROLLMENT_REQUIRED",
+                      "message": "No estás inscrito en esta formación.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  },
+                  "ENROLLMENT_SUSPENDED": {
+                    "summary": "ENROLLMENT_SUSPENDED",
+                    "value": {
+                      "statusCode": 403,
+                      "code": "ENROLLMENT_SUSPENDED",
+                      "message": "Tu acceso a esta formación está suspendido. Regulariza tu pago para recuperarlo.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error. `code` posibles: `NOT_FOUND`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "summary": "NOT_FOUND",
+                    "value": {
+                      "statusCode": 404,
+                      "code": "NOT_FOUND",
+                      "message": "El recurso solicitado no existe.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Sesiones del aula",
+        "tags": [
+          "Aula"
+        ]
+      }
+    },
+    "/api/v1/me/classrooms/{offerId}/final-project/upload-url": {
+      "post": {
+        "description": "HU-17 paso 1/3: valida tipo (PDF, DOCX, PPTX o ZIP) y tamaño (≤ 20 MB) declarados y devuelve una URL firmada para `PUT` directo a storage con el header `Content-Type` indicado. Paso 2: `PUT uploadUrl` con el archivo. Paso 3: `PUT …/final-project { key }`. Solo diplomados con entrega habilitada y antes de la fecha límite. Sin inscripción activa → 403 `ENROLLMENT_REQUIRED` (`meta.offerSlug` para ofrecer la ficha; nunca se exponen enlaces); acceso suspendido por mora → 403 `ENROLLMENT_SUSPENDED`; oferta inexistente → 404.",
+        "operationId": "Classroom_finalProjectUploadUrl",
+        "parameters": [
+          {
+            "name": "offerId",
+            "required": true,
+            "in": "path",
+            "description": "`offer.id` de la tarjeta de Mi formación.",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FinalProjectUploadRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadUrlDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error. `code` posibles: `VALIDATION_ERROR`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "summary": "VALIDATION_ERROR",
+                    "value": {
+                      "statusCode": 400,
+                      "code": "VALIDATION_ERROR",
+                      "message": "Los datos enviados no son válidos.",
+                      "details": [
+                        {
+                          "field": "email",
+                          "code": "IS_EMAIL",
+                          "message": "Debe ser un correo electrónico válido."
+                        }
+                      ],
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error. `code` posibles: `UNAUTHORIZED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "UNAUTHORIZED": {
+                    "summary": "UNAUTHORIZED",
+                    "value": {
+                      "statusCode": 401,
+                      "code": "UNAUTHORIZED",
+                      "message": "Necesitas iniciar sesión para continuar.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error. `code` posibles: `ENROLLMENT_REQUIRED`, `ENROLLMENT_SUSPENDED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "ENROLLMENT_REQUIRED": {
+                    "summary": "ENROLLMENT_REQUIRED",
+                    "value": {
+                      "statusCode": 403,
+                      "code": "ENROLLMENT_REQUIRED",
+                      "message": "No estás inscrito en esta formación.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  },
+                  "ENROLLMENT_SUSPENDED": {
+                    "summary": "ENROLLMENT_SUSPENDED",
+                    "value": {
+                      "statusCode": 403,
+                      "code": "ENROLLMENT_SUSPENDED",
+                      "message": "Tu acceso a esta formación está suspendido. Regulariza tu pago para recuperarlo.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error. `code` posibles: `NOT_FOUND`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "summary": "NOT_FOUND",
+                    "value": {
+                      "statusCode": 404,
+                      "code": "NOT_FOUND",
+                      "message": "El recurso solicitado no existe.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Error. `code` posibles: `FINAL_PROJECT_NOT_AVAILABLE`, `FINAL_PROJECT_DEADLINE_PASSED`, `FINAL_PROJECT_INVALID_FILE`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "FINAL_PROJECT_NOT_AVAILABLE": {
+                    "summary": "FINAL_PROJECT_NOT_AVAILABLE",
+                    "value": {
+                      "statusCode": 422,
+                      "code": "FINAL_PROJECT_NOT_AVAILABLE",
+                      "message": "Esta formación no recibe entregas de proyecto final.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  },
+                  "FINAL_PROJECT_DEADLINE_PASSED": {
+                    "summary": "FINAL_PROJECT_DEADLINE_PASSED",
+                    "value": {
+                      "statusCode": 422,
+                      "code": "FINAL_PROJECT_DEADLINE_PASSED",
+                      "message": "La fecha límite de entrega del proyecto final ya pasó.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  },
+                  "FINAL_PROJECT_INVALID_FILE": {
+                    "summary": "FINAL_PROJECT_INVALID_FILE",
+                    "value": {
+                      "statusCode": 422,
+                      "code": "FINAL_PROJECT_INVALID_FILE",
+                      "message": "El archivo debe ser PDF, DOCX, PPTX o ZIP de máximo 20 MB.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Proyecto final: pedir URL de carga",
+        "tags": [
+          "Aula"
+        ]
+      }
+    },
+    "/api/v1/me/classrooms/{offerId}/final-project": {
+      "put": {
+        "description": "HU-17 paso 3/3: confirma el archivo subido (`key` del paso 1). El backend verifica en storage que exista, su tipo real y tamaño. Reemplaza la entrega anterior (reemplazable hasta la fecha límite). `FINAL_PROJECT_UPLOAD_NOT_FOUND` → vuelve a subirlo. Sin inscripción activa → 403 `ENROLLMENT_REQUIRED` (`meta.offerSlug` para ofrecer la ficha; nunca se exponen enlaces); acceso suspendido por mora → 403 `ENROLLMENT_SUSPENDED`; oferta inexistente → 404.",
+        "operationId": "Classroom_confirmFinalProject",
+        "parameters": [
+          {
+            "name": "offerId",
+            "required": true,
+            "in": "path",
+            "description": "`offer.id` de la tarjeta de Mi formación.",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmFinalProjectRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FinalProjectDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error. `code` posibles: `VALIDATION_ERROR`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "summary": "VALIDATION_ERROR",
+                    "value": {
+                      "statusCode": 400,
+                      "code": "VALIDATION_ERROR",
+                      "message": "Los datos enviados no son válidos.",
+                      "details": [
+                        {
+                          "field": "email",
+                          "code": "IS_EMAIL",
+                          "message": "Debe ser un correo electrónico válido."
+                        }
+                      ],
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error. `code` posibles: `UNAUTHORIZED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "UNAUTHORIZED": {
+                    "summary": "UNAUTHORIZED",
+                    "value": {
+                      "statusCode": 401,
+                      "code": "UNAUTHORIZED",
+                      "message": "Necesitas iniciar sesión para continuar.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error. `code` posibles: `ENROLLMENT_REQUIRED`, `ENROLLMENT_SUSPENDED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "ENROLLMENT_REQUIRED": {
+                    "summary": "ENROLLMENT_REQUIRED",
+                    "value": {
+                      "statusCode": 403,
+                      "code": "ENROLLMENT_REQUIRED",
+                      "message": "No estás inscrito en esta formación.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  },
+                  "ENROLLMENT_SUSPENDED": {
+                    "summary": "ENROLLMENT_SUSPENDED",
+                    "value": {
+                      "statusCode": 403,
+                      "code": "ENROLLMENT_SUSPENDED",
+                      "message": "Tu acceso a esta formación está suspendido. Regulariza tu pago para recuperarlo.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error. `code` posibles: `NOT_FOUND`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "summary": "NOT_FOUND",
+                    "value": {
+                      "statusCode": 404,
+                      "code": "NOT_FOUND",
+                      "message": "El recurso solicitado no existe.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Error. `code` posibles: `FINAL_PROJECT_NOT_AVAILABLE`, `FINAL_PROJECT_DEADLINE_PASSED`, `FINAL_PROJECT_INVALID_FILE`, `FINAL_PROJECT_UPLOAD_NOT_FOUND`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "FINAL_PROJECT_NOT_AVAILABLE": {
+                    "summary": "FINAL_PROJECT_NOT_AVAILABLE",
+                    "value": {
+                      "statusCode": 422,
+                      "code": "FINAL_PROJECT_NOT_AVAILABLE",
+                      "message": "Esta formación no recibe entregas de proyecto final.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  },
+                  "FINAL_PROJECT_DEADLINE_PASSED": {
+                    "summary": "FINAL_PROJECT_DEADLINE_PASSED",
+                    "value": {
+                      "statusCode": 422,
+                      "code": "FINAL_PROJECT_DEADLINE_PASSED",
+                      "message": "La fecha límite de entrega del proyecto final ya pasó.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  },
+                  "FINAL_PROJECT_INVALID_FILE": {
+                    "summary": "FINAL_PROJECT_INVALID_FILE",
+                    "value": {
+                      "statusCode": 422,
+                      "code": "FINAL_PROJECT_INVALID_FILE",
+                      "message": "El archivo debe ser PDF, DOCX, PPTX o ZIP de máximo 20 MB.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  },
+                  "FINAL_PROJECT_UPLOAD_NOT_FOUND": {
+                    "summary": "FINAL_PROJECT_UPLOAD_NOT_FOUND",
+                    "value": {
+                      "statusCode": 422,
+                      "code": "FINAL_PROJECT_UPLOAD_NOT_FOUND",
+                      "message": "No encontramos el archivo subido. Vuelve a subirlo.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Proyecto final: confirmar entrega",
+        "tags": [
+          "Aula"
+        ]
+      }
+    },
+    "/api/v1/me/classrooms/{offerId}/final-project/download": {
+      "get": {
+        "description": "HU-17: URL firmada temporal de mi archivo entregado (404 si no hay entrega). Sin inscripción activa → 403 `ENROLLMENT_REQUIRED` (`meta.offerSlug` para ofrecer la ficha; nunca se exponen enlaces); acceso suspendido por mora → 403 `ENROLLMENT_SUSPENDED`; oferta inexistente → 404.",
+        "operationId": "Classroom_finalProjectDownload",
+        "parameters": [
+          {
+            "name": "offerId",
+            "required": true,
+            "in": "path",
+            "description": "`offer.id` de la tarjeta de Mi formación.",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessUrlDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error. `code` posibles: `UNAUTHORIZED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "UNAUTHORIZED": {
+                    "summary": "UNAUTHORIZED",
+                    "value": {
+                      "statusCode": 401,
+                      "code": "UNAUTHORIZED",
+                      "message": "Necesitas iniciar sesión para continuar.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error. `code` posibles: `ENROLLMENT_REQUIRED`, `ENROLLMENT_SUSPENDED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "ENROLLMENT_REQUIRED": {
+                    "summary": "ENROLLMENT_REQUIRED",
+                    "value": {
+                      "statusCode": 403,
+                      "code": "ENROLLMENT_REQUIRED",
+                      "message": "No estás inscrito en esta formación.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  },
+                  "ENROLLMENT_SUSPENDED": {
+                    "summary": "ENROLLMENT_SUSPENDED",
+                    "value": {
+                      "statusCode": 403,
+                      "code": "ENROLLMENT_SUSPENDED",
+                      "message": "Tu acceso a esta formación está suspendido. Regulariza tu pago para recuperarlo.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error. `code` posibles: `NOT_FOUND`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "summary": "NOT_FOUND",
+                    "value": {
+                      "statusCode": 404,
+                      "code": "NOT_FOUND",
+                      "message": "El recurso solicitado no existe.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Proyecto final: descargar mi entrega",
+        "tags": [
+          "Aula"
+        ]
+      }
+    },
+    "/api/v1/me/calendar": {
+      "get": {
+        "description": "HU-10: actividades en el rango [`from`, `to`) (máx. 62 días): sesiones generadas de mis formaciones (Formación/Territorio, solo inscritos; talleres con sede y sin enlace), eventos manuales de mi audiencia (webinars, encuentros), fechas importantes (inscripciones, becas, inicio, proyecto final) de ofertas publicadas y fechas de actividades de mis módulos (HU-08). Cada ítem trae su categoría de color, hora UTC (muestra tu hora + CDMX) y, si aplica, `join` (HU-12) y `link` (Aula u oferta). Las canceladas siguen visibles con `status = CANCELLED` y sin enlace. Orden cronológico. Rango inválido → 400 `VALIDATION_ERROR` (`details[].code` INVALID_RANGE / RANGE_TOO_LARGE).",
+        "operationId": "Calendar_get",
+        "parameters": [
+          {
+            "name": "from",
+            "required": true,
+            "in": "query",
+            "description": "Inicio del rango (ISO 8601 con zona). Normalmente el primer día visible de la cuadrícula.",
+            "schema": {
+              "format": "date-time",
+              "example": "2026-10-26T06:00:00.000Z",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": true,
+            "in": "query",
+            "description": "Fin del rango (exclusivo). Máximo 62 días después de `from`.",
+            "schema": {
+              "format": "date-time",
+              "example": "2026-12-07T06:00:00.000Z",
+              "type": "string"
+            }
+          },
+          {
+            "name": "categories",
+            "required": false,
+            "in": "query",
+            "description": "Categorías (por defecto todas). Los chips de la UI pueden filtrar en cliente sin recargar.",
+            "schema": {
+              "example": [
+                "TRAINING",
+                "IMPORTANT_DATES"
+              ],
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "TRAINING",
+                  "TERRITORY",
+                  "COMMUNITY",
+                  "EVENTS",
+                  "IMPORTANT_DATES"
+                ]
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error. `code` posibles: `VALIDATION_ERROR`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "summary": "VALIDATION_ERROR",
+                    "value": {
+                      "statusCode": 400,
+                      "code": "VALIDATION_ERROR",
+                      "message": "Los datos enviados no son válidos.",
+                      "details": [
+                        {
+                          "field": "email",
+                          "code": "IS_EMAIL",
+                          "message": "Debe ser un correo electrónico válido."
+                        }
+                      ],
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error. `code` posibles: `UNAUTHORIZED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "UNAUTHORIZED": {
+                    "summary": "UNAUTHORIZED",
+                    "value": {
+                      "statusCode": 401,
+                      "code": "UNAUTHORIZED",
+                      "message": "Necesitas iniciar sesión para continuar.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Mi calendario",
+        "tags": [
+          "Calendario"
+        ]
+      }
+    },
+    "/api/v1/library": {
+      "get": {
+        "description": "HU-09 (requiere sesión): recursos publicados (PDF, artículo, libro, video, audio, recurso externo, material de curso) filtrados por `type` y buscador `q` (título, autor o palabra clave). Los recursos públicos los ve cualquier persona autenticada; los exclusivos de un curso solo sus inscritos. Orden: destacados y más recientes primero. `data: []` → estado vacío con \"Limpiar filtros\".",
+        "operationId": "Library_list",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Página (desde 1).",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "example": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "description": "Elementos por página.",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "type",
+            "required": false,
+            "in": "query",
+            "description": "Chips de tipo (uno o varios).",
+            "schema": {
+              "example": [
+                "VIDEO"
+              ],
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "PDF",
+                  "ARTICLE",
+                  "BOOK",
+                  "VIDEO",
+                  "AUDIO",
+                  "EXTERNAL",
+                  "COURSE_MATERIAL"
+                ]
+              }
+            }
+          },
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "description": "Busca en título, autor y palabras clave (sin acentos ni mayúsculas).",
+            "schema": {
+              "maxLength": 100,
+              "example": "humedales",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Recursos paginados.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/LibraryItemDto"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PaginationMetaDto"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error. `code` posibles: `VALIDATION_ERROR`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "summary": "VALIDATION_ERROR",
+                    "value": {
+                      "statusCode": 400,
+                      "code": "VALIDATION_ERROR",
+                      "message": "Los datos enviados no son válidos.",
+                      "details": [
+                        {
+                          "field": "email",
+                          "code": "IS_EMAIL",
+                          "message": "Debe ser un correo electrónico válido."
+                        }
+                      ],
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error. `code` posibles: `UNAUTHORIZED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "UNAUTHORIZED": {
+                    "summary": "UNAUTHORIZED",
+                    "value": {
+                      "statusCode": 401,
+                      "code": "UNAUTHORIZED",
+                      "message": "Necesitas iniciar sesión para continuar.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Biblioteca digital",
+        "tags": [
+          "Biblioteca"
+        ]
+      }
+    },
+    "/api/v1/library/{id}/access": {
+      "get": {
+        "description": "HU-09: archivo → URL firmada temporal (`expiresAt`); recurso externo → su URL (abrir en pestaña nueva, sin perder la sesión). Oculto o exclusivo de un curso en el que no estás inscrito → 404 `NOT_FOUND`.",
+        "operationId": "Library_access",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessUrlDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error. `code` posibles: `UNAUTHORIZED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "UNAUTHORIZED": {
+                    "summary": "UNAUTHORIZED",
+                    "value": {
+                      "statusCode": 401,
+                      "code": "UNAUTHORIZED",
+                      "message": "Necesitas iniciar sesión para continuar.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error. `code` posibles: `NOT_FOUND`, `RESOURCE_FILE_UNAVAILABLE`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "summary": "NOT_FOUND",
+                    "value": {
+                      "statusCode": 404,
+                      "code": "NOT_FOUND",
+                      "message": "El recurso solicitado no existe.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  },
+                  "RESOURCE_FILE_UNAVAILABLE": {
+                    "summary": "RESOURCE_FILE_UNAVAILABLE",
+                    "value": {
+                      "statusCode": 404,
+                      "code": "RESOURCE_FILE_UNAVAILABLE",
+                      "message": "El archivo no está disponible. Intenta de nuevo más tarde.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Abrir un recurso de la biblioteca",
+        "tags": [
+          "Biblioteca"
+        ]
+      }
+    },
+    "/api/v1/me/dashboard": {
+      "get": {
+        "description": "HU-06: \"Próxima actividad\" (con acceso HU-12), \"Mi formación\" (máx. 3 activas con % de progreso y [Continuar]), widget Calendario (próximos eventos con color), widget Biblioteca (material recomendado) y contador de notificaciones. Cada bloque es independiente: si uno falla llega `null` y aparece en `failedBlocks` (los demás se muestran). Los widgets de Becas / Convocatorias (Fase 04) y el aviso de cuota (Fase 05) se agregarán a esta respuesta.",
+        "operationId": "Dashboard_get",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error. `code` posibles: `UNAUTHORIZED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "UNAUTHORIZED": {
+                    "summary": "UNAUTHORIZED",
+                    "value": {
+                      "statusCode": 401,
+                      "code": "UNAUTHORIZED",
+                      "message": "Necesitas iniciar sesión para continuar.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error. `code` posibles: `RATE_LIMITED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "summary": "RATE_LIMITED",
+                    "value": {
+                      "statusCode": 429,
+                      "code": "RATE_LIMITED",
+                      "message": "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Mi dashboard",
+        "tags": [
+          "Dashboard"
+        ]
+      }
     }
   },
   "info": {
@@ -2697,7 +5726,22 @@
               "AUTH_RESET_TOKEN_INVALID",
               "AUTH_CURRENT_PASSWORD_INVALID",
               "CONTACT_CAPTCHA_FAILED",
-              "OFFER_NOT_AVAILABLE"
+              "OFFER_NOT_AVAILABLE",
+              "ENROLLMENT_REQUIRED",
+              "ENROLLMENT_SUSPENDED",
+              "ENROLLMENT_ALREADY_EXISTS",
+              "ENROLLMENT_NOT_FREE",
+              "ENROLLMENT_CLOSED",
+              "OFFER_SOLD_OUT",
+              "SESSION_CANCELLED",
+              "ATTENDANCE_NOT_OPEN_YET",
+              "ATTENDANCE_WINDOW_CLOSED",
+              "ATTENDANCE_ALREADY_REGISTERED",
+              "RESOURCE_FILE_UNAVAILABLE",
+              "FINAL_PROJECT_NOT_AVAILABLE",
+              "FINAL_PROJECT_DEADLINE_PASSED",
+              "FINAL_PROJECT_INVALID_FILE",
+              "FINAL_PROJECT_UPLOAD_NOT_FOUND"
             ]
           },
           "message": {
@@ -5201,6 +8245,2033 @@
           "capacity",
           "viewer",
           "actions"
+        ]
+      },
+      "PortalVenueDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Centro Comunitario Tepoztlán"
+          },
+          "address": {
+            "type": "string",
+            "nullable": true,
+            "example": "Av. del Tepozteco 12"
+          },
+          "city": {
+            "type": "string",
+            "nullable": true,
+            "example": "Tepoztlán, Morelos"
+          },
+          "mapsUrl": {
+            "type": "string",
+            "nullable": true,
+            "example": "https://maps.google.com/?q=Tepoztlan",
+            "description": "\"Cómo llegar\"."
+          }
+        },
+        "required": [
+          "name",
+          "address",
+          "city",
+          "mapsUrl"
+        ]
+      },
+      "FormationOfferDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "9d3c6a1e-2b4f-4c8d-9e0a-1b2c3d4e5f60"
+          },
+          "slug": {
+            "type": "string",
+            "example": "diplomado-en-ecotecnologias-del-agua",
+            "description": "Para \"Ver ficha\"."
+          },
+          "name": {
+            "type": "string",
+            "example": "Diplomado en Ecotecnologías del Agua"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "DIPLOMA",
+              "COURSE",
+              "WORKSHOP",
+              "EVENT",
+              "OPEN_CALL"
+            ],
+            "example": "DIPLOMA"
+          },
+          "modality": {
+            "type": "string",
+            "enum": [
+              "ONLINE_LIVE",
+              "IN_PERSON"
+            ],
+            "example": "ONLINE_LIVE"
+          },
+          "coverImageUrl": {
+            "type": "string",
+            "nullable": true,
+            "example": "https://placehold.co/1200x630/png"
+          },
+          "cohortLabel": {
+            "type": "string",
+            "nullable": true,
+            "example": "Generación 2026–2027"
+          },
+          "startsAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "example": "2026-11-07T16:00:00.000Z"
+          },
+          "endsAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "example": "2027-01-31T19:00:00.000Z"
+          },
+          "venue": {
+            "nullable": true,
+            "description": "Solo presenciales.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PortalVenueDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "type",
+          "modality",
+          "coverImageUrl",
+          "cohortLabel",
+          "startsAt",
+          "endsAt",
+          "venue"
+        ]
+      },
+      "ProgressDto": {
+        "type": "object",
+        "properties": {
+          "attendedSessions": {
+            "type": "number",
+            "example": 4,
+            "description": "Sesiones con asistencia registrada."
+          },
+          "scheduledSessions": {
+            "type": "number",
+            "example": 20,
+            "description": "Sesiones programadas (sin canceladas)."
+          },
+          "percent": {
+            "type": "number",
+            "example": 20,
+            "description": "Entero 0–100: asistidas ÷ programadas."
+          }
+        },
+        "required": [
+          "attendedSessions",
+          "scheduledSessions",
+          "percent"
+        ]
+      },
+      "NextSessionRefDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6f2c1e-8d1a-4f7e-9a51-3c2d1e0f9a8b"
+          },
+          "startsAt": {
+            "type": "string",
+            "example": "2026-11-07T16:00:00.000Z",
+            "description": "UTC; muestra tu hora + CDMX."
+          },
+          "endsAt": {
+            "type": "string",
+            "example": "2026-11-07T19:00:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "startsAt",
+          "endsAt"
+        ]
+      },
+      "FormationCardDto": {
+        "type": "object",
+        "properties": {
+          "enrollmentId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "1f2e3d4c-5b6a-4798-8a7b-6c5d4e3f2a1b"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING_PAYMENT",
+              "ACTIVE",
+              "COMPLETED",
+              "SUSPENDED",
+              "CANCELLED"
+            ],
+            "example": "ACTIVE"
+          },
+          "phase": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "COMPLETED"
+            ],
+            "example": "ACTIVE",
+            "description": "Pestaña: Activos / Completados (completada si la oferta ya terminó)."
+          },
+          "origin": {
+            "type": "string",
+            "enum": [
+              "NAS",
+              "MOODLE"
+            ],
+            "example": "NAS",
+            "description": "`MOODLE` → badge \"Vía Moodle\"."
+          },
+          "canContinue": {
+            "type": "boolean",
+            "example": true,
+            "description": "[Continuar] habilitado (acceso al Aula). `false` si está suspendida."
+          },
+          "offer": {
+            "$ref": "#/components/schemas/FormationOfferDto"
+          },
+          "progress": {
+            "$ref": "#/components/schemas/ProgressDto"
+          },
+          "nextSession": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NextSessionRefDto"
+              }
+            ]
+          },
+          "scheduleStatus": {
+            "type": "string",
+            "enum": [
+              "HAS_NEXT_SESSION",
+              "NO_UPCOMING_SESSIONS",
+              "FINISHED"
+            ],
+            "example": "HAS_NEXT_SESSION",
+            "description": "Sin próxima sesión: `FINISHED` (\"Finalizado\") o `NO_UPCOMING_SESSIONS`."
+          },
+          "enrolledAt": {
+            "type": "string",
+            "example": "2026-10-20T18:00:00.000Z"
+          }
+        },
+        "required": [
+          "enrollmentId",
+          "status",
+          "phase",
+          "origin",
+          "canContinue",
+          "offer",
+          "progress",
+          "nextSession",
+          "scheduleStatus",
+          "enrolledAt"
+        ]
+      },
+      "CreateEnrollmentRequestDto": {
+        "type": "object",
+        "properties": {
+          "offerId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "9d3c6a1e-2b4f-4c8d-9e0a-1b2c3d4e5f60",
+            "description": "Id de la oferta (`id` del catálogo/ficha)."
+          }
+        },
+        "required": [
+          "offerId"
+        ]
+      },
+      "NotificationActionDto": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string",
+            "example": "Registrar asistencia"
+          },
+          "path": {
+            "type": "string",
+            "example": "/portal/asistencia/0b6f2c1e-8d1a-4f7e-9a51-3c2d1e0f9a8b",
+            "description": "Ruta RELATIVA del frontend (los correos usan FRONTEND_URL + path)."
+          }
+        },
+        "required": [
+          "label",
+          "path"
+        ]
+      },
+      "NotificationDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "5a1f0c2e-3b4d-4e5f-8a9b-0c1d2e3f4a5b"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "ENROLLMENT_CONFIRMED",
+              "ATTENDANCE_OPEN",
+              "WHATSAPP_GROUP_AVAILABLE",
+              "MATERIAL_PUBLISHED",
+              "RECORDING_PUBLISHED",
+              "SESSION_RESCHEDULED",
+              "SESSION_CANCELLED",
+              "MOODLE_ENROLLMENT_LINKED",
+              "APPLICATION_SUBMITTED",
+              "APPLICATION_STATUS_CHANGED",
+              "INTERVIEW_SCHEDULED",
+              "INTERVIEW_REMINDER",
+              "SCHOLARSHIP_APPROVED",
+              "APPLICATION_EXPIRED",
+              "PAYMENT_CONFIRMED",
+              "BALANCE_DUE_REMINDER",
+              "INSTALLMENT_UPCOMING",
+              "INSTALLMENT_PAID",
+              "INSTALLMENT_FAILED",
+              "PLAN_DELINQUENT",
+              "TRANSFER_VALIDATED",
+              "TRANSFER_REJECTED",
+              "GENERAL"
+            ],
+            "example": "ATTENDANCE_OPEN"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "TRAINING",
+              "APPLICATIONS",
+              "PAYMENTS",
+              "GENERAL"
+            ],
+            "example": "TRAINING",
+            "description": "Ícono / grupo."
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "NORMAL",
+              "HIGH"
+            ],
+            "example": "NORMAL"
+          },
+          "pinned": {
+            "type": "boolean",
+            "example": false,
+            "description": "Fijada al inicio del panel (prioridad alta sin regularizar: cobro fallido, mora)."
+          },
+          "title": {
+            "type": "string",
+            "example": "Registra tu asistencia"
+          },
+          "body": {
+            "type": "string",
+            "example": "Terminó la sesión del 7 nov de Diplomado en Ecotecnologías del Agua. El registro cierra el 8 nov, 13:00 hora CDMX."
+          },
+          "action": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NotificationActionDto"
+              }
+            ]
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": true,
+            "nullable": true,
+            "example": {
+              "offerId": "9d3c…",
+              "sessionId": "0b6f…"
+            },
+            "description": "Ids relacionados para armar rutas propias."
+          },
+          "read": {
+            "type": "boolean",
+            "example": false
+          },
+          "readAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "example": null
+          },
+          "createdAt": {
+            "type": "string",
+            "example": "2026-11-07T19:05:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "category",
+          "priority",
+          "pinned",
+          "title",
+          "body",
+          "action",
+          "data",
+          "read",
+          "readAt",
+          "createdAt"
+        ]
+      },
+      "UnreadCountDto": {
+        "type": "object",
+        "properties": {
+          "unread": {
+            "type": "number",
+            "example": 3,
+            "description": "No leídas (contador de la campana)."
+          },
+          "pinned": {
+            "type": "number",
+            "example": 0,
+            "description": "Fijadas (prioridad alta sin regularizar)."
+          }
+        },
+        "required": [
+          "unread",
+          "pinned"
+        ]
+      },
+      "MarkAllReadResponseDto": {
+        "type": "object",
+        "properties": {
+          "updated": {
+            "type": "number",
+            "example": 3,
+            "description": "Notificaciones marcadas como leídas."
+          }
+        },
+        "required": [
+          "updated"
+        ]
+      },
+      "PortalOfferRefDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "9d3c6a1e-2b4f-4c8d-9e0a-1b2c3d4e5f60"
+          },
+          "slug": {
+            "type": "string",
+            "example": "diplomado-en-ecotecnologias-del-agua",
+            "description": "Para \"Ver ficha\"."
+          },
+          "name": {
+            "type": "string",
+            "example": "Diplomado en Ecotecnologías del Agua"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "DIPLOMA",
+              "COURSE",
+              "WORKSHOP",
+              "EVENT",
+              "OPEN_CALL"
+            ],
+            "example": "DIPLOMA"
+          },
+          "modality": {
+            "type": "string",
+            "enum": [
+              "ONLINE_LIVE",
+              "IN_PERSON"
+            ],
+            "example": "ONLINE_LIVE"
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "type",
+          "modality"
+        ]
+      },
+      "SessionModuleRefDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "7c1d2e3f-4a5b-4c6d-8e9f-0a1b2c3d4e5f"
+          },
+          "number": {
+            "type": "number",
+            "example": 3,
+            "description": "\"Módulo N\"."
+          },
+          "title": {
+            "type": "string",
+            "example": "Humedales construidos"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "title"
+        ]
+      },
+      "SessionJoinDto": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "NOT_YET",
+              "OPEN",
+              "LINK_PENDING",
+              "ENDED",
+              "CANCELLED",
+              "IN_PERSON"
+            ],
+            "example": "NOT_YET",
+            "description": "`OPEN` → [Entrar a sesión] con `url`; `NOT_YET` → deshabilitado hasta `opensAt` (cuenta regresiva; vuelve a pedir la sesión al llegar); `LINK_PENDING` \"Enlace aún no disponible\"; `CANCELLED` \"Cancelada\"; `ENDED`; `IN_PERSON` (sin enlace)."
+          },
+          "opensAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-07T15:50:00.000Z",
+            "description": "Inicio − 10 min (BUSINESS_RULES.SESSION_JOIN_WINDOW_MINUTES_BEFORE)."
+          },
+          "url": {
+            "type": "string",
+            "nullable": true,
+            "example": null,
+            "description": "join_url (Zoom/Meet) SOLO con `state = OPEN`. Nunca el enlace de anfitrión."
+          }
+        },
+        "required": [
+          "state",
+          "opensAt",
+          "url"
+        ]
+      },
+      "SessionRecordingDto": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "AVAILABLE",
+              "AFTER_SESSION",
+              "PENDING",
+              "NOT_APPLICABLE"
+            ],
+            "example": "PENDING",
+            "description": "`AVAILABLE` [Ver grabación]; `AFTER_SESSION` \"Disponible después de la sesión\"; `PENDING` \"Grabación pendiente\"; `NOT_APPLICABLE` sin grabación."
+          },
+          "url": {
+            "type": "string",
+            "nullable": true,
+            "example": null,
+            "description": "Enlace externo."
+          }
+        },
+        "required": [
+          "state",
+          "url"
+        ]
+      },
+      "SessionAttendanceDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "REGISTERED",
+              "NOT_REGISTERED",
+              "NOT_APPLICABLE"
+            ],
+            "example": "PENDING",
+            "description": "Pendiente / Registrada / No registrada (`NOT_APPLICABLE` en canceladas)."
+          },
+          "windowState": {
+            "type": "string",
+            "enum": [
+              "NOT_OPEN_YET",
+              "OPEN",
+              "CLOSED",
+              "NOT_APPLICABLE"
+            ],
+            "example": "NOT_OPEN_YET",
+            "description": "Ventana de registro: abre al terminar la sesión y dura N h (24 h por defecto)."
+          },
+          "opensAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-07T19:00:00.000Z",
+            "description": "Fin de la sesión."
+          },
+          "closesAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-08T19:00:00.000Z",
+            "description": "\"Puedes registrar hasta el …\" / \"Cierra en 21 h 35 min\"."
+          },
+          "windowHours": {
+            "type": "number",
+            "example": 24,
+            "description": "Duración de la ventana (sesión ?? oferta)."
+          },
+          "canRegister": {
+            "type": "boolean",
+            "example": false,
+            "description": "Habilita [Registrar asistencia]."
+          },
+          "registeredAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "example": null,
+            "description": "\"Asistencia registrada el …\"."
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "PARTICIPANT",
+              "MANUAL"
+            ],
+            "nullable": true,
+            "example": null,
+            "description": "`MANUAL` = la marcó el equipo (p. ej. pase de lista en sitio)."
+          },
+          "comment": {
+            "type": "string",
+            "nullable": true,
+            "example": null
+          }
+        },
+        "required": [
+          "status",
+          "windowState",
+          "opensAt",
+          "closesAt",
+          "windowHours",
+          "canRegister",
+          "registeredAt",
+          "source",
+          "comment"
+        ]
+      },
+      "SessionCardDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6f2c1e-8d1a-4f7e-9a51-3c2d1e0f9a8b"
+          },
+          "offer": {
+            "$ref": "#/components/schemas/PortalOfferRefDto"
+          },
+          "module": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SessionModuleRefDto"
+              }
+            ]
+          },
+          "teacherNames": {
+            "example": [
+              "Ana Solís Ríos"
+            ],
+            "description": "Docente(s) del módulo o de la oferta.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "startsAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-07T16:00:00.000Z"
+          },
+          "endsAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-07T19:00:00.000Z"
+          },
+          "timezone": {
+            "type": "string",
+            "example": "America/Mexico_City",
+            "description": "Hora oficial de referencia (CDMX)."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "SCHEDULED",
+              "CANCELLED"
+            ],
+            "example": "SCHEDULED"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "TRAINING",
+              "TERRITORY",
+              "COMMUNITY",
+              "EVENTS",
+              "IMPORTANT_DATES"
+            ],
+            "example": "TRAINING"
+          },
+          "originalStartsAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "example": null,
+            "description": "Si fue reprogramada: inicio original (HU-29)."
+          },
+          "changeReason": {
+            "type": "string",
+            "nullable": true,
+            "example": null,
+            "description": "Motivo de reprogramación/cancelación."
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "ZOOM",
+              "GOOGLE_MEET",
+              "OTHER"
+            ],
+            "nullable": true,
+            "example": "ZOOM",
+            "description": "Plataforma (ícono), deducida del enlace aunque aún no se entregue."
+          },
+          "venue": {
+            "nullable": true,
+            "description": "Presencial: lugar.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PortalVenueDto"
+              }
+            ]
+          },
+          "join": {
+            "$ref": "#/components/schemas/SessionJoinDto"
+          },
+          "recording": {
+            "$ref": "#/components/schemas/SessionRecordingDto"
+          },
+          "attendance": {
+            "$ref": "#/components/schemas/SessionAttendanceDto"
+          }
+        },
+        "required": [
+          "id",
+          "offer",
+          "module",
+          "teacherNames",
+          "startsAt",
+          "endsAt",
+          "timezone",
+          "status",
+          "category",
+          "originalStartsAt",
+          "changeReason",
+          "platform",
+          "venue",
+          "join",
+          "recording",
+          "attendance"
+        ]
+      },
+      "RegisterAttendanceRequestDto": {
+        "type": "object",
+        "properties": {
+          "attended": {
+            "type": "boolean",
+            "example": true,
+            "description": "Checkbox \"Asistí a la sesión\" (obligatorio, debe ser `true`)."
+          },
+          "comment": {
+            "type": "string",
+            "example": "Me llevo cómo dimensionar un humedal para una vivienda.",
+            "maxLength": 500,
+            "description": "\"¿Qué te llevas de esta sesión?\" (opcional, máx. 500)."
+          }
+        },
+        "required": [
+          "attended"
+        ]
+      },
+      "AttendanceResultDto": {
+        "type": "object",
+        "properties": {
+          "session": {
+            "description": "Sesión con `attendance.status = REGISTERED`.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SessionCardDto"
+              }
+            ]
+          },
+          "progress": {
+            "description": "Progreso recalculado del Aula.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ProgressDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "session",
+          "progress"
+        ]
+      },
+      "ClassroomEnrollmentDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "1f2e3d4c-5b6a-4798-8a7b-6c5d4e3f2a1b"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING_PAYMENT",
+              "ACTIVE",
+              "COMPLETED",
+              "SUSPENDED",
+              "CANCELLED"
+            ],
+            "example": "ACTIVE"
+          },
+          "phase": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "COMPLETED"
+            ],
+            "example": "ACTIVE"
+          },
+          "origin": {
+            "type": "string",
+            "enum": [
+              "NAS",
+              "MOODLE"
+            ],
+            "example": "NAS",
+            "description": "`MOODLE` → \"Vía Moodle\"."
+          },
+          "enrolledAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-20T18:00:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "phase",
+          "origin",
+          "enrolledAt"
+        ]
+      },
+      "ClassroomTeacherDto": {
+        "type": "object",
+        "properties": {
+          "fullName": {
+            "type": "string",
+            "example": "Ana Solís Ríos"
+          },
+          "photoUrl": {
+            "type": "string",
+            "nullable": true,
+            "example": "https://placehold.co/400x400/png"
+          }
+        },
+        "required": [
+          "fullName",
+          "photoUrl"
+        ]
+      },
+      "ClassroomOfferDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "9d3c6a1e-2b4f-4c8d-9e0a-1b2c3d4e5f60"
+          },
+          "slug": {
+            "type": "string",
+            "example": "diplomado-en-ecotecnologias-del-agua",
+            "description": "Para \"Ver ficha\"."
+          },
+          "name": {
+            "type": "string",
+            "example": "Diplomado en Ecotecnologías del Agua"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "DIPLOMA",
+              "COURSE",
+              "WORKSHOP",
+              "EVENT",
+              "OPEN_CALL"
+            ],
+            "example": "DIPLOMA"
+          },
+          "modality": {
+            "type": "string",
+            "enum": [
+              "ONLINE_LIVE",
+              "IN_PERSON"
+            ],
+            "example": "ONLINE_LIVE"
+          },
+          "coverImageUrl": {
+            "type": "string",
+            "nullable": true,
+            "example": "https://placehold.co/1200x630/png"
+          },
+          "cohortLabel": {
+            "type": "string",
+            "nullable": true,
+            "example": "Generación 2026–2027"
+          },
+          "startsAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "example": "2026-11-07T16:00:00.000Z"
+          },
+          "endsAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "example": "2027-01-31T19:00:00.000Z"
+          },
+          "totalHours": {
+            "type": "number",
+            "nullable": true,
+            "example": 60
+          },
+          "venue": {
+            "nullable": true,
+            "description": "Presencial: \"Cómo llegar\".",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PortalVenueDto"
+              }
+            ]
+          },
+          "teachers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ClassroomTeacherDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "type",
+          "modality",
+          "coverImageUrl",
+          "cohortLabel",
+          "startsAt",
+          "endsAt",
+          "totalHours",
+          "venue",
+          "teachers"
+        ]
+      },
+      "WhatsappGroupDto": {
+        "type": "object",
+        "properties": {
+          "available": {
+            "type": "boolean",
+            "example": true,
+            "description": "[Unirme al grupo de WhatsApp] (pestaña nueva)."
+          },
+          "url": {
+            "type": "string",
+            "nullable": true,
+            "example": "https://chat.whatsapp.com/AbCdEf",
+            "description": "Solo inscritos y desde la fecha que definió el equipo."
+          },
+          "availableFrom": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "example": null,
+            "description": "Configurado pero aún no visible: \"Disponible a partir del …\"."
+          }
+        },
+        "required": [
+          "available",
+          "url",
+          "availableFrom"
+        ]
+      },
+      "ClassroomWelcomeDto": {
+        "type": "object",
+        "properties": {
+          "preStart": {
+            "type": "boolean",
+            "example": true,
+            "description": "`true` antes de la primera sesión → bloque \"Antes de empezar\" destacado; después, bloque secundario \"Grupo de WhatsApp\"."
+          },
+          "message": {
+            "type": "string",
+            "nullable": true,
+            "example": "¡Bienvenida! Antes de la primera clase…"
+          },
+          "firstSessionStartsAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "example": "2026-11-07T16:00:00.000Z"
+          },
+          "whatsapp": {
+            "$ref": "#/components/schemas/WhatsappGroupDto"
+          }
+        },
+        "required": [
+          "preStart",
+          "message",
+          "firstSessionStartsAt",
+          "whatsapp"
+        ]
+      },
+      "ModuleResourceCountsDto": {
+        "type": "object",
+        "properties": {
+          "presentation": {
+            "type": "number",
+            "example": 1
+          },
+          "preReadings": {
+            "type": "number",
+            "example": 2
+          },
+          "activities": {
+            "type": "number",
+            "example": 1
+          },
+          "recordings": {
+            "type": "number",
+            "example": 2,
+            "description": "Grabaciones ya cargadas."
+          }
+        },
+        "required": [
+          "presentation",
+          "preReadings",
+          "activities",
+          "recordings"
+        ]
+      },
+      "ClassroomModuleDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "7c1d2e3f-4a5b-4c6d-8e9f-0a1b2c3d4e5f"
+          },
+          "number": {
+            "type": "number",
+            "example": 1,
+            "description": "\"Módulo N\" (orden del temario)."
+          },
+          "title": {
+            "type": "string",
+            "example": "Introducción a las ecotecnologías del agua"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "example": "Objetivos y contenidos del módulo."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "UPCOMING",
+              "IN_PROGRESS",
+              "COMPLETED"
+            ],
+            "example": "UPCOMING",
+            "description": "Próximo / En curso / Completado."
+          },
+          "teacherNames": {
+            "example": [
+              "Ana Solís Ríos"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "resourceCounts": {
+            "$ref": "#/components/schemas/ModuleResourceCountsDto"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "title",
+          "description",
+          "status",
+          "teacherNames",
+          "resourceCounts"
+        ]
+      },
+      "FinalProjectSubmissionDto": {
+        "type": "object",
+        "properties": {
+          "fileName": {
+            "type": "string",
+            "example": "proyecto-final.pdf"
+          },
+          "mimeType": {
+            "type": "string",
+            "example": "application/pdf"
+          },
+          "sizeBytes": {
+            "type": "number",
+            "example": 2400000
+          },
+          "submittedAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2027-02-20T18:00:00.000Z"
+          }
+        },
+        "required": [
+          "fileName",
+          "mimeType",
+          "sizeBytes",
+          "submittedAt"
+        ]
+      },
+      "FinalProjectDto": {
+        "type": "object",
+        "properties": {
+          "dueAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "example": "2027-02-27T16:00:00.000Z",
+            "description": "Fecha de presentación/entrega."
+          },
+          "guidelines": {
+            "type": "string",
+            "nullable": true,
+            "example": "Presenta un diseño de ecotecnología para tu territorio…"
+          },
+          "submissionState": {
+            "type": "string",
+            "enum": [
+              "DISABLED",
+              "OPEN",
+              "CLOSED"
+            ],
+            "example": "OPEN",
+            "description": "`DISABLED`: solo presentación en vivo (sin carga); `OPEN`: se puede subir/reemplazar; `CLOSED`: pasó la fecha límite (solo lectura)."
+          },
+          "acceptedMimeTypes": {
+            "example": [
+              "application/pdf",
+              "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+              "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+              "application/zip"
+            ],
+            "description": "PDF, DOCX, PPTX o ZIP.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "maxBytes": {
+            "type": "number",
+            "example": 20971520,
+            "description": "20 MB."
+          },
+          "submission": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/FinalProjectSubmissionDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "dueAt",
+          "guidelines",
+          "submissionState",
+          "acceptedMimeTypes",
+          "maxBytes",
+          "submission"
+        ]
+      },
+      "ClassroomDto": {
+        "type": "object",
+        "properties": {
+          "enrollment": {
+            "$ref": "#/components/schemas/ClassroomEnrollmentDto"
+          },
+          "offer": {
+            "$ref": "#/components/schemas/ClassroomOfferDto"
+          },
+          "progress": {
+            "description": "Sesiones con asistencia ÷ programadas.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ProgressDto"
+              }
+            ]
+          },
+          "welcome": {
+            "$ref": "#/components/schemas/ClassroomWelcomeDto"
+          },
+          "nextSession": {
+            "nullable": true,
+            "description": "Próxima sesión (en curso o futura, no cancelada); null si no hay.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SessionCardDto"
+              }
+            ]
+          },
+          "modules": {
+            "description": "Módulos publicados, en orden.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ClassroomModuleDto"
+            }
+          },
+          "finalProject": {
+            "nullable": true,
+            "description": "Solo diplomados (en cursos y talleres es null y la sección no aparece).",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/FinalProjectDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "enrollment",
+          "offer",
+          "progress",
+          "welcome",
+          "nextSession",
+          "modules",
+          "finalProject"
+        ]
+      },
+      "MaterialResourceDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "3e4f5a6b-7c8d-4e9f-8a0b-1c2d3e4f5a6b"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "PRESENTATION",
+              "PRE_READING",
+              "ACTIVITY"
+            ],
+            "example": "PRE_READING"
+          },
+          "title": {
+            "type": "string",
+            "example": "Lectura: humedales construidos para viviendas"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "example": null
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "FILE",
+              "EXTERNAL_LINK"
+            ],
+            "nullable": true,
+            "example": "FILE",
+            "description": "`FILE` → [Descargar]: pide la URL temporal a `…/resources/{id}/access`. `EXTERNAL_LINK` → [Ver] abre `url` en pestaña nueva."
+          },
+          "url": {
+            "type": "string",
+            "nullable": true,
+            "example": null,
+            "description": "Solo enlaces externos."
+          },
+          "fileName": {
+            "type": "string",
+            "nullable": true,
+            "example": "lectura-humedales.pdf"
+          },
+          "mimeType": {
+            "type": "string",
+            "nullable": true,
+            "example": "application/pdf"
+          },
+          "sizeBytes": {
+            "type": "number",
+            "nullable": true,
+            "example": 1048576
+          },
+          "activityDueAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "example": null,
+            "description": "Actividades: fecha (aparece en el calendario como \"Fecha importante\")."
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "title",
+          "description",
+          "kind",
+          "url",
+          "fileName",
+          "mimeType",
+          "sizeBytes",
+          "activityDueAt"
+        ]
+      },
+      "MaterialRecordingDto": {
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6f2c1e-8d1a-4f7e-9a51-3c2d1e0f9a8b"
+          },
+          "startsAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-07T16:00:00.000Z",
+            "description": "\"Ver grabación\" con fecha."
+          },
+          "endsAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-07T19:00:00.000Z"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "AVAILABLE",
+              "AFTER_SESSION",
+              "PENDING",
+              "NOT_APPLICABLE"
+            ],
+            "example": "AVAILABLE"
+          },
+          "url": {
+            "type": "string",
+            "nullable": true,
+            "example": "https://zoom.us/rec/share/abc"
+          }
+        },
+        "required": [
+          "sessionId",
+          "startsAt",
+          "endsAt",
+          "state",
+          "url"
+        ]
+      },
+      "MaterialModuleDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "7c1d2e3f-4a5b-4c6d-8e9f-0a1b2c3d4e5f"
+          },
+          "number": {
+            "type": "number",
+            "example": 1
+          },
+          "title": {
+            "type": "string",
+            "example": "Introducción a las ecotecnologías del agua"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "example": null
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "UPCOMING",
+              "IN_PROGRESS",
+              "COMPLETED"
+            ],
+            "example": "IN_PROGRESS"
+          },
+          "teacherNames": {
+            "example": [
+              "Ana Solís Ríos"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "presentation": {
+            "nullable": true,
+            "description": "1. Presentación del módulo (la más reciente).",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MaterialResourceDto"
+              }
+            ]
+          },
+          "preReadings": {
+            "description": "2. Lecturas previas.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MaterialResourceDto"
+            }
+          },
+          "activities": {
+            "description": "3. Actividades.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MaterialResourceDto"
+            }
+          },
+          "recordings": {
+            "description": "4. Grabación de la sesión: una por sesión del módulo (sin canceladas).",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MaterialRecordingDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "title",
+          "description",
+          "status",
+          "teacherNames",
+          "presentation",
+          "preReadings",
+          "activities",
+          "recordings"
+        ]
+      },
+      "MaterialsDto": {
+        "type": "object",
+        "properties": {
+          "modules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MaterialModuleDto"
+            }
+          }
+        },
+        "required": [
+          "modules"
+        ]
+      },
+      "AccessUrlDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "FILE",
+              "EXTERNAL_LINK"
+            ],
+            "example": "FILE"
+          },
+          "url": {
+            "type": "string",
+            "example": "https://storage.example.com/eia-prod/offers/…?X-Amz-Signature=…"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "example": "2026-11-07T16:10:00.000Z",
+            "description": "Vencimiento de la URL firmada (null para enlaces externos). Al vencer, pide otra."
+          },
+          "fileName": {
+            "type": "string",
+            "nullable": true,
+            "example": "Presentacion-modulo-1.pdf"
+          }
+        },
+        "required": [
+          "kind",
+          "url",
+          "expiresAt",
+          "fileName"
+        ]
+      },
+      "FinalProjectUploadRequestDto": {
+        "type": "object",
+        "properties": {
+          "fileName": {
+            "type": "string",
+            "example": "proyecto-final.pdf",
+            "maxLength": 255
+          },
+          "contentType": {
+            "type": "string",
+            "example": "application/pdf",
+            "enum": [
+              "application/pdf",
+              "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+              "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+              "application/zip"
+            ],
+            "description": "Content-Type exacto que enviarás en el PUT."
+          },
+          "sizeBytes": {
+            "type": "number",
+            "example": 2400000,
+            "description": "Tamaño en bytes (máx. 20 MB)."
+          }
+        },
+        "required": [
+          "fileName",
+          "contentType",
+          "sizeBytes"
+        ]
+      },
+      "UploadUrlDto": {
+        "type": "object",
+        "properties": {
+          "uploadUrl": {
+            "type": "string",
+            "example": "https://storage.example.com/eia-prod/final-projects/…?X-Amz-Signature=…"
+          },
+          "method": {
+            "type": "string",
+            "example": "PUT",
+            "enum": [
+              "PUT"
+            ]
+          },
+          "headers": {
+            "type": "object",
+            "example": {
+              "Content-Type": "application/pdf"
+            },
+            "description": "Headers obligatorios del PUT."
+          },
+          "key": {
+            "type": "string",
+            "example": "final-projects/9d3c…/5a1f…/2f0e…-proyecto-final.pdf",
+            "description": "Envíala a `PUT …/final-project` para confirmar la entrega."
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2027-02-20T18:15:00.000Z"
+          }
+        },
+        "required": [
+          "uploadUrl",
+          "method",
+          "headers",
+          "key",
+          "expiresAt"
+        ]
+      },
+      "ConfirmFinalProjectRequestDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "final-projects/9d3c…/5a1f…/2f0e…-proyecto-final.pdf"
+          },
+          "fileName": {
+            "type": "string",
+            "example": "proyecto-final.pdf",
+            "description": "Nombre a mostrar."
+          }
+        },
+        "required": [
+          "key"
+        ]
+      },
+      "CalendarLinkDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "CLASSROOM",
+              "OFFER",
+              "NONE"
+            ],
+            "example": "CLASSROOM",
+            "description": "`CLASSROOM` → Aula (`offerId`); `OFFER` → ficha `/escuela/oferta/{slug}`."
+          },
+          "offerId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid",
+            "example": "9d3c6a1e-2b4f-4c8d-9e0a-1b2c3d4e5f60"
+          },
+          "slug": {
+            "type": "string",
+            "nullable": true,
+            "example": "diplomado-en-ecotecnologias-del-agua"
+          }
+        },
+        "required": [
+          "kind",
+          "offerId",
+          "slug"
+        ]
+      },
+      "CalendarItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b6f2c1e-8d1a-4f7e-9a51-3c2d1e0f9a8b"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "SESSION",
+              "EVENT",
+              "ACTIVITY"
+            ],
+            "example": "SESSION",
+            "description": "`SESSION` = clase generada desde el horario (no editable); `EVENT` = evento manual o fecha importante; `ACTIVITY` = fecha de una actividad de módulo (HU-08, \"Fecha importante\")."
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "SESSION",
+              "ACTIVITY_DUE",
+              "MANUAL",
+              "ENROLLMENT_OPENS",
+              "ENROLLMENT_CLOSES",
+              "OFFER_STARTS",
+              "SCHOLARSHIP_DEADLINE",
+              "FINAL_PROJECT"
+            ],
+            "example": "SESSION",
+            "description": "Tipo: SESSION, ACTIVITY_DUE, MANUAL (webinar/encuentro) o fecha importante automática (ENROLLMENT_OPENS, ENROLLMENT_CLOSES, OFFER_STARTS, SCHOLARSHIP_DEADLINE, FINAL_PROJECT)."
+          },
+          "title": {
+            "type": "string",
+            "example": "Diplomado en Ecotecnologías del Agua"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "example": null
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "TRAINING",
+              "TERRITORY",
+              "COMMUNITY",
+              "EVENTS",
+              "IMPORTANT_DATES"
+            ],
+            "example": "TRAINING",
+            "description": "Color: Formación azul, Territorio verde, Comunidad naranja, Eventos morado, Fechas importantes rojo."
+          },
+          "startsAt": {
+            "type": "string",
+            "example": "2026-11-07T16:00:00.000Z"
+          },
+          "endsAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "example": "2026-11-07T19:00:00.000Z"
+          },
+          "allDay": {
+            "type": "boolean",
+            "example": false,
+            "description": "Evento de día completo (fechas importantes)."
+          },
+          "timezone": {
+            "type": "string",
+            "example": "America/Mexico_City"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "SCHEDULED",
+              "CANCELLED"
+            ],
+            "example": "SCHEDULED",
+            "description": "`CANCELLED` → \"Cancelada\", sin enlace."
+          },
+          "offer": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PortalOfferRefDto"
+              }
+            ]
+          },
+          "module": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SessionModuleRefDto"
+              }
+            ]
+          },
+          "venue": {
+            "nullable": true,
+            "description": "Presencial (hora local del lugar).",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PortalVenueDto"
+              }
+            ]
+          },
+          "location": {
+            "type": "string",
+            "nullable": true,
+            "example": null,
+            "description": "Lugar libre de eventos manuales."
+          },
+          "join": {
+            "nullable": true,
+            "description": "Acceso (HU-12) si la actividad es en línea; null en fechas importantes.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SessionJoinDto"
+              }
+            ]
+          },
+          "link": {
+            "$ref": "#/components/schemas/CalendarLinkDto"
+          }
+        },
+        "required": [
+          "id",
+          "source",
+          "kind",
+          "title",
+          "description",
+          "category",
+          "startsAt",
+          "endsAt",
+          "allDay",
+          "timezone",
+          "status",
+          "offer",
+          "module",
+          "venue",
+          "location",
+          "join",
+          "link"
+        ]
+      },
+      "CalendarResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalendarItemDto"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "LibraryOfferRefDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "9d3c6a1e-2b4f-4c8d-9e0a-1b2c3d4e5f60"
+          },
+          "slug": {
+            "type": "string",
+            "example": "curso-humedales-construidos"
+          },
+          "name": {
+            "type": "string",
+            "example": "Curso: Humedales construidos"
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "name"
+        ]
+      },
+      "LibraryItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "6b7c8d9e-0f1a-4b2c-8d3e-4f5a6b7c8d9e"
+          },
+          "title": {
+            "type": "string",
+            "example": "Guía práctica de humedales construidos"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "example": "Manual paso a paso para viviendas rurales."
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "PDF",
+              "ARTICLE",
+              "BOOK",
+              "VIDEO",
+              "AUDIO",
+              "EXTERNAL",
+              "COURSE_MATERIAL"
+            ],
+            "example": "PDF"
+          },
+          "author": {
+            "type": "string",
+            "nullable": true,
+            "example": "Ana Solís Ríos"
+          },
+          "keywords": {
+            "example": [
+              "humedales",
+              "saneamiento"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "thumbnailUrl": {
+            "type": "string",
+            "nullable": true,
+            "example": "https://placehold.co/600x400/png"
+          },
+          "audience": {
+            "type": "string",
+            "enum": [
+              "ALL_REGISTERED",
+              "OFFER_ENROLLED"
+            ],
+            "example": "ALL_REGISTERED",
+            "description": "`OFFER_ENROLLED` = exclusivo de un curso (solo lo ves si estás inscrito)."
+          },
+          "offer": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LibraryOfferRefDto"
+              }
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "FILE",
+              "EXTERNAL_LINK"
+            ],
+            "nullable": true,
+            "example": "FILE",
+            "description": "Ábrelo con `GET /library/{id}/access` (archivo: URL temporal; externo: pestaña nueva)."
+          },
+          "fileName": {
+            "type": "string",
+            "nullable": true,
+            "example": "guia-humedales.pdf"
+          },
+          "sizeBytes": {
+            "type": "number",
+            "nullable": true,
+            "example": 2097152
+          },
+          "featured": {
+            "type": "boolean",
+            "example": true,
+            "description": "Material recomendado (Dashboard)."
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "description",
+          "type",
+          "author",
+          "keywords",
+          "thumbnailUrl",
+          "audience",
+          "offer",
+          "kind",
+          "fileName",
+          "sizeBytes",
+          "featured"
+        ]
+      },
+      "DashboardFormationsDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "description": "Máximo 3 (configurable).",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FormationCardDto"
+            }
+          },
+          "total": {
+            "type": "number",
+            "example": 4,
+            "description": "Total de formaciones activas (\"Ver toda mi formación\")."
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ]
+      },
+      "DashboardDto": {
+        "type": "object",
+        "properties": {
+          "nextActivity": {
+            "nullable": true,
+            "description": "\"Próxima actividad\": la siguiente sesión o evento (en curso o futuro, no cancelado, sin fechas importantes) en los próximos 62 días, con `join` (HU-12). null → mensaje orientador.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CalendarItemDto"
+              }
+            ]
+          },
+          "formations": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DashboardFormationsDto"
+              }
+            ]
+          },
+          "upcomingEvents": {
+            "nullable": true,
+            "description": "Widget Calendario: próximos eventos (30 días, máx. 5) con color de categoría.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalendarItemDto"
+            }
+          },
+          "recommendedResources": {
+            "nullable": true,
+            "description": "Widget Biblioteca: material recomendado (máx. 4).",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LibraryItemDto"
+            }
+          },
+          "notifications": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UnreadCountDto"
+              }
+            ]
+          },
+          "failedBlocks": {
+            "type": "array",
+            "example": [],
+            "description": "Bloques que no se pudieron cargar: muestra \"No se pudo cargar esta información\" + reintento (el reintento puede usar el endpoint propio del bloque: /me/enrollments, /me/calendar, /library, /me/notifications/unread-count).",
+            "items": {
+              "type": "string",
+              "enum": [
+                "nextActivity",
+                "formations",
+                "upcomingEvents",
+                "recommendedResources",
+                "notifications"
+              ]
+            }
+          }
+        },
+        "required": [
+          "nextActivity",
+          "formations",
+          "upcomingEvents",
+          "recommendedResources",
+          "notifications",
+          "failedBlocks"
         ]
       }
     }

@@ -82,6 +82,26 @@ export const BUSINESS_RULES = {
   ATTENDANCE_ALERT_THRESHOLD_PERCENT: 80,
   /** HU-06 (Anexo A): aviso de cuota próxima desde N días antes del cobro. */
   INSTALLMENT_UPCOMING_NOTICE_DAYS: 7,
+  /** HU-06: máximo de tarjetas de "Mi formación" en el Dashboard ("Ver toda mi formación"). */
+  DASHBOARD_FORMATIONS_LIMIT: 3,
+  /** HU-06: widget de Calendario — próximos eventos (cantidad y horizonte en días). */
+  DASHBOARD_UPCOMING_EVENTS_LIMIT: 5,
+  DASHBOARD_UPCOMING_EVENTS_DAYS: 30,
+  /** HU-06: widget de Biblioteca — material recomendado (cantidad). */
+  DASHBOARD_RECOMMENDED_RESOURCES_LIMIT: 4,
+  /** HU-10: rango máximo de una consulta del calendario (un mes con semanas de relleno ≈ 42 días). */
+  CALENDAR_MAX_RANGE_DAYS: 62,
+  /** HU-09: longitud máxima del texto del buscador de la biblioteca. */
+  LIBRARY_SEARCH_MAX_LENGTH: 100,
+  /**
+   * HU-13 / HU-18: cada cuánto corre el job que avisa "registro de asistencia abierto" y "grupo de
+   * WhatsApp disponible" (expresión cron, hora del servidor). Solo con SCHEDULER_ENABLED=true.
+   */
+  PORTAL_NOTIFICATIONS_CRON: '*/5 * * * *',
+  /** URL firmada de descarga de materiales privados (HU-08: "el enlace expira; genera uno nuevo"). */
+  PRIVATE_FILE_URL_TTL_SECONDS: 10 * 60,
+  /** HU-17: URL firmada para subir el proyecto final (PUT directo a storage). */
+  FINAL_PROJECT_UPLOAD_URL_TTL_SECONDS: 15 * 60,
 
   // ---------------------------------------------------------------------------
   // Postulaciones y becas (Fase 04)

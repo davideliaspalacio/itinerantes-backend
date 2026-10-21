@@ -4,8 +4,10 @@
  * Producción (Railway): lo ejecuta `scripts/docker-entrypoint.sh` en cada arranque, después de
  * `prisma migrate deploy`. Siempre siembra catálogos de referencia; los datos demo dependen de:
  * - Usuarios demo: nunca con NODE_ENV=production.
- * - Ofertas demo (Fase 02): SEED_DEMO_DATA=true|false (por defecto true fuera de producción y false en
- *   producción).
+ * - Ofertas demo (Fase 02) y contenido demo del portal (Fase 03: biblioteca, recursos de módulo, eventos):
+ *   SEED_DEMO_DATA=true|false (por defecto true fuera de producción y false en producción).
+ * - Inscripciones, asistencias y notificaciones demo (Fase 03): solo para el usuario demo, que nunca
+ *   existe con NODE_ENV=production.
  *
  * Reglas para las fases:
  * - Usa SIEMPRE `upsert` (o `createMany({ skipDuplicates: true })`) con claves estables (email, slug),
@@ -25,6 +27,12 @@ import { cdmxDate, parseScheduleRule } from '../src/modules/offers/policies/sche
 import { generateSessions } from '../src/modules/offers/policies/session-generation.policy';
 import { COUNTRIES } from './data/countries';
 import { DEMO_OFFERS, DEMO_TEACHERS } from './data/demo-offers';
+import {
+  DEMO_CALENDAR_EVENTS,
+  DEMO_ENROLLMENTS,
+  DEMO_LIBRARY,
+  DEMO_MODULE_RESOURCES,
+} from './data/demo-portal';
 
 type Seeder = (prisma: PrismaClient) => Promise<void>;
 
@@ -233,10 +241,174 @@ async function seedDemoOffers(prisma: PrismaClient): Promise<void> {
   );
 }
 
+/**
+ * Fase 03: contenido demo del portal (biblioteca, recursos de módulo, eventos manuales, grabaciones
+ * de la oferta finalizada) con SEED_DEMO_DATA, e inscripciones/asistencias/notificaciones del usuario
+ * demo (nunca en producción). Idempotente: claves estables (slug, título, userId+offerId, dedupeKey).
+ */
+async function seedDemoPortal(prisma: PrismaClient): Promise<void> {
+  if (!demoDataEnabled()) {
+    console.log('  SEED_DEMO_DATA desactivado: se omite el contenido demo del portal.');
+    return;
+  }
+  const offers = await prisma.offer.findMany({ select: { id: true, slug: true } });
+  const offerIdBySlug = new Map(offers.map((o) => [o.slug, o.id]));
+
+  const libraryIds = new Map<string, string>();
+  for (const { slug, offerSlug, ...data } of DEMO_LIBRARY) {
+    const offerId = offerSlug ? (offerIdBySlug.get(offerSlug) ?? null) : null;
+    const fields = { ...data, offerId, visibility: 'PUBLISHED' as const, publishAt: null };
+    const saved = await prisma.libraryResource.upsert({
+      where: { slug },
+      create: { slug, ...fields },
+      update: fields,
+    });
+    libraryIds.set(slug, saved.id);
+  }
+
+  let resources = 0;
+  for (const group of DEMO_MODULE_RESOURCES) {
+    const offerId = offerIdBySlug.get(group.offerSlug);
+    if (!offerId) continue;
+    const module = await prisma.offerModule.findFirst({
+      where: { offerId, position: group.modulePosition },
+    });
+    if (!module) continue;
+    for (const { libraryResourceSlug, ...resource } of group.resources) {
+      const data = {
+        ...resource,
+        libraryResourceId: libraryResourceSlug
+          ? (libraryIds.get(libraryResourceSlug) ?? null)
+          : null,
+        visibility: 'PUBLISHED' as const,
+        publishAt: null,
+      };
+      const existing = await prisma.moduleResource.findFirst({
+        where: { moduleId: module.id, title: resource.title },
+      });
+      if (existing) await prisma.moduleResource.update({ where: { id: existing.id }, data });
+      else {
+        await prisma.moduleResource.create({ data: { moduleId: module.id, ...data } });
+        resources++;
+      }
+    }
+  }
+
+  for (const { offerSlug, ...event } of DEMO_CALENDAR_EVENTS) {
+    const data = {
+      ...event,
+      kind: 'MANUAL' as const,
+      offerId: offerSlug ? (offerIdBySlug.get(offerSlug) ?? null) : null,
+    };
+    const existing = await prisma.calendarEvent.findFirst({
+      where: { kind: 'MANUAL', title: event.title },
+    });
+    if (existing) await prisma.calendarEvent.update({ where: { id: existing.id }, data });
+    else await prisma.calendarEvent.create({ data });
+  }
+
+  // Grabaciones demo de la oferta finalizada (HU-08 / HU-12: "Ver grabación").
+  const finishedId = offerIdBySlug.get('curso-introduccion-sistemas-de-tratamiento-2026');
+  if (finishedId) {
+    await prisma.offerSession.updateMany({
+      where: { offerId: finishedId, recordingUrl: null },
+      data: {
+        recordingUrl: 'https://example.com/grabaciones/curso-tratamiento',
+        recordingPublishedAt: new Date(),
+      },
+    });
+  }
+  console.log(
+    `  ${DEMO_LIBRARY.length} recursos de biblioteca, ${resources} recursos de módulo nuevos, ${DEMO_CALENDAR_EVENTS.length} eventos manuales.`,
+  );
+
+  if (process.env.NODE_ENV === 'production') {
+    console.log('  NODE_ENV=production: se omiten inscripciones y notificaciones demo.');
+    return;
+  }
+  const participant = await prisma.user.findUnique({
+    where: { email: 'participante@example.com' },
+  });
+  if (!participant) return;
+
+  for (const demo of DEMO_ENROLLMENTS) {
+    const offerId = offerIdBySlug.get(demo.offerSlug);
+    if (!offerId) continue;
+    const enrollment = await prisma.enrollment.upsert({
+      where: { userId_offerId: { userId: participant.id, offerId } },
+      create: {
+        userId: participant.id,
+        offerId,
+        status: 'ACTIVE',
+        origin: demo.origin,
+        source: demo.source,
+        activatedAt: new Date(),
+      },
+      update: { status: 'ACTIVE', origin: demo.origin, source: demo.source },
+    });
+    if (demo.attendedSessionIndexes?.length) {
+      const sessions = await prisma.offerSession.findMany({
+        where: { offerId },
+        orderBy: { startsAt: 'asc' },
+        select: { id: true, endsAt: true },
+      });
+      await prisma.sessionAttendance.createMany({
+        data: demo.attendedSessionIndexes
+          .filter((i) => sessions[i])
+          .map((i) => ({
+            sessionId: sessions[i].id,
+            userId: participant.id,
+            enrollmentId: enrollment.id,
+            source: 'PARTICIPANT' as const,
+            comment: 'Me llevo ideas para aplicar en mi comunidad.',
+            registeredAt: sessions[i].endsAt,
+          })),
+        skipDuplicates: true,
+      });
+    }
+  }
+
+  const diplomaId = offerIdBySlug.get('diplomado-en-ecotecnologias-del-agua');
+  await prisma.notification.createMany({
+    data: [
+      {
+        userId: participant.id,
+        type: 'GENERAL' as const,
+        category: 'GENERAL' as const,
+        title: 'Te damos la bienvenida al portal',
+        body: 'Aquí encontrarás tu formación, calendario, biblioteca y avisos.',
+        actionLabel: 'Ir a mi dashboard',
+        actionPath: '/portal',
+        dedupeKey: 'demo:welcome',
+        emailStatus: 'NOT_REQUESTED' as const,
+      },
+      ...(diplomaId
+        ? [
+            {
+              userId: participant.id,
+              type: 'ENROLLMENT_CONFIRMED' as const,
+              category: 'TRAINING' as const,
+              title: 'Inscripción confirmada: Diplomado en Ecotecnologías del Agua',
+              body: 'Ya estás inscrito. Primera sesión: 7/11/2026 10:00 hora CDMX.',
+              actionLabel: 'Ir a mi aula',
+              actionPath: `/portal/aula/${diplomaId}`,
+              data: { offerId: diplomaId },
+              dedupeKey: 'demo:enrollment-diploma',
+              emailStatus: 'NOT_REQUESTED' as const,
+            },
+          ]
+        : []),
+    ],
+    skipDuplicates: true,
+  });
+  console.log(`  ${DEMO_ENROLLMENTS.length} inscripciones demo de participante@example.com.`);
+}
+
 const seeders: Array<[name: string, run: Seeder]> = [
   ['Fase 01 — ubicaciones', seedLocations],
   ['Fase 01 — usuarios demo', seedDemoUsers],
   ['Fase 02 — ofertas demo', seedDemoOffers],
+  ['Fase 03 — portal demo', seedDemoPortal],
 ];
 
 async function main(): Promise<void> {

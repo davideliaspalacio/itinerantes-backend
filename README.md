@@ -52,6 +52,9 @@ pnpm dev
 | Participante (`PARTICIPANT`) | `participante@example.com` | `Demo12345` |
 | Admin (`SUPER_ADMIN`) | `admin@example.com` | `Admin12345` |
 
+Desde la Fase 03 el participante demo tiene inscripciones, asistencias y notificaciones de ejemplo
+(ver `docs/frontend/fase-03-portal.md` → "Datos demo").
+
 El seed también carga los países (LatAm + España + EE. UU.), los 32 estados de México y sus 2,478
 municipios (catálogo INEGI, `prisma/data/mx-inegi-municipalities.json`).
 

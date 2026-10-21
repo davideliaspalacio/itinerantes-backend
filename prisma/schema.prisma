@@ -89,6 +89,13 @@ model User {
   otpCodes      OtpCode[]
   refreshTokens RefreshToken[]
 
+  // Fase 03 — Portal del participante
+  enrollments         Enrollment[]
+  attendances         SessionAttendance[]      @relation("AttendanceParticipant")
+  recordedAttendances SessionAttendance[]      @relation("AttendanceRecordedBy")
+  notifications       Notification[]
+  finalProjects       FinalProjectSubmission[]
+
   @@map("users")
 }
 
@@ -472,14 +479,27 @@ model Offer {
   attendanceWindowHours Int       @default(24) @map("attendance_window_hours")
   whatsappGroupUrl      String?   @map("whatsapp_group_url") @db.VarChar(500)
   whatsappVisibleFrom   DateTime? @map("whatsapp_visible_from") @db.Timestamptz(3)
+  /// Fase 03: cuándo se notificó a los inscritos que el grupo de WhatsApp está disponible (job HU-13).
+  whatsappNotifiedAt    DateTime? @map("whatsapp_notified_at") @db.Timestamptz(3)
+
+  // --- Aula (Fase 03, HU-17) — PRIVADOS: solo inscritos ---
+  /// Mensaje de bienvenida del bloque "Antes de empezar".
+  classroomWelcome              String? @map("classroom_welcome") @db.Text
+  /// Entrega del proyecto final por archivo (Anexo A HU-17: opcional, habilitable por diplomado).
+  finalProjectSubmissionEnabled Boolean @default(false) @map("final_project_submission_enabled")
+  /// Lineamientos del proyecto final (texto).
+  finalProjectGuidelines        String? @map("final_project_guidelines") @db.Text
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  teachers       OfferTeacher[]
-  modules        OfferModule[]
-  sessions       OfferSession[]
-  calendarEvents CalendarEvent[]
+  teachers         OfferTeacher[]
+  modules          OfferModule[]
+  sessions         OfferSession[]
+  calendarEvents   CalendarEvent[]
+  enrollments      Enrollment[]
+  libraryResources LibraryResource[]
+  finalProjects    FinalProjectSubmission[]
 
   @@index([publicationStatus, startsAt])
   @@index([publicTopic])
@@ -498,7 +518,8 @@ model Teacher {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  offers OfferTeacher[]
+  offers  OfferTeacher[]
+  modules OfferModule[]
 
   @@map("teachers")
 }
@@ -527,10 +548,13 @@ model OfferModule {
   visibility  ContentVisibility @default(HIDDEN)
   /// Publicación programada (null = inmediata al publicar).
   publishAt   DateTime?         @map("publish_at") @db.Timestamptz(3)
+  /// Fase 03: docente del módulo (HU-08 / HU-18). Null = docentes de la oferta.
+  teacherId   String?           @map("teacher_id") @db.Uuid
   createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt   DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   offer     Offer            @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  teacher   Teacher?         @relation(fields: [teacherId], references: [id], onDelete: SetNull)
   resources ModuleResource[]
   sessions  OfferSession[]
 
@@ -540,27 +564,30 @@ model OfferModule {
 
 /// Recurso de un módulo (HU-08 / HU-28): archivo en storage o enlace externo.
 model ModuleResource {
-  id            String             @id @default(uuid()) @db.Uuid
-  moduleId      String             @map("module_id") @db.Uuid
-  type          ModuleResourceType
-  title         String             @db.VarChar(200)
-  description   String?            @db.Text
+  id                String             @id @default(uuid()) @db.Uuid
+  moduleId          String             @map("module_id") @db.Uuid
+  type              ModuleResourceType
+  title             String             @db.VarChar(200)
+  description       String?            @db.Text
   /// Archivo en storage (privado; URL firmada solo para inscritos).
-  fileKey       String?            @map("file_key") @db.VarChar(500)
-  fileName      String?            @map("file_name") @db.VarChar(255)
-  mimeType      String?            @map("mime_type") @db.VarChar(120)
-  sizeBytes     Int?               @map("size_bytes")
+  fileKey           String?            @map("file_key") @db.VarChar(500)
+  fileName          String?            @map("file_name") @db.VarChar(255)
+  mimeType          String?            @map("mime_type") @db.VarChar(120)
+  sizeBytes         Int?               @map("size_bytes")
   /// Enlace externo (alternativa al archivo).
-  url           String?            @db.VarChar(1000)
+  url               String?            @db.VarChar(1000)
   /// Fecha de la actividad (ACTIVITY), dentro del periodo de la oferta.
-  activityDueAt DateTime?          @map("activity_due_at") @db.Timestamptz(3)
-  position      Int                @default(0)
-  visibility    ContentVisibility  @default(HIDDEN)
-  publishAt     DateTime?          @map("publish_at") @db.Timestamptz(3)
-  createdAt     DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt     DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+  activityDueAt     DateTime?          @map("activity_due_at") @db.Timestamptz(3)
+  /// Fase 03: lectura que enlaza un recurso de la Biblioteca (HU-28 / HU-09) en lugar de archivo/enlace.
+  libraryResourceId String?            @map("library_resource_id") @db.Uuid
+  position          Int                @default(0)
+  visibility        ContentVisibility  @default(HIDDEN)
+  publishAt         DateTime?          @map("publish_at") @db.Timestamptz(3)
+  createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  module OfferModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  module          OfferModule      @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  libraryResource LibraryResource? @relation(fields: [libraryResourceId], references: [id], onDelete: SetNull)
 
   @@index([moduleId, type, position])
   @@map("module_resources")
@@ -589,11 +616,14 @@ model OfferSession {
   originalStartsAt      DateTime?        @map("original_starts_at") @db.Timestamptz(3)
   changeReason          String?          @map("change_reason") @db.VarChar(500)
   cancelledAt           DateTime?        @map("cancelled_at") @db.Timestamptz(3)
+  /// Fase 03: cuándo se notificó a los inscritos que el registro de asistencia abrió (job HU-13/18).
+  attendanceNotifiedAt  DateTime?        @map("attendance_notified_at") @db.Timestamptz(3)
   createdAt             DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt             DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  offer  Offer        @relation(fields: [offerId], references: [id], onDelete: Cascade)
-  module OfferModule? @relation(fields: [moduleId], references: [id], onDelete: SetNull)
+  offer       Offer               @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  module      OfferModule?        @relation(fields: [moduleId], references: [id], onDelete: SetNull)
+  attendances SessionAttendance[]
 
   @@unique([offerId, startsAt])
   @@index([startsAt])
@@ -625,4 +655,288 @@ model CalendarEvent {
   @@index([startsAt])
   @@index([offerId, kind])
   @@map("calendar_events")
+}
+
+// =============================================================================
+// Fase 03 — Portal del participante (HU-06, 07, 08, 09, 10, 12, 13, 17, 18)
+// =============================================================================
+//
+// Decisiones (docs/ARCHITECTURE.md → "Portal del participante"):
+//  - Enrollment = inscripción de una persona en UNA oferta (cohorte). Única por (userId, offerId).
+//    Da acceso al Aula si status ∈ {ACTIVE, COMPLETED}. "Activa/Completada" en Mi formación se deriva
+//    también de la fecha de fin de la oferta (no hace falta un cron para cerrar inscripciones).
+//  - Fases 04/05: PENDING_PAYMENT (reserva sin acceso hasta confirmar el pago), source
+//    PAYMENT/INSTALLMENTS/SCHOLARSHIP/OPEN_CALL y applicationId (FK a Application en Fase 04).
+//  - Asistencia (SessionAttendance) única por (sesión, persona); el estado Pendiente / Registrada /
+//    No registrada se DERIVA de la ventana (session.attendanceWindowHours ?? offer.attendanceWindowHours).
+//  - Notificaciones in-app con dedupeKey (idempotencia de jobs); el correo lo envía NotificationsService.
+
+enum EnrollmentStatus {
+  /// Reservada en espera de pago (Fase 05). Sin acceso al Aula ni cupo.
+  PENDING_PAYMENT
+  /// Inscripción vigente: acceso al Aula.
+  ACTIVE
+  /// Cerrada explícitamente por el equipo al terminar (acceso de consulta, Anexo A HU-17).
+  COMPLETED
+  /// Acceso suspendido manualmente por mora (HU-24 / HU-33).
+  SUSPENDED
+  /// Cancelada (baja, reembolso, plaza liberada).
+  CANCELLED
+}
+
+/// Origen de la inscripción (HU-07 / HU-25): NAS = plataforma; MOODLE = pagada fuera ("Vía Moodle").
+enum EnrollmentOrigin {
+  NAS
+  MOODLE
+}
+
+/// Cómo se creó la inscripción (trazabilidad para Fases 04–06).
+enum EnrollmentSource {
+  /// Oferta NAS gratuita: [Inscribirme] (Fase 03).
+  FREE_SIGNUP
+  /// Pago completo con Stripe (HU-22, Fase 05).
+  PAYMENT
+  /// Plan de cuotas (HU-24, Fase 05).
+  INSTALLMENTS
+  /// Beca aprobada + saldo pagado (HU-23, Fases 04/05).
+  SCHOLARSHIP
+  /// Postulación a convocatoria aprobada y confirmada (HU-20/21, Fase 04).
+  OPEN_CALL
+  /// Lista de inscritos Moodle cargada por el equipo (HU-25).
+  MOODLE_LIST
+  /// Código de acceso Moodle (HU-25).
+  MOODLE_ACCESS_CODE
+  /// Alta manual desde el panel (Fase 06).
+  MANUAL
+}
+
+model Enrollment {
+  id            String           @id @default(uuid()) @db.Uuid
+  userId        String           @map("user_id") @db.Uuid
+  offerId       String           @map("offer_id") @db.Uuid
+  status        EnrollmentStatus @default(ACTIVE)
+  origin        EnrollmentOrigin @default(NAS)
+  source        EnrollmentSource
+  /// Fase 04: postulación que originó la inscripción (beca/convocatoria). FK en esa fase.
+  applicationId String?          @unique @map("application_id") @db.Uuid
+  /// Cuándo obtuvo acceso (pago confirmado, alta gratuita, vinculación Moodle).
+  activatedAt   DateTime?        @map("activated_at") @db.Timestamptz(3)
+  completedAt   DateTime?        @map("completed_at") @db.Timestamptz(3)
+  suspendedAt   DateTime?        @map("suspended_at") @db.Timestamptz(3)
+  cancelledAt   DateTime?        @map("cancelled_at") @db.Timestamptz(3)
+  /// Motivo del último cambio de estado (suspensión, cancelación).
+  statusReason  String?          @map("status_reason") @db.VarChar(500)
+  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user         User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  offer        Offer                   @relation(fields: [offerId], references: [id], onDelete: Restrict)
+  attendances  SessionAttendance[]
+  finalProject FinalProjectSubmission?
+
+  @@unique([userId, offerId])
+  @@index([offerId, status])
+  @@map("enrollments")
+}
+
+/// Origen del registro de asistencia (HU-30): la propia persona o el equipo (manual / pase de lista).
+enum AttendanceSource {
+  PARTICIPANT
+  MANUAL
+}
+
+/// Registro de asistencia a una sesión (HU-18 / HU-30). No editable ni duplicable.
+model SessionAttendance {
+  id           String           @id @default(uuid()) @db.Uuid
+  sessionId    String           @map("session_id") @db.Uuid
+  userId       String           @map("user_id") @db.Uuid
+  enrollmentId String           @map("enrollment_id") @db.Uuid
+  source       AttendanceSource @default(PARTICIPANT)
+  /// "¿Qué te llevas de esta sesión?" (máx. 500).
+  comment      String?          @db.VarChar(500)
+  registeredAt DateTime         @default(now()) @map("registered_at") @db.Timestamptz(3)
+  /// Fase 06: integrante del equipo que la marcó manualmente y su motivo.
+  recordedById String?          @map("recorded_by_id") @db.Uuid
+  manualReason String?          @map("manual_reason") @db.VarChar(500)
+  createdAt    DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  session    OfferSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user       User         @relation("AttendanceParticipant", fields: [userId], references: [id], onDelete: Cascade)
+  enrollment Enrollment   @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  recordedBy User?        @relation("AttendanceRecordedBy", fields: [recordedById], references: [id], onDelete: SetNull)
+
+  @@unique([sessionId, userId])
+  @@index([userId])
+  @@index([enrollmentId])
+  @@map("session_attendances")
+}
+
+/// Entrega del proyecto final (HU-17): un archivo por inscripción, reemplazable hasta la fecha límite.
+model FinalProjectSubmission {
+  id           String   @id @default(uuid()) @db.Uuid
+  enrollmentId String   @unique @map("enrollment_id") @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  offerId      String   @map("offer_id") @db.Uuid
+  /// Archivo PRIVADO en storage (URL firmada solo para su autor y el equipo).
+  fileKey      String   @map("file_key") @db.VarChar(500)
+  fileName     String   @map("file_name") @db.VarChar(255)
+  mimeType     String   @map("mime_type") @db.VarChar(120)
+  sizeBytes    Int      @map("size_bytes")
+  submittedAt  DateTime @default(now()) @map("submitted_at") @db.Timestamptz(3)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  enrollment Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  offer      Offer      @relation(fields: [offerId], references: [id], onDelete: Cascade)
+
+  @@index([offerId])
+  @@map("final_project_submissions")
+}
+
+// --- Biblioteca digital (HU-09) -----------------------------------------------
+
+/// Tipos de recurso de la biblioteca (chips de filtro de HU-09).
+enum LibraryResourceType {
+  PDF
+  ARTICLE
+  BOOK
+  VIDEO
+  AUDIO
+  EXTERNAL
+  COURSE_MATERIAL
+}
+
+/// "Público" (cualquier persona autenticada) o "exclusivo de un curso" (solo sus inscritos).
+enum LibraryAudience {
+  ALL_REGISTERED
+  OFFER_ENROLLED
+}
+
+model LibraryResource {
+  id           String              @id @default(uuid()) @db.Uuid
+  /// Clave estable (seed / panel).
+  slug         String              @unique @db.VarChar(160)
+  title        String              @db.VarChar(200)
+  description  String?             @db.Text
+  type         LibraryResourceType
+  author       String?             @db.VarChar(200)
+  /// Palabras clave para el buscador.
+  keywords     String[]
+  /// Miniatura: key de storage o URL https absoluta (imagen de difusión).
+  thumbnailKey String?             @map("thumbnail_key") @db.VarChar(500)
+  /// Archivo PRIVADO en storage (URL firmada al abrirlo).
+  fileKey      String?             @map("file_key") @db.VarChar(500)
+  fileName     String?             @map("file_name") @db.VarChar(255)
+  mimeType     String?             @map("mime_type") @db.VarChar(120)
+  sizeBytes    Int?                @map("size_bytes")
+  /// Enlace externo (alternativa al archivo; se abre en pestaña nueva).
+  url          String?             @db.VarChar(1000)
+  audience     LibraryAudience     @default(ALL_REGISTERED)
+  /// Obligatoria si audience = OFFER_ENROLLED.
+  offerId      String?             @map("offer_id") @db.Uuid
+  /// "Material recomendado" del Dashboard (HU-06).
+  featured     Boolean             @default(false)
+  visibility   ContentVisibility   @default(HIDDEN)
+  publishAt    DateTime?           @map("publish_at") @db.Timestamptz(3)
+  createdAt    DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  offer           Offer?           @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  moduleResources ModuleResource[]
+
+  @@index([visibility, type])
+  @@index([offerId])
+  @@map("library_resources")
+}
+
+// --- Notificaciones (HU-13) ---------------------------------------------------
+
+/// Grupo (ícono) de la notificación en el panel de la campana.
+enum NotificationCategory {
+  /// Formación y sesiones
+  TRAINING
+  /// Postulaciones y becas
+  APPLICATIONS
+  /// Pagos y cuotas
+  PAYMENTS
+  /// Cuenta y avisos generales
+  GENERAL
+}
+
+enum NotificationPriority {
+  NORMAL
+  /// Fijada al inicio hasta regularizar (cobro fallido, mora).
+  HIGH
+}
+
+/// Eventos notificables. Se declaran todos desde la Fase 03 (las Fases 04–06 los emiten).
+enum NotificationType {
+  // Formación y sesiones (Fase 03 / 06)
+  ENROLLMENT_CONFIRMED
+  ATTENDANCE_OPEN
+  WHATSAPP_GROUP_AVAILABLE
+  MATERIAL_PUBLISHED
+  RECORDING_PUBLISHED
+  SESSION_RESCHEDULED
+  SESSION_CANCELLED
+  MOODLE_ENROLLMENT_LINKED
+  // Postulaciones y becas (Fase 04)
+  APPLICATION_SUBMITTED
+  APPLICATION_STATUS_CHANGED
+  INTERVIEW_SCHEDULED
+  INTERVIEW_REMINDER
+  SCHOLARSHIP_APPROVED
+  APPLICATION_EXPIRED
+  // Pagos (Fase 05)
+  PAYMENT_CONFIRMED
+  BALANCE_DUE_REMINDER
+  INSTALLMENT_UPCOMING
+  INSTALLMENT_PAID
+  INSTALLMENT_FAILED
+  PLAN_DELINQUENT
+  TRANSFER_VALIDATED
+  TRANSFER_REJECTED
+  // General
+  GENERAL
+}
+
+enum NotificationEmailStatus {
+  /// Solo portal (p. ej. "En revisión", HU-13).
+  NOT_REQUESTED
+  PENDING
+  SENT
+  FAILED
+}
+
+model Notification {
+  id          String                  @id @default(uuid()) @db.Uuid
+  userId      String                  @map("user_id") @db.Uuid
+  type        NotificationType
+  category    NotificationCategory
+  priority    NotificationPriority    @default(NORMAL)
+  title       String                  @db.VarChar(200)
+  body        String                  @db.Text
+  /// Botón hacia la sección relacionada (ruta relativa del frontend, p. ej. /portal/asistencia/{id}).
+  actionLabel String?                 @map("action_label") @db.VarChar(80)
+  actionPath  String?                 @map("action_path") @db.VarChar(500)
+  /// Ids relacionados (offerId, sessionId, applicationId, paymentId...).
+  data        Json?
+  /// Idempotencia: la misma clave no se notifica dos veces a la misma persona.
+  dedupeKey   String?                 @map("dedupe_key") @db.VarChar(200)
+  /// Fijada al inicio del panel (prioridad alta sin regularizar). resolve() la desfija.
+  pinned      Boolean                 @default(false)
+  readAt      DateTime?               @map("read_at") @db.Timestamptz(3)
+  /// Prioridad alta: deja de estar fijada al regularizarse (Fase 05 llama a resolve()).
+  resolvedAt  DateTime?               @map("resolved_at") @db.Timestamptz(3)
+  emailStatus NotificationEmailStatus @default(NOT_REQUESTED) @map("email_status")
+  emailSentAt DateTime?               @map("email_sent_at") @db.Timestamptz(3)
+  createdAt   DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dedupeKey])
+  @@index([userId, readAt])
+  @@index([userId, pinned, createdAt])
+  @@map("notifications")
 }

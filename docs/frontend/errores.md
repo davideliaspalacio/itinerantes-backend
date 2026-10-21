@@ -76,3 +76,30 @@ Guía de pantallas: [`fase-02-oferta.md`](fase-02-oferta.md).
 Validación del catálogo (`400 VALIDATION_ERROR`): `q` con menos de 3 caracteres
 (`details[].field = "q"`, `code = "MIN_LENGTH"`); `type`, `status`, `modality`, `topic` o `topics`
 fuera del enum (`IS_ENUM` / `IS_IN`).
+
+### Fase 03 — Portal del participante
+
+Guía de pantallas: [`fase-03-portal.md`](fase-03-portal.md).
+
+| `code` | HTTP | Mensaje por defecto | `meta` | Cuándo ocurre / qué hacer en la UI |
+|---|---|---|---|---|
+| `ENROLLMENT_REQUIRED` | 403 | No estás inscrito en esta formación. | `offerSlug`, `enrollmentStatus` | Aula, materiales, sesiones, asistencia o proyecto final sin inscripción con acceso (HU-07/08/12/17/18) → "No autorizado" + enlace a la ficha. Sin enlaces expuestos. |
+| `ENROLLMENT_SUSPENDED` | 403 | Tu acceso a esta formación está suspendido. Regulariza tu pago para recuperarlo. | `offerSlug` | Inscripción suspendida por mora (HU-08/24) → aviso para regularizar. |
+| `ENROLLMENT_ALREADY_EXISTS` | 409 | Ya estás inscrito en esta formación. | `enrollmentStatus` | `POST /me/enrollments` repetido → "Ya estás inscrito · Ir a mi aula". |
+| `ENROLLMENT_NOT_FREE` | 422 | Esta oferta no admite inscripción directa gratuita. | `requiredAction` | Oferta de pago / convocatoria / Moodle → usar `ENROLL_AND_PAY`, `APPLY_OPEN_CALL` o `ACTIVATE_MOODLE_ACCESS`. |
+| `ENROLLMENT_CLOSED` | 422 | Las inscripciones para esta oferta no están abiertas. | `reason`, `availableFrom` | `reason` = `ENROLLMENT_NOT_OPEN_YET` / `ENROLLMENT_CLOSED` / `OFFER_FINISHED` (mismos textos que la ficha). |
+| `OFFER_SOLD_OUT` | 409 | Cupo agotado. | — | Inscripción gratuita sin cupo. |
+| `SESSION_CANCELLED` | 422 | Esta sesión fue cancelada. | `opensAt`, `closesAt`, `registeredAt` | Registrar asistencia de una sesión cancelada. |
+| `ATTENDANCE_NOT_OPEN_YET` | 422 | El registro de asistencia se abre al terminar la sesión. | `opensAt`, `closesAt`, `registeredAt` | HU-18 antes del fin de la sesión. |
+| `ATTENDANCE_WINDOW_CLOSED` | 422 | El registro de asistencia para esta sesión está cerrado. | `opensAt`, `closesAt`, `registeredAt` | HU-18 con la ventana vencida → "No registrada"; pedir corrección al equipo. |
+| `ATTENDANCE_ALREADY_REGISTERED` | 409 | Tu asistencia a esta sesión ya está registrada. | `opensAt`, `closesAt`, `registeredAt` | Doble envío o marcada por el equipo → "Asistencia registrada el …". |
+| `RESOURCE_FILE_UNAVAILABLE` | 404 | El archivo no está disponible. Intenta de nuevo más tarde. | — | Recurso sin archivo ni enlace (HU-08/09). |
+| `FINAL_PROJECT_NOT_AVAILABLE` | 422 | Esta formación no recibe entregas de proyecto final. | — | Curso/taller o diplomado sin carga habilitada. |
+| `FINAL_PROJECT_DEADLINE_PASSED` | 422 | La fecha límite de entrega del proyecto final ya pasó. | `dueAt` | Carga después de la fecha límite (solo lectura). |
+| `FINAL_PROJECT_INVALID_FILE` | 422 | El archivo debe ser PDF, DOCX, PPTX o ZIP de máximo 20 MB. | — | Tipo o tamaño no permitido (declarado o real). |
+| `FINAL_PROJECT_UPLOAD_NOT_FOUND` | 422 | No encontramos el archivo subido. Vuelve a subirlo. | — | Se confirmó una `key` que no existe en storage o no es de la persona. |
+
+Validación (`400 VALIDATION_ERROR`): asistencia sin `attended: true` (`details[].code = "EQUALS"`) o
+comentario > 500 (`MAX_LENGTH`); calendario con rango inválido (`INVALID_RANGE`) o > 62 días
+(`RANGE_TOO_LARGE`); filtros fuera del enum (`IS_ENUM` / `IS_IN`). Un id de ruta que no es UUID
+responde `404 NOT_FOUND`.

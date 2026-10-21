@@ -134,6 +134,68 @@ export const ERROR_CODES = {
     status: HttpStatus.NOT_FOUND,
     message: 'Esta oferta ya no está disponible.',
   },
+
+  // --- Fase 03: Portal del participante (HU-06–10, 12, 13, 17, 18) ---
+  ENROLLMENT_REQUIRED: {
+    status: HttpStatus.FORBIDDEN,
+    message: 'No estás inscrito en esta formación.',
+  },
+  ENROLLMENT_SUSPENDED: {
+    status: HttpStatus.FORBIDDEN,
+    message: 'Tu acceso a esta formación está suspendido. Regulariza tu pago para recuperarlo.',
+  },
+  ENROLLMENT_ALREADY_EXISTS: {
+    status: HttpStatus.CONFLICT,
+    message: 'Ya estás inscrito en esta formación.',
+  },
+  ENROLLMENT_NOT_FREE: {
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    message: 'Esta oferta no admite inscripción directa gratuita.',
+  },
+  ENROLLMENT_CLOSED: {
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    message: 'Las inscripciones para esta oferta no están abiertas.',
+  },
+  OFFER_SOLD_OUT: {
+    status: HttpStatus.CONFLICT,
+    message: 'Cupo agotado.',
+  },
+  SESSION_CANCELLED: {
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    message: 'Esta sesión fue cancelada.',
+  },
+  ATTENDANCE_NOT_OPEN_YET: {
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    message: 'El registro de asistencia se abre al terminar la sesión.',
+  },
+  ATTENDANCE_WINDOW_CLOSED: {
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    message: 'El registro de asistencia para esta sesión está cerrado.',
+  },
+  ATTENDANCE_ALREADY_REGISTERED: {
+    status: HttpStatus.CONFLICT,
+    message: 'Tu asistencia a esta sesión ya está registrada.',
+  },
+  RESOURCE_FILE_UNAVAILABLE: {
+    status: HttpStatus.NOT_FOUND,
+    message: 'El archivo no está disponible. Intenta de nuevo más tarde.',
+  },
+  FINAL_PROJECT_NOT_AVAILABLE: {
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    message: 'Esta formación no recibe entregas de proyecto final.',
+  },
+  FINAL_PROJECT_DEADLINE_PASSED: {
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    message: 'La fecha límite de entrega del proyecto final ya pasó.',
+  },
+  FINAL_PROJECT_INVALID_FILE: {
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    message: 'El archivo debe ser PDF, DOCX, PPTX o ZIP de máximo 20 MB.',
+  },
+  FINAL_PROJECT_UPLOAD_NOT_FOUND: {
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    message: 'No encontramos el archivo subido. Vuelve a subirlo.',
+  },
 } as const satisfies Record<string, ErrorDefinition>;
 
 export type ErrorCode = keyof typeof ERROR_CODES;

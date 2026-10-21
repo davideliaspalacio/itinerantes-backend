@@ -7,3 +7,4 @@ process.env.DATABASE_URL ??= 'postgresql://openapi:openapi@localhost:5432/openap
 process.env.JWT_ACCESS_SECRET ??= 'openapi-export-placeholder-secret-0123456789';
 process.env.LOG_LEVEL = 'silent';
 process.env.MAIL_DRIVER = 'console';
+process.env.SCHEDULER_ENABLED = 'false';

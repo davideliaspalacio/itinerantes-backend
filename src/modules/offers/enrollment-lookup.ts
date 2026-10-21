@@ -1,16 +1,12 @@
-import { Injectable } from '@nestjs/common';
-
 /**
  * Punto de extensión para el badge "Inscrito" (HU-15/16) y el cupo ("Cupo agotado", HU-16/22).
  *
- * Fase 02 no tiene inscripciones: `NoEnrollmentLookup` responde "no inscrito" y 0 inscritos.
- * La Fase 03 (Enrollment) debe proveer una implementación real y registrarla en OffersModule:
+ * Implementación real (Fase 03): `EnrollmentLookupService` (src/modules/enrollments), registrada en
+ * OffersModule con `{ provide: OFFER_ENROLLMENT_LOOKUP, useExisting: EnrollmentLookupService }`.
+ * Las pruebas pueden sustituirla con `overrideProvider(OFFER_ENROLLMENT_LOOKUP)`.
  *
- * ```ts
- * { provide: OFFER_ENROLLMENT_LOOKUP, useExisting: EnrollmentsLookupService }
- * ```
- *
- * Contrato: "activa" = la inscripción da acceso al Aula (incluye las de origen Moodle vinculadas).
+ * Contrato: "activa" = la inscripción da acceso al Aula (ACTIVE o COMPLETED, incluidas las de
+ * origen Moodle vinculadas); el cupo lo ocupan ACTIVE, COMPLETED y SUSPENDED.
  */
 export interface OfferEnrollmentLookup {
   /** Ids (de `offerIds`) en los que `userId` tiene una inscripción activa. */
@@ -20,14 +16,3 @@ export interface OfferEnrollmentLookup {
 }
 
 export const OFFER_ENROLLMENT_LOOKUP = Symbol('OFFER_ENROLLMENT_LOOKUP');
-
-@Injectable()
-export class NoEnrollmentLookup implements OfferEnrollmentLookup {
-  activeOfferIdsForUser(): Promise<Set<string>> {
-    return Promise.resolve(new Set<string>());
-  }
-
-  countSeatsTaken(): Promise<Map<string, number>> {
-    return Promise.resolve(new Map<string, number>());
-  }
-}

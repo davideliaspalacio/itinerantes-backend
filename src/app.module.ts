@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { LoggerModule } from 'nestjs-pino';
 import { Env, validateEnv } from './config/env.schema';
@@ -13,9 +14,16 @@ import { MailModule } from './infra/mail/mail.module';
 import { PrismaModule } from './infra/prisma/prisma.module';
 import { StorageModule } from './infra/storage/storage.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { CalendarModule } from './modules/calendar/calendar.module';
+import { ClassroomModule } from './modules/classroom/classroom.module';
 import { ContactModule } from './modules/contact/contact.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { EnrollmentsModule } from './modules/enrollments/enrollments.module';
 import { HealthModule } from './modules/health/health.module';
+import { LibraryModule } from './modules/library/library.module';
+import { LiveSessionsModule } from './modules/live-sessions/live-sessions.module';
 import { LocationsModule } from './modules/locations/locations.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 import { OffersModule } from './modules/offers/offers.module';
 import { UsersModule } from './modules/users/users.module';
 
@@ -58,6 +66,9 @@ import { UsersModule } from './modules/users/users.module';
       }),
     }),
 
+    // Tareas programadas en proceso (Fase 03). Cada job respeta SCHEDULER_ENABLED.
+    ScheduleModule.forRoot(),
+
     // Infraestructura (global)
     PrismaModule,
     MailModule,
@@ -71,6 +82,14 @@ import { UsersModule } from './modules/users/users.module';
     AuthModule,
     ContactModule,
     OffersModule,
+    // Fase 03 — Portal del participante
+    NotificationsModule,
+    EnrollmentsModule,
+    LiveSessionsModule,
+    ClassroomModule,
+    CalendarModule,
+    LibraryModule,
+    DashboardModule,
   ],
   providers: [
     // Orden: rate limit → autenticación (respeta @Public()) → roles (@Roles()).

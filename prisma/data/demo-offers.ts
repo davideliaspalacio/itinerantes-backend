@@ -128,6 +128,12 @@ export const DEMO_OFFERS: DemoOffer[] = [
       // PRIVADO (solo inscritos, Fase 03). Nunca debe salir en la ficha pública.
       whatsappGroupUrl: 'https://chat.whatsapp.com/DemoDiplomadoEcotecnologias',
       whatsappVisibleFrom: cdmxToUtc('2026-10-31', '00:00'),
+      // Aula (Fase 03, HU-17) — PRIVADO: solo inscritos.
+      classroomWelcome:
+        '¡Te damos la bienvenida al Diplomado! Antes de la primera sesión únete al grupo de WhatsApp, revisa la presentación del Módulo 1 y ten a la mano una libreta para tus diagnósticos.',
+      finalProjectSubmissionEnabled: true,
+      finalProjectGuidelines:
+        'Diseña una ecotecnología para tu vivienda o comunidad: diagnóstico, propuesta, dimensionamiento y plan de implementación. Entrega en PDF, DOCX, PPTX o ZIP (máx. 20 MB) y preséntala en la sesión final.',
     },
     teacherSlugs: ['ana-solis-rios', 'tomas-ek-canche'],
     modules: [
@@ -407,8 +413,14 @@ export const DEMO_OFFERS: DemoOffer[] = [
       priceUsdCents: 8_500,
     },
     teacherSlugs: ['ana-solis-rios'],
-    modules: [],
-    generateSessions: false,
+    // Fase 03: módulo y sesiones pasadas para el historial, grabaciones y asistencia demo.
+    modules: [
+      {
+        title: 'Contenido',
+        description: 'Tratamiento primario, secundario y terciario; casos de estudio.',
+      },
+    ],
+    generateSessions: true,
   },
   {
     data: {
