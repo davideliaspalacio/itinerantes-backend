@@ -51,6 +51,11 @@ pnpm dev
 |---|---|---|
 | Participante (`PARTICIPANT`) | `participante@example.com` | `Demo12345` |
 | Admin (`SUPER_ADMIN`) | `admin@example.com` | `Admin12345` |
+| Coordinación académica (`ACADEMIC_COORDINATOR`) | `coordinacion@example.com` | `Demo12345` |
+| Comité de revisión (`REVIEW_COMMITTEE`) | `comite@example.com` | `Demo12345` |
+| Comité con decisión (`REVIEW_DECIDER`) | `comite.decision@example.com` | `Demo12345` |
+| Seguimiento (`FOLLOW_UP`) | `seguimiento@example.com` | `Demo12345` |
+| Administración y finanzas (`FINANCE`) | `finanzas@example.com` | `Demo12345` |
 
 Desde la Fase 03 el participante demo tiene inscripciones, asistencias y notificaciones de ejemplo
 (ver `docs/frontend/fase-03-portal.md` → "Datos demo"). El admin demo entra al panel (Fase 06,

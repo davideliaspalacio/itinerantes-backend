@@ -104,6 +104,42 @@ const DEMO_USERS = [
     password: 'Admin12345',
     roles: [Role.SUPER_ADMIN],
   },
+  // Un usuario por rol del equipo (para probar permisos del panel, Fase 06).
+  {
+    email: 'coordinacion@example.com',
+    username: 'coordinacion.demo',
+    fullName: 'Coordinación Académica Demo',
+    password: 'Demo12345',
+    roles: [Role.PARTICIPANT, Role.ACADEMIC_COORDINATOR],
+  },
+  {
+    email: 'comite@example.com',
+    username: 'comite.demo',
+    fullName: 'Comité de Revisión Demo',
+    password: 'Demo12345',
+    roles: [Role.PARTICIPANT, Role.REVIEW_COMMITTEE],
+  },
+  {
+    email: 'comite.decision@example.com',
+    username: 'comite.decision.demo',
+    fullName: 'Comité con Decisión Demo',
+    password: 'Demo12345',
+    roles: [Role.PARTICIPANT, Role.REVIEW_DECIDER],
+  },
+  {
+    email: 'seguimiento@example.com',
+    username: 'seguimiento.demo',
+    fullName: 'Seguimiento Demo',
+    password: 'Demo12345',
+    roles: [Role.PARTICIPANT, Role.FOLLOW_UP],
+  },
+  {
+    email: 'finanzas@example.com',
+    username: 'finanzas.demo',
+    fullName: 'Administración y Finanzas Demo',
+    password: 'Demo12345',
+    roles: [Role.PARTICIPANT, Role.FINANCE],
+  },
 ];
 
 async function seedDemoUsers(prisma: PrismaClient): Promise<void> {
