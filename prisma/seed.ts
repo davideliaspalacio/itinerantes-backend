@@ -722,7 +722,15 @@ async function seedSiteMetrics(prisma: PrismaClient): Promise<void> {
  * nunca pisa lo editado en el panel (seguro en producción). En BDs migradas ya existen (los inserta la
  * migración `scholarship_types`).
  */
+/**
+ * Solo siembra los tipos por defecto si el catálogo está vacío (BD nueva). Así, si el equipo borra
+ * un tipo desde el panel, no reaparece en el siguiente arranque.
+ */
 async function seedScholarshipTypes(prisma: PrismaClient): Promise<void> {
+  if ((await prisma.scholarshipType.count()) > 0) {
+    console.log('  Catálogo de tipos de beca ya existe; no se modifica.');
+    return;
+  }
   const { count } = await prisma.scholarshipType.createMany({
     data: DEFAULT_SCHOLARSHIP_TYPES.map((type) => ({ ...type })),
     skipDuplicates: true,
