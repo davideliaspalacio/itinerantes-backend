@@ -9,6 +9,7 @@ export const SCHOLARSHIP_TYPE_SELECT = {
   minPercent: true,
   maxPercent: true,
   requiresInterview: true,
+  maxRecipients: true,
   active: true,
   sortOrder: true,
 } as const satisfies Prisma.ScholarshipTypeSelect;
@@ -22,6 +23,7 @@ export const OFFER_SCHOLARSHIP_TYPES_RELATION = {
     minPercent: true,
     maxPercent: true,
     sortOrder: true,
+    maxRecipients: true,
     scholarshipType: { select: SCHOLARSHIP_TYPE_SELECT },
   },
 } as const satisfies Prisma.Offer$scholarshipTypesArgs;

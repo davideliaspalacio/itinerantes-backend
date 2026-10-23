@@ -17,6 +17,8 @@ export interface ScholarshipTypeDef {
   minPercent: number;
   maxPercent: number;
   requiresInterview: boolean;
+  /** Cupo global del tipo (null = sin límite). */
+  maxRecipients: number | null;
   active: boolean;
   sortOrder: number;
 }
@@ -26,6 +28,8 @@ export interface OfferScholarshipTypeLink {
   minPercent: number | null;
   maxPercent: number | null;
   sortOrder: number | null;
+  /** Tope adicional de becas de este tipo solo en esta oferta (null = sin tope propio). */
+  maxRecipients: number | null;
   scholarshipType: ScholarshipTypeDef;
 }
 
@@ -33,6 +37,8 @@ export interface OfferScholarshipTypeLink {
 export interface ScholarshipOption extends ScholarshipTypeDef {
   /** El rango viene de la oferta (override) y no del tipo. */
   rangeOverridden: boolean;
+  /** Tope propio de la oferta (`maxRecipients` es el global del tipo). */
+  offerMaxRecipients: number | null;
 }
 
 /** Resumen que acompaña a cualquier `scholarshipTypeId` en las respuestas. */
@@ -105,7 +111,9 @@ export function percentRangeIssues(minPercent: number, maxPercent: number): Perc
 }
 
 /** Rango efectivo de un tipo en una oferta (override de la oferta o el del tipo). */
-export function effectiveRange(link: Omit<OfferScholarshipTypeLink, 'sortOrder'>): {
+export function effectiveRange(
+  link: Pick<OfferScholarshipTypeLink, 'minPercent' | 'maxPercent' | 'scholarshipType'>,
+): {
   minPercent: number;
   maxPercent: number;
 } {
@@ -138,6 +146,7 @@ export function scholarshipOptions(
       ...effectiveRange(link),
       sortOrder: link.sortOrder ?? link.scholarshipType.sortOrder,
       rangeOverridden: link.minPercent !== null || link.maxPercent !== null,
+      offerMaxRecipients: link.maxRecipients,
     }))
     .sort(compareScholarshipOptions);
 }

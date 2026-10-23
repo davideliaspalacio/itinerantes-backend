@@ -25,6 +25,13 @@ import {
   SCHOLARSHIP_TYPE_SELECT,
 } from '../../scholarship-types/scholarship-type.select';
 import { ApplicationWorkflowService } from '../application-workflow.service';
+import { ScholarshipTypesService } from '../../scholarship-types/scholarship-types.service';
+import {
+  flattenOfferQuota,
+  type OfferQuotaState,
+  SCHOLARSHIP_SEAT_STATUSES,
+  UNLIMITED_OFFER_QUOTA,
+} from '../../scholarship-types/policies/scholarship-quota.policy';
 import { statusChangeMessage } from '../policies/application-messages.policy';
 import {
   balanceAfterScholarship,
@@ -100,6 +107,7 @@ export class AdminApplicationsService {
     private readonly workflow: ApplicationWorkflowService,
     private readonly notifications: NotificationsService,
     private readonly audit: AuditService,
+    private readonly scholarshipTypes: ScholarshipTypesService,
   ) {}
 
   // --- Bandeja ---------------------------------------------------------------------------------------
@@ -350,6 +358,7 @@ export class AdminApplicationsService {
     }
     let assignedPercent: number | null = null;
     let assigned: ReturnType<typeof toScholarshipTypeSummary> | null = null;
+    let assignedFull = false;
     if (app.kind === 'SCHOLARSHIP') {
       const assignment = resolveScholarshipAssignment(
         app.offer.scholarshipTypes,
@@ -359,6 +368,15 @@ export class AdminApplicationsService {
       if (!assignment.ok) throw AppException.validation([assignment.issue]);
       assigned = toScholarshipTypeSummary(assignment.option);
       assignedPercent = assignment.percent;
+      const quotas = await this.scholarshipTypes.offerQuotas(
+        app.offerId,
+        app.offer.scholarshipTypes,
+      );
+      // Sin lock (solo vista previa): al aprobar se vuelve a verificar con bloqueo de fila.
+      assignedFull =
+        app.status !== 'EXPIRED' &&
+        !(SCHOLARSHIP_SEAT_STATUSES as readonly string[]).includes(app.status) &&
+        (quotas.get(assignment.option.id)?.isFull ?? false);
     }
     const balanceCents =
       app.kind === 'SCHOLARSHIP'
@@ -386,7 +404,11 @@ export class AdminApplicationsService {
       balance,
       responseDueAt: responseDueAt.toISOString(),
       interviewRequired: required,
-      blockedReason: required && !hasInterview ? 'APPLICATION_INTERVIEW_REQUIRED' : null,
+      blockedReason: assignedFull
+        ? 'SCHOLARSHIP_TYPE_FULL'
+        : required && !hasInterview
+          ? 'APPLICATION_INTERVIEW_REQUIRED'
+          : null,
       email: { subject: message.title, body: withMessage(message.body, query.message) },
     };
   }
@@ -630,12 +652,17 @@ export class AdminApplicationsService {
     const priceCents =
       row.originalAmountCents ??
       (row.currency === 'USD' ? row.offer.priceUsdCents : row.offer.priceMxnCents);
+    const quotas: Map<string, OfferQuotaState> =
+      row.kind === 'SCHOLARSHIP'
+        ? await this.scholarshipTypes.offerQuotas(row.offerId, links)
+        : new Map<string, OfferQuotaState>();
     const scholarshipTypes =
       row.kind === 'SCHOLARSHIP'
         ? scholarshipOptions(links, { activeOnly: false }).map((option) => ({
             scholarshipTypeId: option.id,
             scholarshipType: toScholarshipTypeSummary(option),
             active: option.active,
+            quota: flattenOfferQuota(quotas.get(option.id) ?? UNLIMITED_OFFER_QUOTA),
             balanceAtMaxPercent: money(
               balanceAfterScholarship(priceCents, option.maxPercent),
               row.currency,

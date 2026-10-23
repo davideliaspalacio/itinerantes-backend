@@ -165,13 +165,15 @@ el Aula (Fase 03) solo para inscritos.
                            "minPercent": 10, "maxPercent": 10, "requiresInterview": false },
       "description": null,
       "estimatedScholarship": { "minAmountCents": 102000, "maxAmountCents": 102000, "currency": "MXN" },
-      "estimatedBalance": { "minAmountCents": 918000, "maxAmountCents": 918000, "currency": "MXN" } },
+      "estimatedBalance": { "minAmountCents": 918000, "maxAmountCents": 918000, "currency": "MXN" },
+      "availableRecipients": null, "isFull": false },
     { "scholarshipTypeId": "5e1f…",
       "scholarshipType": { "id": "5e1f…", "key": "SPECIAL", "name": "Beca especial",
                            "minPercent": 71, "maxPercent": 80, "requiresInterview": true },
       "description": null,
       "estimatedScholarship": { "minAmountCents": 724200, "maxAmountCents": 816000, "currency": "MXN" },
-      "estimatedBalance": { "minAmountCents": 204000, "maxAmountCents": 295800, "currency": "MXN" } }
+      "estimatedBalance": { "minAmountCents": 204000, "maxAmountCents": 295800, "currency": "MXN" },
+      "availableRecipients": 0, "isFull": true }
   ]
 }
 ```
@@ -181,12 +183,17 @@ el Aula (Fase 03) solo para inscritos.
 - Muestra cada tipo con su porcentaje (`minPercent`; si `min ≠ max`, rango "71–80%") y el monto
   estimado (rango si `min ≠ max`). Leyenda: "el tipo de beca final lo asigna el equipo".
 - `requiresInterview: true` → aviso "Requiere entrevista por Zoom".
+- **Cupo** (cuántas personas pueden recibir esa beca): `availableRecipients` = lugares que quedan
+  (mínimo entre el cupo global del tipo y el de esta oferta; `null` = sin límite) e `isFull`. Un tipo
+  agotado **sigue apareciendo**: márcalo "Agotado" (deshabilitado) — no se puede solicitar en una
+  postulación nueva. Opcional: "Quedan N" cuando `availableRecipients` es bajo.
 - El badge de la tarjeta (`scholarship` en el catálogo y `minPercent`/`maxPercent` aquí) es el rango
   global de los tipos activos de la oferta. Una oferta sin tipos activos no ofrece beca
   (`scholarship: null`, `scholarshipDetails: null`).
 - Catálogo general de tipos vigentes (para filtros o textos informativos):
   `GET /api/v1/scholarship-types` (público, caché 5 min) →
-  `{ data: [{ id, key, name, description, minPercent, maxPercent, requiresInterview, sortOrder }] }`.
+  `{ data: [{ id, key, name, description, minPercent, maxPercent, requiresInterview, sortOrder,
+  availableRecipients, isFull }] }` (aquí el cupo es el global del tipo).
 
 ### Acciones (`actions[]`) — CTA calculados por el backend
 

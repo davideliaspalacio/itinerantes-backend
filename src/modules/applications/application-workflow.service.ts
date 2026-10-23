@@ -25,6 +25,7 @@ import {
   responseDeadline,
 } from './policies/application-rules.policy';
 import { OFFER_SCHOLARSHIP_TYPES_RELATION } from '../scholarship-types/scholarship-type.select';
+import { lockAndAssertScholarshipQuota } from '../scholarship-types/scholarship-quota';
 import { canTransition, isAwaitingResponse } from './policies/application-status.policy';
 
 /** Quién provoca el cambio: participante (su id), integrante del equipo (su id) o el sistema. */
@@ -323,6 +324,15 @@ export class ApplicationWorkflowService {
           dueReminderSentAt: null,
         },
         afterUpdate: async (tx, app) => {
+          // Cupo del tipo de beca (global y de la oferta), con bloqueo de fila: dos aprobaciones
+          // concurrentes con 1 cupo → solo una pasa (409 SCHOLARSHIP_TYPE_FULL a la otra).
+          if (assignedScholarshipTypeId) {
+            await lockAndAssertScholarshipQuota(tx, {
+              scholarshipTypeId: assignedScholarshipTypeId,
+              offerId: app.offerId,
+              excludeApplicationId: app.id,
+            });
+          }
           if (responseKind === 'PAYMENT') await this.reserveEnrollment(tx, app, now);
         },
       },
@@ -390,6 +400,14 @@ export class ApplicationWorkflowService {
         note: reason,
         data,
         afterUpdate: async (tx, app) => {
+          // Reactivar una Vencida vuelve a ocupar la beca: debe haber cupo.
+          if (app.assignedScholarshipTypeId) {
+            await lockAndAssertScholarshipQuota(tx, {
+              scholarshipTypeId: app.assignedScholarshipTypeId,
+              offerId: app.offerId,
+              excludeApplicationId: app.id,
+            });
+          }
           if (payment) await this.reserveEnrollment(tx, app, now);
         },
       },

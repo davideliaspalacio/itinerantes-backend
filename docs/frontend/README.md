@@ -53,6 +53,16 @@ Códigos nuevos: `SCHOLARSHIP_TYPE_KEY_TAKEN` (409), `SCHOLARSHIP_TYPE_IN_USE` (
 `SCHOLARSHIP_TYPE_NOT_FOUND` / `SCHOLARSHIP_TYPE_INACTIVE` (ver [`errores.md`](errores.md)).
 `assignedPercent` se mantiene: es el % final que fija el comité dentro del rango del tipo en la oferta.
 
+**Cupo máximo por beca** (aditivo): cada tipo puede tener `maxRecipients` (cupo global; `null` = sin
+límite) y cada oferta un tope propio (`scholarshipTypes[].maxRecipients` en el paso 4). En lo público
+(`GET /scholarship-types`, ficha, formulario y "Becas disponibles") cada tipo trae `availableRecipients`
+(`null` = sin límite) e `isFull`: un tipo agotado se muestra como "Agotado" y no se puede solicitar
+(`422`, `details[].code = SCHOLARSHIP_TYPE_FULL`). En el panel: `maxRecipients`, `usedRecipients`,
+`availableRecipients`, `isFull` en `/admin/scholarship-types` y `quota { typeMaxRecipients,
+typeUsedRecipients, offerMaxRecipients, offerUsedRecipients, availableRecipients, isFull }` en el paso 4 y
+en `decision.scholarshipTypes[]`. Aprobar sin cupo → `409 SCHOLARSHIP_TYPE_FULL` (`meta.scope` `TYPE` /
+`OFFER`). Ver [`fase-06-admin.md`](fase-06-admin.md#tipos-de-beca-parametrizables).
+
 ## URLs
 
 | Entorno | API base | Documentación interactiva | Contrato OpenAPI |

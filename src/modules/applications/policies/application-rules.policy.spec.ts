@@ -169,6 +169,13 @@ describe('submissionIssues (HU-19 / HU-20)', () => {
     );
   });
 
+  it('beca: tipo agotado → SCHOLARSHIP_TYPE_FULL (no se puede enviar)', () => {
+    expect(codes({ ...scholarship, fullScholarshipTypeIds: ['st-AGUAS_LIBRES'] })).toEqual([
+      'requestedScholarshipTypeId:SCHOLARSHIP_TYPE_FULL',
+    ]);
+    expect(codes({ ...scholarship, fullScholarshipTypeIds: ['st-SPECIAL'] })).toEqual([]);
+  });
+
   it('convocatoria: elegibilidad, organización, respuestas y viaje; evidencia opcional', () => {
     const openCall: SubmissionInput = {
       ...scholarship,

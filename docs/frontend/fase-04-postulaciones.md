@@ -83,7 +83,7 @@ que usan las notificaciones; ver `notifications/portal-links.ts`).
   UPCOMING`, `reason = SCHOLARSHIP_NOT_OPEN_YET` / `ENROLLMENT_NOT_OPEN_YET`, abre en `opensAt`).
 - Tarjeta: etiqueta "Presencial" (`offer.modality`), lugar (`offer.venue`), costo (`price`; `null` =
   "Gratuito"), cuenta regresiva "Cierra en 5 días" con `window.closesAt` en la zona del usuario.
-- Becas: `scholarshipTypes[]` (antes `levels[]`): por tipo activo, `scholarshipType` (`name`, rango
+- Becas: `scholarshipTypes[]` (antes `levels[]`, incluye `availableRecipients` / `isFull` del cupo): por tipo activo, `scholarshipType` (`name`, rango
   `minPercent`–`maxPercent` efectivo en la oferta, `requiresInterview`) y monto estimado en la moneda
   del perfil. Mismo formato que `scholarshipDetails.scholarshipTypes[]` de la ficha (Fase 02).
 - Botón: `canApply` → [Postular] / [Postular a beca]; `myApplication` → [Ver mi postulación] (una por
@@ -117,7 +117,7 @@ Enviar un campo del otro tipo → `400` con `details[].code = NOT_APPLICABLE`.
 | `phone { countryCode, number }` | WhatsApp (precargado) | igual | Formato del perfil; longitud por país (`INVALID_PHONE`) |
 | `age` | **Obligatorio** | — | Entero 15–100 |
 | `partnerCode` | Opcional (código de iniciativa aliada) | Opcional | ≤ 40 |
-| `requestedScholarshipTypeId` (antes `requestedLevel`) | **Obligatorio** | — | Un `scholarshipTypeId` de `form.scholarshipTypes` (otro o desactivado → `SCHOLARSHIP_TYPE_NOT_ENABLED`) |
+| `requestedScholarshipTypeId` (antes `requestedLevel`) | **Obligatorio** | — | Un `scholarshipTypeId` de `form.scholarshipTypes` (otro o desactivado → `400 SCHOLARSHIP_TYPE_NOT_ENABLED`; agotado, `isFull` → `422 BUSINESS_RULE_VIOLATION` con `details[].code = SCHOLARSHIP_TYPE_FULL`) |
 | `intentLetter` | **Obligatorio** | — | 800–4000 caracteres (contador) |
 | `eligibilityConfirmed` | — | **Debe ser `true`** | Casilla "Cumplo con la elegibilidad" |
 | `organization`, `organizationRole` | Opcionales | **Obligatorios** | ≤ 150 / ≤ 120 |
@@ -147,7 +147,8 @@ evidencias):
 
 `code`: `REQUIRED`, `MIN_LENGTH`, `MAX_LENGTH`, `MIN_FILES`, `MUST_ACCEPT`,
 `SCHOLARSHIP_TYPE_NOT_ENABLED` (antes `LEVEL_NOT_ENABLED`: el tipo ya no está disponible, p. ej. se
-desactivó después de guardar el borrador → pide elegir otro). Los
+desactivó después de guardar el borrador → pide elegir otro), `SCHOLARSHIP_TYPE_FULL` (el tipo se
+agotó después de guardar el borrador → pide elegir otro). Los
 mismos llegan en `details[]` de `422 APPLICATION_INCOMPLETE` si se intenta enviar.
 
 ### Bloque `form`
@@ -155,7 +156,7 @@ mismos llegan en `details[]` de `422 APPLICATION_INCOMPLETE` si se intenta envia
 | Campo | Uso |
 |---|---|
 | `window` | `OPEN` editable; `CLOSED` → "Convocatoria cerrada": solo lectura (`editable = false`) |
-| `scholarshipTypes[]` | Tarjetas de tipo de beca con % y monto estimado ("el tipo final lo asigna el equipo"); antes `levels[]` |
+| `scholarshipTypes[]` | Tarjetas de tipo de beca con % y monto estimado ("el tipo final lo asigna el equipo"); antes `levels[]`. `isFull` → tarjeta "Agotado" deshabilitada; `availableRecipients` = lugares que quedan (`null` = sin límite) |
 | `price` | Resumen lateral: costo en tu moneda (`null` = gratuito) |
 | `eligibility` | Bloque destacado; `eligible = false` bloquea el envío (ver motivos) |
 | `interviewNotice` | Mostrar "Incluye entrevista por Zoom" (convocatorias siempre; becas si el tipo solicitado tiene `requiresInterview`). En el formulario usa también `scholarshipTypes[].scholarshipType.requiresInterview` del tipo elegido antes de guardar |
@@ -239,7 +240,8 @@ más próxima (`action.dueAt`), luego por último cambio.
 
 `GET /me/applications/{id}` agrega `answers`, `documents`, `applicant`, `history[]` (estados con fecha y
 hora), `form`, `missingRequirements` y `editable`. `answers.requestedScholarshipTypeId` + `answers.requestedScholarshipType`
-(resumen con el rango de la oferta) reemplazan a `answers.requestedLevel`. Postulación ajena o id inválido → `404`.
+(resumen con el rango de la oferta) reemplazan a `answers.requestedLevel`. Una postulación ya enviada
+no se ve afectada si su tipo se agota después (el cupo solo cuenta becas asignadas). Postulación ajena o id inválido → `404`.
 
 ### Línea de tiempo (`timeline[]`)
 

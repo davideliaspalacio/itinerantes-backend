@@ -1146,6 +1146,7 @@ model Application {
   @@index([offerId, status])
   @@index([status, responseDueAt])
   @@index([userId, kind])
+  @@index([assignedScholarshipTypeId, status])
   @@map("applications")
 }
 
@@ -1685,6 +1686,9 @@ model ScholarshipType {
   maxPercent        Int      @map("max_percent")
   /// La postulación con este tipo requiere entrevista por Zoom (HU-19/21).
   requiresInterview Boolean  @default(false) @map("requires_interview")
+  /// Cupo GLOBAL: máximo de postulaciones con este tipo asignado que ocupan beca (todas las
+  /// ofertas). null = sin límite; si viene, ≥ 1.
+  maxRecipients     Int?     @map("max_recipients")
   active            Boolean  @default(true)
   sortOrder         Int      @default(0) @map("sort_order")
   createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -1708,6 +1712,8 @@ model OfferScholarshipType {
   maxPercent        Int?   @map("max_percent")
   /// Orden dentro de la oferta; si es null se usa el del tipo.
   sortOrder         Int?   @map("sort_order")
+  /// Tope adicional de becas de este tipo SOLO en esta oferta (null = sin tope propio; ≥ 1).
+  maxRecipients     Int?   @map("max_recipients")
 
   offer           Offer           @relation(fields: [offerId], references: [id], onDelete: Cascade)
   scholarshipType ScholarshipType @relation(fields: [scholarshipTypeId], references: [id], onDelete: Restrict)

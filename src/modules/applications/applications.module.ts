@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { EnrollmentsModule } from '../enrollments/enrollments.module';
 import { LocationsModule } from '../locations/locations.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { ScholarshipTypesModule } from '../scholarship-types/scholarship-types.module';
 import { AdminApplicationsController } from './admin/admin-applications.controller';
 import { AdminApplicationsService } from './admin/admin-applications.service';
 import { AdminFollowUpController } from './admin/admin-follow-up.controller';
@@ -24,7 +25,7 @@ import { ApplicationsService } from './applications.service';
  * No importa Offers/Calendar/Dashboard (ellos importan este módulo).
  */
 @Module({
-  imports: [EnrollmentsModule, NotificationsModule, LocationsModule],
+  imports: [EnrollmentsModule, NotificationsModule, LocationsModule, ScholarshipTypesModule],
   controllers: [ApplicationsController, AdminApplicationsController, AdminFollowUpController],
   providers: [
     ApplicationsService,

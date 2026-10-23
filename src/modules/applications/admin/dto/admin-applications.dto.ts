@@ -24,7 +24,10 @@ import {
   NotificationEmailStatus,
   NotificationType,
 } from '../../../../generated/prisma/client';
-import { ScholarshipTypeSummaryDto } from '../../../scholarship-types/dto/scholarship-types.dto';
+import {
+  OfferScholarshipQuotaDto,
+  ScholarshipTypeSummaryDto,
+} from '../../../scholarship-types/dto/scholarship-types.dto';
 
 const toBool = ({ value }: { value: unknown }) =>
   value === true || value === 'true' || value === '1'
@@ -444,6 +447,13 @@ export class AdminScholarshipTypeOptionDto {
   active!: boolean;
 
   @ApiProperty({
+    type: OfferScholarshipQuotaDto,
+    description:
+      'Cupo global del tipo y propio de la oferta; `isFull` → no se puede asignar (409).',
+  })
+  quota!: OfferScholarshipQuotaDto;
+
+  @ApiProperty({
     type: MoneyAmountDto,
     nullable: true,
     description: 'Saldo con el % máximo del tipo en la moneda del postulante.',
@@ -732,7 +742,9 @@ export class DecisionPreviewDto {
     type: String,
     nullable: true,
     example: null,
-    description: '`APPLICATION_INTERVIEW_REQUIRED` si falta la entrevista.',
+    description:
+      '`SCHOLARSHIP_TYPE_FULL` si el tipo ya no tiene cupo (global o de la oferta); ' +
+      '`APPLICATION_INTERVIEW_REQUIRED` si falta la entrevista.',
   })
   blockedReason!: string | null;
 

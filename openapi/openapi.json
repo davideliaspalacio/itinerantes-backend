@@ -5932,7 +5932,7 @@
     },
     "/api/v1/offers/{slug}": {
       "get": {
-        "description": "HU-16: ficha completa (docentes, \"¿Qué aprenderás?\", temario publicado, fechas, horario CDMX, costo en la moneda del visitante, \"hasta N cuotas\", bloque de beca con niveles y monto estimado, elegibilidad de convocatorias, cupo) y `actions`: los CTA calculados por el backend (`ENROLL_AND_PAY`, `PAY_IN_INSTALLMENTS`, `ENROLL_FREE`, `APPLY_SCHOLARSHIP`, `APPLY_OPEN_CALL`, `ACTIVATE_MOODLE_ACCESS`, `GO_TO_CLASSROOM`) con `enabled` y `reason`. Nunca expone el grupo de WhatsApp ni enlaces de sesión/grabación. Borrador, archivada o inexistente → 404 `OFFER_NOT_AVAILABLE`. Pública con sesión OPCIONAL: con `Authorization: Bearer` válido se personaliza (moneda del país del perfil y estado \"Inscrito\"); un token ausente o vencido NO da 401, se responde como visitante.",
+        "description": "HU-16: ficha completa (docentes, \"¿Qué aprenderás?\", temario publicado, fechas, horario CDMX, costo en la moneda del visitante, \"hasta N cuotas\", bloque de beca con tipos (cupo) y monto estimado, elegibilidad de convocatorias, cupo) y `actions`: los CTA calculados por el backend (`ENROLL_AND_PAY`, `PAY_IN_INSTALLMENTS`, `ENROLL_FREE`, `APPLY_SCHOLARSHIP`, `APPLY_OPEN_CALL`, `ACTIVATE_MOODLE_ACCESS`, `GO_TO_CLASSROOM`) con `enabled` y `reason`. Nunca expone el grupo de WhatsApp ni enlaces de sesión/grabación. Borrador, archivada o inexistente → 404 `OFFER_NOT_AVAILABLE`. Pública con sesión OPCIONAL: con `Authorization: Bearer` válido se personaliza (moneda del país del perfil y estado \"Inscrito\"); un token ausente o vencido NO da 401, se responde como visitante.",
         "operationId": "Offers_detail",
         "parameters": [
           {
@@ -10220,7 +10220,7 @@
     },
     "/api/v1/me/applications/opportunities": {
       "get": {
-        "description": "HU-19 / HU-20: pestaña \"Becas disponibles\" (`kind=SCHOLARSHIP`: diplomados NAS con beca y convocatoria de becas abierta o próxima) o \"Convocatorias abiertas\" (`kind=OPEN_CALL`). Tarjetas con lugar, fechas, costo o \"Gratuito\", cierre (`window.closesAt`, muéstralo en tu zona con cuenta regresiva), elegibilidad (`eligibility.eligible` / `reasons` según tu perfil), niveles de beca con monto estimado en tu moneda y `myApplication` (una postulación por cohorte: [Ver mi postulación] en lugar de [Postular]). Orden: abiertas por cierre más próximo, luego próximas. `kind=OPEN_CALL` marca las convocatorias como vistas (widget \"nuevas\" del Dashboard). Lista vacía → mensaje orientador (\"Te avisaremos cuando abra una convocatoria\").",
+        "description": "HU-19 / HU-20: pestaña \"Becas disponibles\" (`kind=SCHOLARSHIP`: diplomados NAS con beca y convocatoria de becas abierta o próxima) o \"Convocatorias abiertas\" (`kind=OPEN_CALL`). Tarjetas con lugar, fechas, costo o \"Gratuito\", cierre (`window.closesAt`, muéstralo en tu zona con cuenta regresiva), elegibilidad (`eligibility.eligible` / `reasons` según tu perfil), tipos de beca (con cupo disponible) y monto estimado en tu moneda y `myApplication` (una postulación por cohorte: [Ver mi postulación] en lugar de [Postular]). Orden: abiertas por cierre más próximo, luego próximas. `kind=OPEN_CALL` marca las convocatorias como vistas (widget \"nuevas\" del Dashboard). Lista vacía → mensaje orientador (\"Te avisaremos cuando abra una convocatoria\").",
         "operationId": "Applications_opportunities",
         "parameters": [
           {
@@ -10636,7 +10636,7 @@
             }
           },
           "422": {
-            "description": "Error. `code` posibles: `APPLICATION_NOT_ALLOWED`, `APPLICATION_WINDOW_CLOSED`",
+            "description": "Error. `code` posibles: `APPLICATION_NOT_ALLOWED`, `APPLICATION_WINDOW_CLOSED`, `BUSINESS_RULE_VIOLATION`",
             "content": {
               "application/json": {
                 "schema": {
@@ -10658,6 +10658,15 @@
                       "statusCode": 422,
                       "code": "APPLICATION_WINDOW_CLOSED",
                       "message": "La convocatoria no está abierta.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  },
+                  "BUSINESS_RULE_VIOLATION": {
+                    "summary": "BUSINESS_RULE_VIOLATION",
+                    "value": {
+                      "statusCode": 422,
+                      "code": "BUSINESS_RULE_VIOLATION",
+                      "message": "La operación no cumple una regla de negocio.",
                       "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
                     }
                   }
@@ -10700,7 +10709,7 @@
     },
     "/api/v1/me/applications/{id}": {
       "get": {
-        "description": "HU-21 (y formulario del borrador de HU-19/20): tarjeta + respuestas, archivos, historial de estados con fecha y hora, datos precargados del perfil, `form` (ventana, niveles con monto estimado, costo, elegibilidad, aviso de entrevista, límites) y `missingRequirements` (validaciones en línea: mientras no esté vacío, \"Enviar postulación\" sigue deshabilitado). Entrevista: hora local + CDMX y `interview.join.url` solo 10 minutos antes. Postulación ajena, inexistente o id mal formado → 404 `NOT_FOUND` (nunca se revela que existe).",
+        "description": "HU-21 (y formulario del borrador de HU-19/20): tarjeta + respuestas, archivos, historial de estados con fecha y hora, datos precargados del perfil, `form` (ventana, tipos de beca con monto estimado, costo, elegibilidad, aviso de entrevista, límites) y `missingRequirements` (validaciones en línea: mientras no esté vacío, \"Enviar postulación\" sigue deshabilitado). Entrevista: hora local + CDMX y `interview.join.url` solo 10 minutos antes. Postulación ajena, inexistente o id mal formado → 404 `NOT_FOUND` (nunca se revela que existe).",
         "operationId": "Applications_get",
         "parameters": [
           {
@@ -10925,13 +10934,22 @@
             }
           },
           "422": {
-            "description": "Error. `code` posibles: `APPLICATION_WINDOW_CLOSED`",
+            "description": "Error. `code` posibles: `BUSINESS_RULE_VIOLATION`, `APPLICATION_WINDOW_CLOSED`",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponseDto"
                 },
                 "examples": {
+                  "BUSINESS_RULE_VIOLATION": {
+                    "summary": "BUSINESS_RULE_VIOLATION",
+                    "value": {
+                      "statusCode": 422,
+                      "code": "BUSINESS_RULE_VIOLATION",
+                      "message": "La operación no cumple una regla de negocio.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  },
                   "APPLICATION_WINDOW_CLOSED": {
                     "summary": "APPLICATION_WINDOW_CLOSED",
                     "value": {
@@ -12068,7 +12086,7 @@
     },
     "/api/v1/admin/applications": {
       "get": {
-        "description": "HU-31: pestañas Becas (`kind=SCHOLARSHIP`) / Convocatorias (`kind=OPEN_CALL`); filtros por oferta, estado (HU-21), nivel solicitado, país, \"Requiere entrevista\" y \"Sin mi evaluación\"; búsqueda por nombre, correo o folio. Nunca lista borradores. Cada fila trae las insignias (`requiresInterview`, `evaluationCount`, `myEvaluation`). Permiso `applications.read`.",
+        "description": "HU-31: pestañas Becas (`kind=SCHOLARSHIP`) / Convocatorias (`kind=OPEN_CALL`); filtros por oferta, estado (HU-21), tipo de beca solicitado, país, \"Requiere entrevista\" y \"Sin mi evaluación\"; búsqueda por nombre, correo o folio. Nunca lista borradores. Cada fila trae las insignias (`requiresInterview`, `evaluationCount`, `myEvaluation`). Permiso `applications.read`.",
         "operationId": "AdminApplications_list",
         "parameters": [
           {
@@ -12558,7 +12576,7 @@
     },
     "/api/v1/admin/applications/{id}": {
       "get": {
-        "description": "HU-31: datos de contacto, carta o respuestas, evidencias (URLs firmadas ~10 min), historial con notas internas, entrevistas, evaluaciones de todo el comité + resumen (\"2 aprobar · 1 con dudas · nivel más sugerido: Aguas Libres 50%\"), bloque de decisión (`canDecide`, `blockedReason`, niveles con saldo en la moneda del postulante) y estado de los correos (`emails[]`, `decision.emailStatus`). `prevId`/`nextId` para [Anterior]/[Siguiente]. **Efecto:** si la postulación está \"Enviada\" y quien la abre puede evaluar o decidir, pasa a \"En revisión\" (`reviewStarted: true`, aviso solo en el portal). Permiso `applications.read`. Postulación inexistente, en borrador o id mal formado → 404 `NOT_FOUND`.",
+        "description": "HU-31: datos de contacto, carta o respuestas, evidencias (URLs firmadas ~10 min), historial con notas internas, entrevistas, evaluaciones de todo el comité + resumen (\"2 aprobar · 1 con dudas · nivel más sugerido: Aguas Libres 50%\"), bloque de decisión (`canDecide`, `blockedReason`, tipos de beca con cupo y saldo en la moneda del postulante) y estado de los correos (`emails[]`, `decision.emailStatus`). `prevId`/`nextId` para [Anterior]/[Siguiente]. **Efecto:** si la postulación está \"Enviada\" y quien la abre puede evaluar o decidir, pasa a \"En revisión\" (`reviewStarted: true`, aviso solo en el portal). Permiso `applications.read`. Postulación inexistente, en borrador o id mal formado → 404 `NOT_FOUND`.",
         "operationId": "AdminApplications_detail",
         "parameters": [
           {
@@ -13468,7 +13486,7 @@
     },
     "/api/v1/admin/applications/{id}/approve": {
       "post": {
-        "description": "HU-31: beca → nivel asignado (puede diferir del solicitado; Beca especial 71–80%); con saldo pasa a \"Aprobada – pendiente de pago\" (link de pago a 7 días, HU-23) y reserva la inscripción; sin costo → \"Aprobada – confirma tu participación\". `message` = párrafo editable que se agrega al correo; `emailPreviewConfirmed: true` obligatorio. Convocatoria o beca > 70% sin entrevista \"Realizada\" → 422 `APPLICATION_INTERVIEW_REQUIRED`. Si el correo falla, la decisión se conserva y `decision.emailStatus = FAILED` (\"Correo no enviado\" + [Reintentar envío]). Permiso `applications.decide`. Postulación inexistente, en borrador o id mal formado → 404 `NOT_FOUND`.",
+        "description": "HU-31: beca → tipo asignado (puede diferir del solicitado) y % dentro de su rango en la oferta; con saldo pasa a \"Aprobada – pendiente de pago\" (link de pago a 7 días, HU-23) y reserva la inscripción; sin costo → \"Aprobada – confirma tu participación\". `message` = párrafo editable que se agrega al correo; `emailPreviewConfirmed: true` obligatorio. Convocatoria o tipo de beca con `requiresInterview` sin entrevista \"Realizada\" → 422 `APPLICATION_INTERVIEW_REQUIRED`. Sin cupo del tipo de beca (global o de la oferta) → 409 `SCHOLARSHIP_TYPE_FULL` (`meta.scope`). Si el correo falla, la decisión se conserva y `decision.emailStatus = FAILED` (\"Correo no enviado\" + [Reintentar envío]). Permiso `applications.decide`. Postulación inexistente, en borrador o id mal formado → 404 `NOT_FOUND`.",
         "operationId": "AdminApplications_approve",
         "parameters": [
           {
@@ -13594,7 +13612,7 @@
             }
           },
           "409": {
-            "description": "Error. `code` posibles: `APPLICATION_INVALID_STATE`",
+            "description": "Error. `code` posibles: `APPLICATION_INVALID_STATE`, `SCHOLARSHIP_TYPE_FULL`",
             "content": {
               "application/json": {
                 "schema": {
@@ -13607,6 +13625,15 @@
                       "statusCode": 409,
                       "code": "APPLICATION_INVALID_STATE",
                       "message": "La postulación no está en un estado que permita esta acción.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  },
+                  "SCHOLARSHIP_TYPE_FULL": {
+                    "summary": "SCHOLARSHIP_TYPE_FULL",
+                    "value": {
+                      "statusCode": 409,
+                      "code": "SCHOLARSHIP_TYPE_FULL",
+                      "message": "Ya no hay cupo para este tipo de beca.",
                       "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
                     }
                   }
@@ -15322,7 +15349,7 @@
     },
     "/api/v1/admin/applications/{id}/extend-deadline": {
       "post": {
-        "description": "HU-32: nueva fecha (futura y ≤ inicio de clases; si no, 400 con `details[].field = responseDueAt`) y motivo obligatorio. Si estaba \"Vencida\", la reactiva y vuelve a reservar la inscripción. Deja nota automática. Permiso `followup.manage`. Solo postulaciones ya aprobadas (pendientes, inscritas o vencidas); otras → 409 `APPLICATION_INVALID_STATE`.",
+        "description": "HU-32: nueva fecha (futura y ≤ inicio de clases; si no, 400 con `details[].field = responseDueAt`) y motivo obligatorio. Si estaba \"Vencida\", la reactiva y vuelve a reservar la inscripción (si su tipo de beca ya no tiene cupo → 409 `SCHOLARSHIP_TYPE_FULL`). Deja nota automática. Permiso `followup.manage`. Solo postulaciones ya aprobadas (pendientes, inscritas o vencidas); otras → 409 `APPLICATION_INVALID_STATE`.",
         "operationId": "AdminFollowUp_extendDeadline",
         "parameters": [
           {
@@ -15448,7 +15475,7 @@
             }
           },
           "409": {
-            "description": "Error. `code` posibles: `APPLICATION_INVALID_STATE`",
+            "description": "Error. `code` posibles: `APPLICATION_INVALID_STATE`, `SCHOLARSHIP_TYPE_FULL`",
             "content": {
               "application/json": {
                 "schema": {
@@ -15461,6 +15488,15 @@
                       "statusCode": 409,
                       "code": "APPLICATION_INVALID_STATE",
                       "message": "La postulación no está en un estado que permita esta acción.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  },
+                  "SCHOLARSHIP_TYPE_FULL": {
+                    "summary": "SCHOLARSHIP_TYPE_FULL",
+                    "value": {
+                      "statusCode": 409,
+                      "code": "SCHOLARSHIP_TYPE_FULL",
+                      "message": "Ya no hay cupo para este tipo de beca.",
                       "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
                     }
                   }
@@ -26281,6 +26317,7 @@
               "SCHOLARSHIP_TYPE_KEY_TAKEN",
               "SCHOLARSHIP_TYPE_IN_USE",
               "SCHOLARSHIP_TYPE_INVALID_RANGE",
+              "SCHOLARSHIP_TYPE_FULL",
               "SCHOLARSHIP_TYPE_NOT_AVAILABLE",
               "ADMIN_LAST_SUPER_ADMIN",
               "ADMIN_SELF_ACTION"
@@ -28729,6 +28766,17 @@
             "type": "number",
             "example": 3,
             "description": "Orden de presentación (menor primero)."
+          },
+          "availableRecipients": {
+            "type": "number",
+            "nullable": true,
+            "example": 185,
+            "description": "Becas de este tipo que aún se pueden asignar (cupo global). null = sin límite."
+          },
+          "isFull": {
+            "type": "boolean",
+            "example": false,
+            "description": "Cupo agotado: se muestra \"Agotado\" y no se puede solicitar en postulaciones nuevas."
           }
         },
         "required": [
@@ -28739,7 +28787,9 @@
           "maxPercent",
           "requiresInterview",
           "description",
-          "sortOrder"
+          "sortOrder",
+          "availableRecipients",
+          "isFull"
         ]
       },
       "ScholarshipTypesResponseDto": {
@@ -28824,6 +28874,28 @@
             "example": 3,
             "description": "Orden de presentación (menor primero)."
           },
+          "availableRecipients": {
+            "type": "number",
+            "nullable": true,
+            "example": 185,
+            "description": "Becas de este tipo que aún se pueden asignar (cupo global). null = sin límite."
+          },
+          "isFull": {
+            "type": "boolean",
+            "example": false,
+            "description": "Cupo agotado: se muestra \"Agotado\" y no se puede solicitar en postulaciones nuevas."
+          },
+          "maxRecipients": {
+            "type": "number",
+            "nullable": true,
+            "example": 200,
+            "description": "Cupo global (todas las ofertas). null = sin límite."
+          },
+          "usedRecipients": {
+            "type": "number",
+            "example": 15,
+            "description": "Becas asignadas que ocupan cupo (aprobadas pendientes de pago/confirmación e inscritas)."
+          },
           "active": {
             "type": "boolean",
             "example": true,
@@ -28855,6 +28927,10 @@
           "requiresInterview",
           "description",
           "sortOrder",
+          "availableRecipients",
+          "isFull",
+          "maxRecipients",
+          "usedRecipients",
           "active",
           "usage",
           "createdAt",
@@ -28913,6 +28989,13 @@
             "example": false,
             "default": false
           },
+          "maxRecipients": {
+            "type": "number",
+            "nullable": true,
+            "example": 200,
+            "minimum": 1,
+            "description": "Cupo global: cuántas personas pueden tener asignada esta beca (todas las ofertas). null = sin límite. Puede quedar por debajo de lo ya asignado (no quita becas; bloquea nuevas)."
+          },
           "active": {
             "type": "boolean",
             "example": true,
@@ -28961,6 +29044,13 @@
           "requiresInterview": {
             "type": "boolean",
             "example": false
+          },
+          "maxRecipients": {
+            "type": "number",
+            "nullable": true,
+            "example": 200,
+            "minimum": 1,
+            "description": "Cupo global: cuántas personas pueden tener asignada esta beca (todas las ofertas). null = sin límite. Puede quedar por debajo de lo ya asignado (no quita becas; bloquea nuevas)."
           },
           "active": {
             "type": "boolean",
@@ -29735,6 +29825,17 @@
                 "$ref": "#/components/schemas/AmountRangeDto"
               }
             ]
+          },
+          "availableRecipients": {
+            "type": "number",
+            "nullable": true,
+            "example": 12,
+            "description": "Becas de este tipo que aún se pueden asignar en esta oferta (mínimo entre el cupo global del tipo y el de la oferta). null = sin límite."
+          },
+          "isFull": {
+            "type": "boolean",
+            "example": false,
+            "description": "Cupo agotado: muéstralo como \"Agotado\"; no se puede solicitar."
           }
         },
         "required": [
@@ -29742,7 +29843,9 @@
           "scholarshipType",
           "description",
           "estimatedScholarship",
-          "estimatedBalance"
+          "estimatedBalance",
+          "availableRecipients",
+          "isFull"
         ]
       },
       "OfferScholarshipDto": {
@@ -30799,6 +30902,51 @@
           "timezone"
         ]
       },
+      "OfferScholarshipQuotaDto": {
+        "type": "object",
+        "properties": {
+          "typeMaxRecipients": {
+            "type": "number",
+            "nullable": true,
+            "example": 200,
+            "description": "Cupo global del tipo."
+          },
+          "typeUsedRecipients": {
+            "type": "number",
+            "example": 15,
+            "description": "Asignadas del tipo en todas las ofertas."
+          },
+          "offerMaxRecipients": {
+            "type": "number",
+            "nullable": true,
+            "example": 20,
+            "description": "Tope propio de la oferta."
+          },
+          "offerUsedRecipients": {
+            "type": "number",
+            "example": 5,
+            "description": "Asignadas del tipo en esta oferta."
+          },
+          "availableRecipients": {
+            "type": "number",
+            "nullable": true,
+            "example": 15,
+            "description": "Disponibles = mínimo entre ambos cupos. null = sin límite."
+          },
+          "isFull": {
+            "type": "boolean",
+            "example": false
+          }
+        },
+        "required": [
+          "typeMaxRecipients",
+          "typeUsedRecipients",
+          "offerMaxRecipients",
+          "offerUsedRecipients",
+          "availableRecipients",
+          "isFull"
+        ]
+      },
       "AdminOfferScholarshipTypeDto": {
         "type": "object",
         "properties": {
@@ -30823,6 +30971,20 @@
             "nullable": true,
             "example": null
           },
+          "maxRecipients": {
+            "type": "number",
+            "nullable": true,
+            "example": null,
+            "description": "Tope propio de la oferta."
+          },
+          "quota": {
+            "description": "Cupo global + de la oferta.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OfferScholarshipQuotaDto"
+              }
+            ]
+          },
           "active": {
             "type": "boolean",
             "example": true,
@@ -30842,6 +31004,8 @@
           "minPercent",
           "maxPercent",
           "sortOrder",
+          "maxRecipients",
+          "quota",
           "active",
           "scholarshipType"
         ]
@@ -31558,6 +31722,13 @@
             "nullable": true,
             "example": null,
             "description": "Orden en esta oferta (null = el del tipo)."
+          },
+          "maxRecipients": {
+            "type": "number",
+            "nullable": true,
+            "example": null,
+            "minimum": 1,
+            "description": "Tope de becas de este tipo SOLO en esta oferta (además del cupo global del tipo). null = sin tope propio."
           }
         },
         "required": [
@@ -33668,6 +33839,7 @@
               "MIN_FILES",
               "MUST_ACCEPT",
               "SCHOLARSHIP_TYPE_NOT_ENABLED",
+              "SCHOLARSHIP_TYPE_FULL",
               "NOT_APPLICABLE"
             ],
             "example": "MIN_LENGTH"
@@ -34870,6 +35042,14 @@
             "example": true,
             "description": "false = tipo desactivado (se puede asignar si la oferta ya lo tenía)."
           },
+          "quota": {
+            "description": "Cupo global del tipo y propio de la oferta; `isFull` → no se puede asignar (409).",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OfferScholarshipQuotaDto"
+              }
+            ]
+          },
           "balanceAtMaxPercent": {
             "nullable": true,
             "description": "Saldo con el % máximo del tipo en la moneda del postulante.",
@@ -34885,6 +35065,7 @@
           "scholarshipTypeId",
           "scholarshipType",
           "active",
+          "quota",
           "balanceAtMaxPercent"
         ]
       },
@@ -35440,7 +35621,7 @@
             "type": "string",
             "nullable": true,
             "example": null,
-            "description": "`APPLICATION_INTERVIEW_REQUIRED` si falta la entrevista."
+            "description": "`SCHOLARSHIP_TYPE_FULL` si el tipo ya no tiene cupo (global o de la oferta); `APPLICATION_INTERVIEW_REQUIRED` si falta la entrevista."
           },
           "email": {
             "type": "object",

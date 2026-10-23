@@ -33,7 +33,10 @@ import {
   OfferType,
   PublicTopic,
 } from '../../../../generated/prisma/client';
-import { ScholarshipTypeSummaryDto } from '../../../scholarship-types/dto/scholarship-types.dto';
+import {
+  OfferScholarshipQuotaDto,
+  ScholarshipTypeSummaryDto,
+} from '../../../scholarship-types/dto/scholarship-types.dto';
 import {
   OFFER_AVAILABILITY_VALUES,
   type OfferAvailability,
@@ -456,6 +459,20 @@ export class OfferScholarshipTypeInputDto {
   @IsInt()
   @Min(0)
   sortOrder?: number | null;
+
+  @ApiPropertyOptional({
+    type: Number,
+    nullable: true,
+    example: null,
+    minimum: 1,
+    description:
+      'Tope de becas de este tipo SOLO en esta oferta (además del cupo global del tipo). null = sin ' +
+      'tope propio.',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  maxRecipients?: number | null;
 }
 
 export class UpdateOriginPricingStepDto {
@@ -882,6 +899,15 @@ export class AdminOfferScholarshipTypeDto {
   })
   maxPercent!: number | null;
   @ApiProperty({ nullable: true, type: Number, example: null }) sortOrder!: number | null;
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    example: null,
+    description: 'Tope propio de la oferta.',
+  })
+  maxRecipients!: number | null;
+  @ApiProperty({ type: OfferScholarshipQuotaDto, description: 'Cupo global + de la oferta.' })
+  quota!: OfferScholarshipQuotaDto;
   @ApiProperty({ example: true, description: 'false = tipo desactivado: no se ofrece.' })
   active!: boolean;
   @ApiProperty({

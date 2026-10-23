@@ -57,6 +57,21 @@ export class ScholarshipTypeDto extends ScholarshipTypeSummaryDto {
 
   @ApiProperty({ example: 3, description: 'Orden de presentación (menor primero).' })
   sortOrder!: number;
+
+  @ApiProperty({
+    type: Number,
+    nullable: true,
+    example: 185,
+    description: 'Becas de este tipo que aún se pueden asignar (cupo global). null = sin límite.',
+  })
+  availableRecipients!: number | null;
+
+  @ApiProperty({
+    example: false,
+    description:
+      'Cupo agotado: se muestra "Agotado" y no se puede solicitar en postulaciones nuevas.',
+  })
+  isFull!: boolean;
 }
 
 export class ScholarshipTypesResponseDto {
@@ -79,6 +94,21 @@ export class ScholarshipTypeUsageDto {
 }
 
 export class AdminScholarshipTypeDto extends ScholarshipTypeDto {
+  @ApiProperty({
+    type: Number,
+    nullable: true,
+    example: 200,
+    description: 'Cupo global (todas las ofertas). null = sin límite.',
+  })
+  maxRecipients!: number | null;
+
+  @ApiProperty({
+    example: 15,
+    description:
+      'Becas asignadas que ocupan cupo (aprobadas pendientes de pago/confirmación e inscritas).',
+  })
+  usedRecipients!: number;
+
   @ApiProperty({
     example: true,
     description: 'Desactivado = no se ofrece en ofertas ni postulaciones nuevas.',
@@ -147,6 +177,20 @@ export class UpdateScholarshipTypeRequestDto {
   requiresInterview?: boolean;
 
   @ApiPropertyOptional({
+    type: Number,
+    nullable: true,
+    example: 200,
+    minimum: 1,
+    description:
+      'Cupo global: cuántas personas pueden tener asignada esta beca (todas las ofertas). ' +
+      'null = sin límite. Puede quedar por debajo de lo ya asignado (no quita becas; bloquea nuevas).',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  maxRecipients?: number | null;
+
+  @ApiPropertyOptional({
     example: true,
     description:
       'false = deja de ofrecerse en ofertas y postulaciones nuevas (lo asignado se conserva).',
@@ -211,6 +255,20 @@ export class CreateScholarshipTypeRequestDto {
   @IsBoolean()
   requiresInterview?: boolean;
 
+  @ApiPropertyOptional({
+    type: Number,
+    nullable: true,
+    example: 200,
+    minimum: 1,
+    description:
+      'Cupo global: cuántas personas pueden tener asignada esta beca (todas las ofertas). ' +
+      'null = sin límite. Puede quedar por debajo de lo ya asignado (no quita becas; bloquea nuevas).',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  maxRecipients?: number | null;
+
   @ApiPropertyOptional({ example: true, default: true })
   @IsOptional()
   @IsBoolean()
@@ -221,4 +279,35 @@ export class CreateScholarshipTypeRequestDto {
   @IsInt()
   @Min(0)
   sortOrder?: number;
+}
+
+/** Cupo de un tipo de beca en una oferta (panel): global del tipo + tope propio de la oferta. */
+export class OfferScholarshipQuotaDto {
+  @ApiProperty({ type: Number, nullable: true, example: 200, description: 'Cupo global del tipo.' })
+  typeMaxRecipients!: number | null;
+
+  @ApiProperty({ example: 15, description: 'Asignadas del tipo en todas las ofertas.' })
+  typeUsedRecipients!: number;
+
+  @ApiProperty({
+    type: Number,
+    nullable: true,
+    example: 20,
+    description: 'Tope propio de la oferta.',
+  })
+  offerMaxRecipients!: number | null;
+
+  @ApiProperty({ example: 5, description: 'Asignadas del tipo en esta oferta.' })
+  offerUsedRecipients!: number;
+
+  @ApiProperty({
+    type: Number,
+    nullable: true,
+    example: 15,
+    description: 'Disponibles = mínimo entre ambos cupos. null = sin límite.',
+  })
+  availableRecipients!: number | null;
+
+  @ApiProperty({ example: false })
+  isFull!: boolean;
 }

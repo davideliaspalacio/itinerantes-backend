@@ -578,7 +578,8 @@ Bloque `decision`: `canDecide` (permiso + estado Enviada / En revisión / Entrev
 `interviewRequired`, `hasCompletedInterview`, `blockedReason`, `price` (moneda del postulante: MXN
 México, USD resto), `scholarshipTypes[]` (antes `levels[]`: tipos habilitados en la oferta, incluidos
 los desactivados con `active: false`, cada uno con `scholarshipTypeId`, `scholarshipType` —rango efectivo
-de la oferta y `requiresInterview`— y `balanceAtMaxPercent`), y, ya decidida:
+de la oferta y `requiresInterview`—, `quota` (mismo formato que en el paso 4; `quota.isFull` →
+deshabilita ese tipo en "Registrar decisión") y `balanceAtMaxPercent`), y, ya decidida:
 `assignedScholarshipTypeId` + `assignedScholarshipType` (antes `assignedLevel`; `name` es el nombre
 guardado al aprobar), `assignedPercent`, `balance`, `responseDueAt`, `decidedBy`,
 `decisionNote` (interna) y `emailStatus` del correo de la decisión.
@@ -628,6 +629,7 @@ postulante + CDMX; si ya estaba agendada, reprograma. Luego `…/interview/compl
 | "Decisión guardada pero correo no enviado" | `200`, `decision.emailStatus = FAILED` |
 | Botón deshabilitado "Esta postulación requiere entrevista por Zoom" | `decision.blockedReason` / `422 APPLICATION_INTERVIEW_REQUIRED` |
 | Tipo o % inválido | `400 VALIDATION_ERROR` (`assignedScholarshipTypeId` / `assignedPercent`) |
+| "Ya no hay cupo para esta beca" | `409 SCHOLARSHIP_TYPE_FULL` (`meta.scope`: `TYPE` cupo global / `OFFER` tope de la oferta); vista previa con `blockedReason = SCHOLARSHIP_TYPE_FULL` |
 
 ### Exportar
 
@@ -645,10 +647,10 @@ para esa oferta; el comité asigna el % final al aprobar.
 
 | Método y ruta | Permiso | Uso |
 |---|---|---|
-| `GET /scholarship-types` | público | Tipos **activos** ordenados (`{ data: [{ id, key, name, description, minPercent, maxPercent, requiresInterview, sortOrder }] }`; caché 5 min) |
-| `GET /admin/scholarship-types` | `offers.read` | Todos (incluye inactivos) con `active`, `usage { offers, applications, evaluations }`, `createdAt`, `updatedAt` |
-| `POST /admin/scholarship-types` | `scholarship_types.write` | Crear `{ key, name, description?, minPercent, maxPercent, requiresInterview?, active?, sortOrder? }` → `201` |
-| `PATCH /admin/scholarship-types/{id}` | `scholarship_types.write` | Editar `{ name?, description?, minPercent?, maxPercent?, requiresInterview?, active?, sortOrder? }` |
+| `GET /scholarship-types` | público | Tipos **activos** ordenados (`{ data: [{ id, key, name, description, minPercent, maxPercent, requiresInterview, sortOrder, availableRecipients, isFull }] }`; caché 5 min) |
+| `GET /admin/scholarship-types` | `offers.read` | Todos (incluye inactivos) con `active`, `maxRecipients`, `usedRecipients`, `availableRecipients`, `isFull`, `usage { offers, applications, evaluations }`, `createdAt`, `updatedAt` |
+| `POST /admin/scholarship-types` | `scholarship_types.write` | Crear `{ key, name, description?, minPercent, maxPercent, requiresInterview?, maxRecipients?, active?, sortOrder? }` → `201` |
+| `PATCH /admin/scholarship-types/{id}` | `scholarship_types.write` | Editar `{ name?, description?, minPercent?, maxPercent?, requiresInterview?, maxRecipients?, active?, sortOrder? }` |
 | `DELETE /admin/scholarship-types/{id}` | `scholarship_types.write` | Borrar (solo si nada lo usa) → `204` |
 
 Reglas:
@@ -669,7 +671,24 @@ Reglas:
 - Editar el rango del tipo afecta a las ofertas que no lo sobrescriben (y a las postulaciones aún no
   decididas). Renombrar no cambia lo ya aprobado: la postulación guarda el nombre al aprobar
   (`assignedScholarshipType.name`).
-- Auditoría: `scholarship_type.create`, `scholarship_type.update`, `scholarship_type.delete`.
+- **Cupo máximo** (`maxRecipients`, entero ≥ 1; `null` = sin límite; `0` → `400`): cuántas personas
+  pueden tener asignada esta beca sumando TODAS las ofertas (p. ej. "15%, 200 cupos"). Además, cada oferta
+  puede poner un tope propio (`scholarshipTypes[].maxRecipients` en el paso 4); si existen ambos, aplican
+  los dos. **Cupo usado** (`usedRecipients`) = postulaciones con ese tipo ASIGNADO en "Aprobada – pendiente
+  de pago", "Aprobada – confirma tu participación" o "Inscrita". No cuentan borradores, enviadas, en
+  revisión, entrevista agendada, no seleccionadas ni vencidas: si una aprobada vence, el cupo se libera
+  solo. `availableRecipients` = `max − used` (nunca negativo; `null` = sin límite) e `isFull`.
+- Aprobar (o reactivar una "Vencida" con [Extender plazo]) sin cupo → `409 SCHOLARSHIP_TYPE_FULL` con
+  `meta { scholarshipTypeId, maxRecipients, used, scope: TYPE | OFFER }` (`TYPE` = cupo global, `OFFER` =
+  tope de la oferta). La verificación es atómica (bloqueo de fila): dos aprobaciones simultáneas por el
+  último lugar → solo una pasa. La vista previa lo anticipa con `blockedReason = SCHOLARSHIP_TYPE_FULL`
+  y `decision.scholarshipTypes[].quota.isFull`.
+- Bajar `maxRecipients` por debajo de lo ya asignado está permitido: no quita becas, solo bloquea nuevas
+  (la respuesta muestra `usedRecipients` > `maxRecipients` y `availableRecipients = 0`).
+- Público: un tipo agotado sigue visible en la ficha ("Agotado") pero no se puede solicitar en una
+  postulación nueva (`422`, `details[].code = SCHOLARSHIP_TYPE_FULL`). Lo ya enviado no se toca.
+- Auditoría: `scholarship_type.create`, `scholarship_type.update` (incluye `maxRecipients` en los
+  cambios), `scholarship_type.delete`.
 
 En la oferta (paso 4, `PATCH /admin/offers/{id}/steps/origin-pricing`):
 
@@ -677,14 +696,17 @@ En la oferta (paso 4, `PATCH /admin/offers/{id}/steps/origin-pricing`):
 { "scholarshipEnabled": true,
   "scholarshipTypes": [
     { "scholarshipTypeId": "…AGUAS_LIBRES…" },
-    { "scholarshipTypeId": "…SPECIAL…", "minPercent": 75, "maxPercent": 80 } ] }
+    { "scholarshipTypeId": "…SPECIAL…", "minPercent": 75, "maxPercent": 80, "maxRecipients": 10 } ] }
 ```
 
 - La lista **reemplaza** la anterior. `minPercent`/`maxPercent` opcionales sobrescriben el rango del tipo
   SOLO en esa oferta (null = el del tipo); el rango efectivo debe cumplir 1 ≤ min ≤ max ≤ 100.
-  `sortOrder` opcional ordena dentro de la oferta.
+  `sortOrder` opcional ordena dentro de la oferta. `maxRecipients` opcional (≥ 1) = tope de becas de
+  ese tipo SOLO en esta oferta (además del cupo global).
 - Respuesta: `originPricing.scholarshipTypes[]` = `{ scholarshipTypeId, minPercent, maxPercent (overrides),
-  sortOrder, active, scholarshipType (rango efectivo) }`. Duplicar la oferta copia los tipos y overrides.
+  sortOrder, maxRecipients (tope de la oferta), active, scholarshipType (rango efectivo), quota }` con
+  `quota = { typeMaxRecipients, typeUsedRecipients, offerMaxRecipients, offerUsedRecipients,
+  availableRecipients, isFull }`. Duplicar la oferta copia los tipos y overrides.
 
 Pantalla sugerida "Tipos de beca" (solo SUPER_ADMIN; los demás roles la ven en solo lectura): tabla con
 nombre, clave, rango, entrevista, estado (Activo/Inactivo) y uso; acciones Editar, Desactivar/Activar y

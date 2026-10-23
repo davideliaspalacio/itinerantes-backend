@@ -30,6 +30,8 @@ import {
   SCHOLARSHIP_TYPE_SELECT,
 } from '../scholarship-types/scholarship-type.select';
 import { ApplicationWorkflowService } from './application-workflow.service';
+import { ScholarshipTypesService } from '../scholarship-types/scholarship-types.service';
+import type { OfferQuotaState } from '../scholarship-types/policies/scholarship-quota.policy';
 import type {
   ApplicationFormFieldsDto,
   ConfirmDocumentRequestDto,
@@ -161,6 +163,7 @@ export class ApplicationsService {
     private readonly locations: LocationsService,
     private readonly enrollmentLookup: EnrollmentLookupService,
     private readonly workflow: ApplicationWorkflowService,
+    private readonly scholarshipTypes: ScholarshipTypesService,
   ) {}
 
   // --- "Becas disponibles" / "Convocatorias abiertas" -------------------------------------------
@@ -191,6 +194,7 @@ export class ApplicationsService {
     return Promise.all(
       offers.map(async ({ offer, window }) => {
         const app = mineByOffer.get(offer.id) ?? null;
+        const quotas = await this.quotasFor(offer.id, kind, offer.scholarshipTypes);
         const isEnrolled = enrolled.has(offer.id);
         return {
           kind,
@@ -203,6 +207,7 @@ export class ApplicationsService {
                   offer.scholarshipTypes,
                   priceOf(offer, currency)?.amountCents ?? null,
                   currency,
+                  quotas,
                 )
               : [],
           eligibility: eligibilityDto(offer, kind, user.countryCode, null, countryNames),
@@ -271,7 +276,7 @@ export class ApplicationsService {
       });
     }
     assertWindowOpen(applicationWindow(offer, kind, now));
-    const fields = await this.formData(dto, kind, offer.scholarshipTypes);
+    const fields = await this.formData(dto, kind, offer.id, offer.scholarshipTypes);
 
     try {
       const created = await this.prisma.application.create({
@@ -315,7 +320,7 @@ export class ApplicationsService {
   ): Promise<ApplicationDetailDto> {
     const row = await this.requireEditable(userId, applicationId);
     const user = await this.requireUser(userId);
-    const fields = await this.formData(dto, row.kind, row.offer.scholarshipTypes);
+    const fields = await this.formData(dto, row.kind, row.offer.id, row.offer.scholarshipTypes);
     const updated = await this.prisma.application.updateMany({
       where: { id: row.id, status: 'DRAFT' },
       data: { ...profileSnapshot(user), ...fields },
@@ -358,7 +363,8 @@ export class ApplicationsService {
       });
     }
     const documentCount = await this.prisma.applicationDocument.count({ where: { applicationId } });
-    const issues = submissionIssues(submissionInput(row, documentCount));
+    const quotas = await this.quotasFor(offer.id, row.kind, offer.scholarshipTypes);
+    const issues = submissionIssues(submissionInput(row, documentCount, quotas));
     if (issues.length > 0) {
       throw new AppException('APPLICATION_INCOMPLETE', { details: issues });
     }
@@ -606,6 +612,16 @@ export class ApplicationsService {
     }
   }
 
+  /** Cupo de cada tipo de beca de la oferta (solo becas). */
+  private async quotasFor(
+    offerId: string,
+    kind: ApplicationKind,
+    links: readonly OfferScholarshipTypeLink[],
+  ): Promise<Map<string, OfferQuotaState>> {
+    if (kind !== 'SCHOLARSHIP' || links.length === 0) return new Map();
+    return this.scholarshipTypes.offerQuotas(offerId, links);
+  }
+
   private async deleteFile(key: string): Promise<void> {
     await this.storage.delete(key).catch((error: unknown) => {
       this.logger.warn({ err: error, key }, 'No se pudo borrar la evidencia del storage');
@@ -616,6 +632,7 @@ export class ApplicationsService {
   private async formData(
     dto: ApplicationFormFieldsDto,
     kind: ApplicationKind,
+    offerId: string,
     scholarshipTypes: readonly OfferScholarshipTypeLink[],
   ): Promise<ApplicationFormData> {
     const notApplicable = (kind === 'SCHOLARSHIP' ? OPEN_CALL_ONLY : SCHOLARSHIP_ONLY).filter(
@@ -641,6 +658,22 @@ export class ApplicationsService {
       });
     }
     if (details.length > 0) throw AppException.validation(details);
+    // Tipo agotado: visible en la ficha, pero no se puede solicitar (422 por campo).
+    if (dto.requestedScholarshipTypeId && kind === 'SCHOLARSHIP') {
+      const quotas = await this.quotasFor(offerId, kind, scholarshipTypes);
+      if (quotas.get(dto.requestedScholarshipTypeId)?.isFull) {
+        throw new AppException('BUSINESS_RULE_VIOLATION', {
+          message: 'Ya no hay cupo para ese tipo de beca.',
+          details: [
+            {
+              field: 'requestedScholarshipTypeId',
+              code: FIELD_ERROR_CODES.SCHOLARSHIP_TYPE_FULL,
+              message: 'Ya no hay cupo para ese tipo de beca: elige otro.',
+            },
+          ],
+        });
+      }
+    }
     if (dto.phone) await this.locations.validatePhone(dto.phone);
 
     const data: ApplicationFormData = {};
@@ -834,7 +867,7 @@ export class ApplicationsService {
   }
 
   private async toDetail(row: ApplicationRow, now: Date): Promise<ApplicationDetailDto> {
-    const [card, documents, countryNames] = await Promise.all([
+    const [card, documents, countryNames, quotas] = await Promise.all([
       this.toCard(row, now),
       this.prisma.applicationDocument.findMany({
         where: { applicationId: row.id },
@@ -843,6 +876,7 @@ export class ApplicationsService {
       this.locations.getCountryNames([
         ...new Set([row.countryCode, ...row.offer.eligibleCountryCodes]),
       ]),
+      this.quotasFor(row.offer.id, row.kind, row.offer.scholarshipTypes),
     ]);
     const window = applicationWindow(row.offer, row.kind, now);
     const currency: Currency =
@@ -885,7 +919,7 @@ export class ApplicationsService {
       },
       documents: documents.map(toDocumentDto),
       missingRequirements: isEditable(row.status)
-        ? submissionIssues(submissionInput(row, documents.length))
+        ? submissionIssues(submissionInput(row, documents.length, quotas))
         : [],
       history: row.statusEvents.map((e) => ({ status: e.toStatus, at: e.createdAt.toISOString() })),
       form: {
@@ -896,6 +930,7 @@ export class ApplicationsService {
                 row.offer.scholarshipTypes,
                 price?.amountCents ?? null,
                 currency,
+                quotas,
               )
             : [],
         price,
@@ -944,10 +979,15 @@ function profileSnapshot(user: User) {
   };
 }
 
-function submissionInput(row: ApplicationRow, documentCount: number) {
+function submissionInput(
+  row: ApplicationRow,
+  documentCount: number,
+  quotas: ReadonlyMap<string, OfferQuotaState>,
+) {
   return {
     kind: row.kind,
     enabledScholarshipTypeIds: scholarshipOptions(row.offer.scholarshipTypes).map((o) => o.id),
+    fullScholarshipTypeIds: [...quotas].filter(([, q]) => q.isFull).map(([id]) => id),
     requiresTravel: row.offer.requiresTravel,
     age: row.age,
     requestedScholarshipTypeId: row.requestedScholarshipTypeId,

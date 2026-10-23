@@ -249,7 +249,8 @@ export class AdminFollowUpController {
     description:
       'HU-32: nueva fecha (futura y ≤ inicio de clases; si no, 400 con `details[].field = ' +
       'responseDueAt`) y motivo obligatorio. Si estaba "Vencida", la reactiva y vuelve a reservar la ' +
-      'inscripción. Deja nota automática. Permiso `followup.manage`.' +
+      'inscripción (si su tipo de beca ya no tiene cupo → 409 `SCHOLARSHIP_TYPE_FULL`). Deja nota ' +
+      'automática. Permiso `followup.manage`.' +
       APPROVED_ONLY,
   })
   @ApiOkResponse({ type: FollowUpDetailDto })
@@ -259,6 +260,7 @@ export class AdminFollowUpController {
     'FORBIDDEN',
     'NOT_FOUND',
     'APPLICATION_INVALID_STATE',
+    'SCHOLARSHIP_TYPE_FULL',
   )
   extendDeadline(
     @CurrentUser() user: AdminUser,

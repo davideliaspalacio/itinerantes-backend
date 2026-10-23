@@ -409,6 +409,10 @@ export const ERROR_CODES = {
     status: HttpStatus.UNPROCESSABLE_ENTITY,
     message: 'El rango de porcentaje no es válido (1 ≤ mínimo ≤ máximo ≤ 100).',
   },
+  SCHOLARSHIP_TYPE_FULL: {
+    status: HttpStatus.CONFLICT,
+    message: 'Ya no hay cupo para este tipo de beca.',
+  },
   SCHOLARSHIP_TYPE_NOT_AVAILABLE: {
     status: HttpStatus.UNPROCESSABLE_ENTITY,
     message: 'Algún tipo de beca no existe o está desactivado.',
@@ -447,6 +451,8 @@ export const FIELD_ERROR_CODES = {
   MUST_ACCEPT: 'MUST_ACCEPT',
   /** Tipo de beca no habilitado (o desactivado) en la oferta. Antes `LEVEL_NOT_ENABLED`. */
   SCHOLARSHIP_TYPE_NOT_ENABLED: 'SCHOLARSHIP_TYPE_NOT_ENABLED',
+  /** Tipo de beca sin cupo disponible (global o de la oferta). */
+  SCHOLARSHIP_TYPE_FULL: 'SCHOLARSHIP_TYPE_FULL',
   /** Tipo de beca inexistente. */
   SCHOLARSHIP_TYPE_NOT_FOUND: 'SCHOLARSHIP_TYPE_NOT_FOUND',
   /** Tipo de beca desactivado: ya no se puede agregar a una oferta. */

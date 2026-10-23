@@ -61,7 +61,7 @@ export class ApplicationsController {
       'convocatoria de becas abierta o próxima) o "Convocatorias abiertas" (`kind=OPEN_CALL`). ' +
       'Tarjetas con lugar, fechas, costo o "Gratuito", cierre (`window.closesAt`, muéstralo en tu zona ' +
       'con cuenta regresiva), elegibilidad (`eligibility.eligible` / `reasons` según tu perfil), ' +
-      'niveles de beca con monto estimado en tu moneda y `myApplication` (una postulación por cohorte: ' +
+      'tipos de beca (con cupo disponible) y monto estimado en tu moneda y `myApplication` (una postulación por cohorte: ' +
       '[Ver mi postulación] en lugar de [Postular]). Orden: abiertas por cierre más próximo, luego ' +
       'próximas. `kind=OPEN_CALL` marca las convocatorias como vistas (widget "nuevas" del Dashboard). ' +
       'Lista vacía → mensaje orientador ("Te avisaremos cuando abra una convocatoria").',
@@ -118,6 +118,7 @@ export class ApplicationsController {
     'APPLICATION_WINDOW_CLOSED',
     'APPLICATION_ALREADY_EXISTS',
     'ENROLLMENT_ALREADY_EXISTS',
+    'BUSINESS_RULE_VIOLATION',
     'RATE_LIMITED',
   )
   create(
@@ -133,7 +134,7 @@ export class ApplicationsController {
     summary: 'Ver mi postulación',
     description:
       'HU-21 (y formulario del borrador de HU-19/20): tarjeta + respuestas, archivos, historial de ' +
-      'estados con fecha y hora, datos precargados del perfil, `form` (ventana, niveles con monto ' +
+      'estados con fecha y hora, datos precargados del perfil, `form` (ventana, tipos de beca con monto ' +
       'estimado, costo, elegibilidad, aviso de entrevista, límites) y `missingRequirements` ' +
       '(validaciones en línea: mientras no esté vacío, "Enviar postulación" sigue deshabilitado). ' +
       'Entrevista: hora local + CDMX y `interview.join.url` solo 10 minutos antes.' +
@@ -162,7 +163,7 @@ export class ApplicationsController {
       OWN_NOTE,
   })
   @ApiOkResponse({ type: ApplicationDetailDto })
-  @ApiErrorResponses('VALIDATION_ERROR', ...EDIT_ERRORS)
+  @ApiErrorResponses('VALIDATION_ERROR', 'BUSINESS_RULE_VIOLATION', ...EDIT_ERRORS)
   update(
     @CurrentUser() user: AuthUser,
     @Param('id', APPLICATION_ID) id: string,

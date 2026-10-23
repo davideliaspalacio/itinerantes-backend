@@ -15,6 +15,9 @@ import { scholarshipTypeIds, withScholarshipTypes } from './utils/scholarship-ty
  * desactivación, rango propio por oferta y % asignado dentro del rango efectivo.
  */
 describe('Tipos de beca parametrizables (e2e)', () => {
+  // Muchas llamadas HTTP por prueba: margen amplio en máquinas cargadas.
+  jest.setTimeout(120_000);
+
   let app: NestExpressApplication;
   let prisma: PrismaService;
   const mail = new MailCapture();
@@ -27,6 +30,8 @@ describe('Tipos de beca parametrizables (e2e)', () => {
   let coordinator: TestUser;
   let participant: TestUser;
   let otherParticipant: TestUser;
+  let third: TestUser;
+  let fourth: TestUser;
   let T: Record<string, string>;
 
   const api = () => request(app.getHttpServer());
@@ -64,6 +69,39 @@ describe('Tipos de beca parametrizables (e2e)', () => {
     ...overrides,
   });
 
+  /** Postulación de beca "En revisión" (como la deja el portal) con el tipo solicitado. */
+  const inReview = async (user: TestUser, offerId: string, scholarshipTypeId: string) => {
+    const profile = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    const created = await prisma.application.create({
+      data: {
+        userId: user.id,
+        offerId,
+        kind: 'SCHOLARSHIP',
+        status: 'IN_REVIEW',
+        applicantName: profile.fullName,
+        applicantEmail: profile.email,
+        phoneCountryCode: profile.phoneCountryCode,
+        phoneNumber: profile.phoneNumber,
+        countryCode: profile.countryCode,
+        divisionName: profile.divisionName,
+        municipalityName: profile.municipalityName,
+        requestedScholarshipTypeId: scholarshipTypeId,
+        intentLetter: 'Carta '.repeat(200),
+        currency: 'MXN',
+        originalAmountCents: 1_000_000,
+        submittedAt: days(-3),
+        reviewStartedAt: days(-2),
+        termsAcceptedAt: days(-3),
+      },
+    });
+    return created.id;
+  };
+  const approve = (applicationId: string, scholarshipTypeId: string) =>
+    post(`/admin/applications/${applicationId}/approve`, superAdmin, {
+      assignedScholarshipTypeId: scholarshipTypeId,
+      emailPreviewConfirmed: true,
+    });
+
   beforeAll(async () => {
     app = await createTestApp({ customize: (b) => b.overrideProvider(MAIL_DRIVER).useValue(mail) });
     prisma = app.get(PrismaService);
@@ -72,6 +110,8 @@ describe('Tipos de beca parametrizables (e2e)', () => {
     coordinator = await createStaffUser(app, mail, ['ACADEMIC_COORDINATOR']);
     participant = await createParticipant(app, mail);
     otherParticipant = await createParticipant(app, mail);
+    third = await createParticipant(app, mail);
+    fourth = await createParticipant(app, mail);
   }, 180_000);
 
   afterAll(async () => {
@@ -101,6 +141,8 @@ describe('Tipos de beca parametrizables (e2e)', () => {
       maxPercent: 80,
       requiresInterview: true,
       sortOrder: 5,
+      availableRecipients: null,
+      isFull: false,
     });
   });
 
@@ -415,5 +457,196 @@ describe('Tipos de beca parametrizables (e2e)', () => {
     });
     const ok = await api().get(`/api/v1/offers/${withActive.slug}`).expect(200);
     expect(ok.body.scholarship).toEqual({ minPercent: 25, maxPercent: 25 });
+  });
+
+  describe('Cupo máximo por tipo de beca', () => {
+    let typeId: string;
+    let offerA: { id: string; slug: string };
+    let offerB: { id: string; slug: string };
+    const apps: Record<string, string> = {};
+
+    beforeAll(async () => {
+      const created = await post('/admin/scholarship-types', superAdmin, {
+        key: KEY('CUPO'),
+        name: 'Cupo',
+        minPercent: 20,
+        maxPercent: 20,
+        maxRecipients: 3,
+      }).expect(201);
+      typeId = created.body.id;
+      expect(created.body).toMatchObject({
+        maxRecipients: 3,
+        usedRecipients: 0,
+        availableRecipients: 3,
+        isFull: false,
+      });
+      offerA = await prisma.offer.create({
+        data: offerData('cupo-a', {
+          scholarshipTypes: {
+            create: [{ scholarshipTypeId: typeId }, { scholarshipTypeId: T.AGUAS_LIBRES }],
+          },
+        }),
+      });
+      offerB = await prisma.offer.create({
+        data: offerData('cupo-b', {
+          scholarshipTypes: { create: [{ scholarshipTypeId: typeId, maxRecipients: 1 }] },
+        }),
+      });
+      apps.a1 = await inReview(participant, offerA.id, typeId);
+      apps.a2 = await inReview(otherParticipant, offerA.id, typeId);
+      apps.a3 = await inReview(third, offerA.id, typeId);
+      apps.b1 = await inReview(participant, offerB.id, typeId);
+      apps.b2 = await inReview(otherParticipant, offerB.id, typeId);
+    });
+
+    it('validación: maxRecipients entero ≥ 1 o null', async () => {
+      await post('/admin/scholarship-types', superAdmin, {
+        key: KEY('CUPO_CERO'),
+        name: 'Cero',
+        minPercent: 5,
+        maxPercent: 5,
+        maxRecipients: 0,
+      }).expect(400);
+      await patch(`/admin/offers/${offerB.id}/steps/origin-pricing`, superAdmin, {
+        scholarshipTypes: [{ scholarshipTypeId: typeId, maxRecipients: 0 }],
+      }).expect(400);
+    });
+
+    it('concurrencia: 2 aprobaciones con 1 cupo en la oferta → solo una pasa (409 OFFER)', async () => {
+      const results = await Promise.all([approve(apps.b1, typeId), approve(apps.b2, typeId)]);
+      const statuses = results.map((r) => r.status).sort();
+      expect(statuses).toEqual([200, 409]);
+      const rejected = results.find((r) => r.status === 409)!;
+      expect(rejected.body).toMatchObject({
+        code: 'SCHOLARSHIP_TYPE_FULL',
+        meta: { scholarshipTypeId: typeId, maxRecipients: 1, used: 1, scope: 'OFFER' },
+      });
+      // La rechazada sigue en revisión (la transacción se revirtió).
+      const loser = results[0].status === 409 ? apps.b1 : apps.b2;
+      const row = await prisma.application.findUniqueOrThrow({ where: { id: loser } });
+      expect(row).toMatchObject({ status: 'IN_REVIEW', assignedScholarshipTypeId: null });
+      const enrollment = await prisma.enrollment.findFirst({ where: { applicationId: loser } });
+      expect(enrollment).toBeNull();
+    });
+
+    it('cupo global: aprobar hasta llenar → 409 TYPE; vista previa bloqueada', async () => {
+      await approve(apps.a1, typeId).expect(200);
+      await approve(apps.a2, typeId).expect(200);
+      const preview = await get(
+        `/admin/applications/${apps.a3}/decision-preview?decision=APPROVE&assignedScholarshipTypeId=${typeId}`,
+        superAdmin,
+      ).expect(200);
+      expect(preview.body.blockedReason).toBe('SCHOLARSHIP_TYPE_FULL');
+      const full = await approve(apps.a3, typeId).expect(409);
+      expect(full.body).toMatchObject({
+        code: 'SCHOLARSHIP_TYPE_FULL',
+        meta: { scholarshipTypeId: typeId, maxRecipients: 3, used: 3, scope: 'TYPE' },
+      });
+      const detail = await get(`/admin/applications/${apps.a3}`, superAdmin).expect(200);
+      expect(
+        detail.body.decision.scholarshipTypes.find(
+          (t: { scholarshipTypeId: string }) => t.scholarshipTypeId === typeId,
+        ).quota,
+      ).toMatchObject({
+        typeMaxRecipients: 3,
+        typeUsedRecipients: 3,
+        offerMaxRecipients: null,
+        offerUsedRecipients: 2,
+        availableRecipients: 0,
+        isFull: true,
+      });
+      const admin = await get('/admin/scholarship-types', superAdmin).expect(200);
+      expect(admin.body.data.find((t: { id: string }) => t.id === typeId)).toMatchObject({
+        maxRecipients: 3,
+        usedRecipients: 3,
+        availableRecipients: 0,
+        isFull: true,
+      });
+      const pricing = await get(`/admin/offers/${offerB.id}`, superAdmin).expect(200);
+      expect(pricing.body.originPricing.scholarshipTypes[0]).toMatchObject({
+        maxRecipients: 1,
+        quota: { offerMaxRecipients: 1, offerUsedRecipients: 1, isFull: true },
+      });
+    });
+
+    it('público: el tipo lleno sigue visible como agotado y no se puede solicitar (422)', async () => {
+      const list = await api().get('/api/v1/scholarship-types').expect(200);
+      expect(list.body.data.find((t: { id: string }) => t.id === typeId)).toMatchObject({
+        availableRecipients: 0,
+        isFull: true,
+      });
+      const detail = await api().get(`/api/v1/offers/${offerA.slug}`).expect(200);
+      const types = detail.body.scholarshipDetails.scholarshipTypes as Array<{
+        scholarshipTypeId: string;
+        isFull: boolean;
+        availableRecipients: number | null;
+      }>;
+      expect(types.find((t) => t.scholarshipTypeId === typeId)).toMatchObject({
+        isFull: true,
+        availableRecipients: 0,
+      });
+      expect(types.find((t) => t.scholarshipTypeId === T.AGUAS_LIBRES)).toMatchObject({
+        isFull: false,
+        availableRecipients: null,
+      });
+      const res = await post('/me/applications', fourth, {
+        offerId: offerA.id,
+        requestedScholarshipTypeId: typeId,
+      }).expect(422);
+      expect(res.body).toMatchObject({
+        code: 'BUSINESS_RULE_VIOLATION',
+        details: [{ field: 'requestedScholarshipTypeId', code: 'SCHOLARSHIP_TYPE_FULL' }],
+      });
+      // Otro tipo con cupo sí.
+      await post('/me/applications', fourth, {
+        offerId: offerA.id,
+        requestedScholarshipTypeId: T.AGUAS_LIBRES,
+      }).expect(201);
+    });
+
+    it('vencida libera el cupo; reactivarla sin cupo → 409', async () => {
+      await prisma.application.update({
+        where: { id: apps.a1 },
+        data: { status: 'EXPIRED', expiredAt: now },
+      });
+      await approve(apps.a3, typeId).expect(200);
+      const reactivate = await post(`/admin/applications/${apps.a1}/extend-deadline`, superAdmin, {
+        responseDueAt: days(5).toISOString(),
+        reason: 'Prueba de cupo',
+      }).expect(409);
+      expect(reactivate.body).toMatchObject({
+        code: 'SCHOLARSHIP_TYPE_FULL',
+        meta: { scope: 'TYPE' },
+      });
+      const row = await prisma.application.findUniqueOrThrow({ where: { id: apps.a1 } });
+      expect(row.status).toBe('EXPIRED');
+    });
+
+    it('bajar el cupo por debajo de lo usado: permitido, no quita becas', async () => {
+      const res = await patch(`/admin/scholarship-types/${typeId}`, superAdmin, {
+        maxRecipients: 1,
+      }).expect(200);
+      expect(res.body).toMatchObject({
+        maxRecipients: 1,
+        usedRecipients: 3,
+        availableRecipients: 0,
+        isFull: true,
+      });
+      expect(
+        await prisma.application.count({
+          where: { assignedScholarshipTypeId: typeId, status: 'APPROVED_PENDING_PAYMENT' },
+        }),
+      ).toBe(3);
+      const log = await prisma.adminAuditLog.findFirst({
+        where: { entityId: typeId, action: 'scholarship_type.update' },
+        orderBy: { createdAt: 'desc' },
+      });
+      expect(JSON.stringify(log?.changes)).toContain('maxRecipients');
+      // Ilimitado otra vez.
+      const unlimited = await patch(`/admin/scholarship-types/${typeId}`, superAdmin, {
+        maxRecipients: null,
+      }).expect(200);
+      expect(unlimited.body).toMatchObject({ availableRecipients: null, isFull: false });
+    });
   });
 });

@@ -16,6 +16,11 @@ import {
   toScholarshipTypeSummary,
 } from '../../scholarship-types/policies/scholarship-type.policy';
 import { OFFER_SCHOLARSHIP_TYPES_RELATION } from '../../scholarship-types/scholarship-type.select';
+import {
+  flattenOfferQuota,
+  type OfferQuotaState,
+  UNLIMITED_OFFER_QUOTA,
+} from '../../scholarship-types/policies/scholarship-quota.policy';
 import { ScholarshipTypesService } from '../../scholarship-types/scholarship-types.service';
 import { seatHoldingWhere } from '../../enrollments/policies/enrollment.policy';
 import { deriveOfferAvailability } from '../policies/offer-status.policy';
@@ -97,11 +102,13 @@ interface ScholarshipTypeLinkInput {
   minPercent: number | null;
   maxPercent: number | null;
   sortOrder: number | null;
+  maxRecipients: number | null;
 }
 
-/** Tipos de beca de la oferta para el panel (incluye desactivados; rango efectivo). */
+/** Tipos de beca de la oferta para el panel (incluye desactivados; rango efectivo; cupo). */
 function adminScholarshipTypes(
   links: readonly OfferScholarshipTypeLink[],
+  quotas: ReadonlyMap<string, OfferQuotaState>,
 ): AdminOfferScholarshipTypeDto[] {
   const byId = new Map(links.map((link) => [link.scholarshipType.id, link]));
   return scholarshipOptions(links, { activeOnly: false }).map((option) => {
@@ -111,6 +118,8 @@ function adminScholarshipTypes(
       minPercent: link.minPercent,
       maxPercent: link.maxPercent,
       sortOrder: link.sortOrder,
+      maxRecipients: link.maxRecipients,
+      quota: flattenOfferQuota(quotas.get(option.id) ?? UNLIMITED_OFFER_QUOTA),
       active: option.active,
       scholarshipType: toScholarshipTypeSummary(option),
     };
@@ -119,9 +128,11 @@ function adminScholarshipTypes(
 
 /** Para la auditoría: "AGUA_VIVA", "SPECIAL 72–80". */
 function auditScholarshipTypes(links: readonly OfferScholarshipTypeLink[]): string[] {
-  return scholarshipOptions(links, { activeOnly: false }).map((o) =>
-    o.rangeOverridden ? `${o.key} ${o.minPercent}–${o.maxPercent}` : o.key,
-  );
+  return scholarshipOptions(links, { activeOnly: false }).map((o) => {
+    const range = o.rangeOverridden ? ` ${o.minPercent}–${o.maxPercent}` : '';
+    const cap = o.offerMaxRecipients !== null ? ` cupo ${o.offerMaxRecipients}` : '';
+    return `${o.key}${range}${cap}`;
+  });
 }
 
 /**
@@ -246,7 +257,10 @@ export class AdminOffersService {
         installmentsMax: offer.installmentsMax,
         moodleCourseUrl: offer.moodleCourseUrl,
         scholarshipEnabled: offer.scholarshipEnabled,
-        scholarshipTypes: adminScholarshipTypes(offer.scholarshipTypes),
+        scholarshipTypes: adminScholarshipTypes(
+          offer.scholarshipTypes,
+          await this.scholarshipTypes.offerQuotas(offer.id, offer.scholarshipTypes),
+        ),
         scholarshipOpensAt: iso(offer.scholarshipOpensAt),
         scholarshipClosesAt: iso(offer.scholarshipClosesAt),
       },
@@ -692,6 +706,7 @@ export class AdminOffersService {
             minPercent: link.minPercent,
             maxPercent: link.maxPercent,
             sortOrder: link.sortOrder,
+            maxRecipients: link.maxRecipients,
           })),
         });
         for (const module of modules) {
@@ -845,6 +860,7 @@ export class AdminOffersService {
       minPercent: item.minPercent ?? null,
       maxPercent: item.maxPercent ?? null,
       sortOrder: item.sortOrder ?? null,
+      maxRecipients: item.maxRecipients ?? null,
     }));
   }
 

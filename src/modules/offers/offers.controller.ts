@@ -80,7 +80,7 @@ export class OffersController {
     summary: 'Ficha de una oferta',
     description:
       'HU-16: ficha completa (docentes, "¿Qué aprenderás?", temario publicado, fechas, horario CDMX, ' +
-      'costo en la moneda del visitante, "hasta N cuotas", bloque de beca con niveles y monto ' +
+      'costo en la moneda del visitante, "hasta N cuotas", bloque de beca con tipos (cupo) y monto ' +
       'estimado, elegibilidad de convocatorias, cupo) y `actions`: los CTA calculados por el backend ' +
       '(`ENROLL_AND_PAY`, `PAY_IN_INSTALLMENTS`, `ENROLL_FREE`, `APPLY_SCHOLARSHIP`, ' +
       '`APPLY_OPEN_CALL`, `ACTIVATE_MOODLE_ACCESS`, `GO_TO_CLASSROOM`) con `enabled` y `reason`. ' +

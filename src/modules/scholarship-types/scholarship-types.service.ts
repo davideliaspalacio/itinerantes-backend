@@ -11,7 +11,13 @@ import type {
   ScholarshipTypesResponseDto,
   UpdateScholarshipTypeRequestDto,
 } from './dto/scholarship-types.dto';
-import { percentRangeIssues, type ScholarshipTypeDef } from './policies/scholarship-type.policy';
+import { type OfferQuotaState, quotaState } from './policies/scholarship-quota.policy';
+import {
+  type OfferScholarshipTypeLink,
+  percentRangeIssues,
+  type ScholarshipTypeDef,
+} from './policies/scholarship-type.policy';
+import { offerQuotas, usedRecipientsByType } from './scholarship-quota';
 import { SCHOLARSHIP_TYPE_SELECT } from './scholarship-type.select';
 
 const ORDER_BY = [
@@ -30,7 +36,8 @@ function auditable(type: ScholarshipType): Record<string, unknown> {
   return rest;
 }
 
-function toDto(type: ScholarshipTypeDef): ScholarshipTypeDto {
+function toDto(type: ScholarshipTypeDef, usedRecipients: number): ScholarshipTypeDto {
+  const quota = quotaState(type.maxRecipients, usedRecipients);
   return {
     id: type.id,
     key: type.key,
@@ -40,6 +47,8 @@ function toDto(type: ScholarshipTypeDef): ScholarshipTypeDto {
     maxPercent: type.maxPercent,
     requiresInterview: type.requiresInterview,
     sortOrder: type.sortOrder,
+    availableRecipients: quota.availableRecipients,
+    isFull: quota.isFull,
   };
 }
 
@@ -67,13 +76,33 @@ export class ScholarshipTypesService {
       orderBy: ORDER_BY,
       select: SCHOLARSHIP_TYPE_SELECT,
     });
-    return { data: types.map(toDto) };
+    const used = await usedRecipientsByType(
+      this.prisma,
+      types.map((t) => t.id),
+    );
+    return { data: types.map((type) => toDto(type, used.get(type.id) ?? 0)) };
   }
 
   async listAdmin(): Promise<AdminScholarshipTypesResponseDto> {
     const types = await this.prisma.scholarshipType.findMany({ orderBy: ORDER_BY });
-    const usage = await this.usageFor(types.map((t) => t.id));
-    return { data: types.map((type) => toAdminDto(type, usage.get(type.id) ?? NO_USAGE)) };
+    const ids = types.map((t) => t.id);
+    const [usage, used] = await Promise.all([
+      this.usageFor(ids),
+      usedRecipientsByType(this.prisma, ids),
+    ]);
+    return {
+      data: types.map((type) =>
+        toAdminDto(type, usage.get(type.id) ?? NO_USAGE, used.get(type.id) ?? 0),
+      ),
+    };
+  }
+
+  /** Cupo de cada tipo habilitado en la oferta (global del tipo + propio de la oferta). */
+  offerQuotas(
+    offerId: string,
+    links: readonly OfferScholarshipTypeLink[],
+  ): Promise<Map<string, OfferQuotaState>> {
+    return offerQuotas(this.prisma, offerId, links);
   }
 
   /** Tipos por id (los que no existen no vienen). */
@@ -109,6 +138,7 @@ export class ScholarshipTypesService {
           minPercent: dto.minPercent,
           maxPercent: dto.maxPercent,
           requiresInterview: dto.requiresInterview ?? false,
+          maxRecipients: dto.maxRecipients ?? null,
           active: dto.active ?? true,
           sortOrder,
         },
@@ -125,7 +155,7 @@ export class ScholarshipTypesService {
       summary: `Creó el tipo de beca «${created.name}» (${rangeLabel(created)}).`,
       after: auditable(created),
     });
-    return toAdminDto(created, NO_USAGE);
+    return toAdminDto(created, NO_USAGE, 0);
   }
 
   async update(
@@ -146,6 +176,9 @@ export class ScholarshipTypesService {
     if (dto.requiresInterview !== undefined) data.requiresInterview = dto.requiresInterview;
     if (dto.active !== undefined) data.active = dto.active;
     if (dto.sortOrder !== undefined) data.sortOrder = dto.sortOrder;
+    // Bajar el cupo por debajo de lo ya asignado está permitido: no quita becas, solo bloquea nuevas
+    // (la respuesta trae `usedRecipients` / `availableRecipients = 0`).
+    if (dto.maxRecipients !== undefined) data.maxRecipients = dto.maxRecipients;
     const after = await this.prisma.scholarshipType.update({ where: { id }, data });
     const verb =
       dto.active === false && before.active
@@ -162,7 +195,11 @@ export class ScholarshipTypesService {
       before: auditable(before),
       after: auditable(after),
     });
-    return toAdminDto(after, (await this.usageFor([id])).get(id) ?? NO_USAGE);
+    const [usage, used] = await Promise.all([
+      this.usageFor([id]),
+      usedRecipientsByType(this.prisma, [id]),
+    ]);
+    return toAdminDto(after, usage.get(id) ?? NO_USAGE, used.get(id) ?? 0);
   }
 
   /** Borra un tipo que nadie usa; si alguna oferta/postulación/evaluación lo usa → 409. */
@@ -240,9 +277,15 @@ export class ScholarshipTypesService {
   }
 }
 
-function toAdminDto(type: ScholarshipType, usage: Usage): AdminScholarshipTypeDto {
+function toAdminDto(
+  type: ScholarshipType,
+  usage: Usage,
+  usedRecipients: number,
+): AdminScholarshipTypeDto {
   return {
-    ...toDto(type),
+    ...toDto(type, usedRecipients),
+    maxRecipients: type.maxRecipients,
+    usedRecipients,
     active: type.active,
     usage,
     createdAt: type.createdAt.toISOString(),

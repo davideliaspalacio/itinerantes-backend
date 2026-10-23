@@ -7,6 +7,7 @@ import {
   type ScholarshipTypeSummary,
   toScholarshipTypeSummary,
 } from '../../scholarship-types/policies/scholarship-type.policy';
+import type { OfferQuotaState } from '../../scholarship-types/policies/scholarship-quota.policy';
 
 export interface AmountRange {
   minAmountCents: number;
@@ -24,6 +25,10 @@ export interface ScholarshipTypeEstimate {
   estimatedScholarship: AmountRange | null;
   /** Saldo estimado a pagar tras la beca. */
   estimatedBalance: AmountRange | null;
+  /** Becas que aún se pueden asignar (mín. entre cupo global y de la oferta). null = sin límite. */
+  availableRecipients: number | null;
+  /** Agotado: visible en la ficha, pero no se puede solicitar. */
+  isFull: boolean;
 }
 
 /**
@@ -52,15 +57,20 @@ export function estimateScholarshipTypes(
   links: readonly OfferScholarshipTypeLink[],
   priceCents: number | null,
   currency: Currency,
+  quotas: ReadonlyMap<string, Pick<OfferQuotaState, 'availableRecipients' | 'isFull'>> = new Map(),
 ): ScholarshipTypeEstimate[] {
-  return scholarshipOptions(links).map((option) => estimateOption(option, priceCents, currency));
+  return scholarshipOptions(links).map((option) => ({
+    ...estimateOption(option, priceCents, currency),
+    availableRecipients: quotas.get(option.id)?.availableRecipients ?? null,
+    isFull: quotas.get(option.id)?.isFull ?? false,
+  }));
 }
 
 function estimateOption(
   option: ScholarshipOption,
   priceCents: number | null,
   currency: Currency,
-): ScholarshipTypeEstimate {
+): Omit<ScholarshipTypeEstimate, 'availableRecipients' | 'isFull'> {
   const hasPrice = priceCents !== null && priceCents > 0;
   return {
     scholarshipTypeId: option.id,

@@ -8,7 +8,7 @@ import type { OfferScholarshipTypeLink, ScholarshipTypeDef } from './scholarship
 export const TEST_SCHOLARSHIP_TYPES: Record<string, ScholarshipTypeDef> = Object.fromEntries(
   DEFAULT_SCHOLARSHIP_TYPES.map((t) => [
     t.key,
-    { ...t, id: `st-${t.key}`, description: null, active: true },
+    { ...t, id: `st-${t.key}`, description: null, maxRecipients: null, active: true },
   ]),
 );
 
@@ -25,6 +25,7 @@ export function testLink(
     minPercent: null,
     maxPercent: null,
     sortOrder: null,
+    maxRecipients: null,
     ...rest,
     scholarshipType: { ...type, active: active ?? type.active },
   };

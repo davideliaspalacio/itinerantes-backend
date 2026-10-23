@@ -47,6 +47,8 @@ import {
   scholarshipPercentRange,
 } from '../scholarship-types/policies/scholarship-type.policy';
 import { OFFER_SCHOLARSHIP_TYPES_RELATION } from '../scholarship-types/scholarship-type.select';
+import { ScholarshipTypesService } from '../scholarship-types/scholarship-types.service';
+import type { OfferQuotaState } from '../scholarship-types/policies/scholarship-quota.policy';
 import { cdmxDate, firstOccurrence, safeParseScheduleRule } from './policies/schedule-rule';
 import { resolveViewerCurrency, type ViewerCurrency } from './policies/viewer-currency.policy';
 
@@ -114,6 +116,7 @@ export class OffersService {
     private readonly locations: LocationsService,
     @Inject(OFFER_ENROLLMENT_LOOKUP) private readonly enrollments: OfferEnrollmentLookup,
     @Inject(OFFER_APPLICATION_LOOKUP) private readonly applications: OfferApplicationLookup,
+    private readonly scholarshipTypes: ScholarshipTypesService,
   ) {}
 
   async list(
@@ -252,6 +255,9 @@ export class OffersService {
     });
 
     const scholarshipRange = scholarshipPercentRange(scholarshipOptions(offer.scholarshipTypes));
+    const quotas = scholarshipOffered
+      ? await this.scholarshipTypes.offerQuotas(offer.id, offer.scholarshipTypes)
+      : new Map<string, OfferQuotaState>();
     const hasEligibility =
       offer.type === 'OPEN_CALL' ||
       !!offer.eligibilityText ||
@@ -303,6 +309,7 @@ export class OffersService {
                 offer.scholarshipTypes,
                 priceCents,
                 currency,
+                quotas,
               ),
             }
           : null,

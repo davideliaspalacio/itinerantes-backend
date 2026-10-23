@@ -146,6 +146,8 @@ export const ApplicationFieldCode = {
   MUST_ACCEPT: 'MUST_ACCEPT',
   /** Tipo de beca no habilitado (o desactivado) en la oferta. Antes `LEVEL_NOT_ENABLED`. */
   SCHOLARSHIP_TYPE_NOT_ENABLED: 'SCHOLARSHIP_TYPE_NOT_ENABLED',
+  /** Tipo de beca sin cupo: no se puede solicitar en una postulación nueva. */
+  SCHOLARSHIP_TYPE_FULL: 'SCHOLARSHIP_TYPE_FULL',
   /** Campo que no corresponde al tipo de postulación (beca / convocatoria). */
   NOT_APPLICABLE: 'NOT_APPLICABLE',
 } as const;
@@ -161,6 +163,8 @@ export interface SubmissionInput {
   kind: ApplicationKind;
   /** Ids de los tipos de beca ACTIVOS de la oferta (`scholarshipOptions`). */
   enabledScholarshipTypeIds: readonly string[];
+  /** Ids de los tipos de la oferta sin cupo (`isFull`). Opcional: vacío = todos con cupo. */
+  fullScholarshipTypeIds?: readonly string[];
   requiresTravel: boolean;
   age: number | null;
   requestedScholarshipTypeId: string | null;
@@ -224,7 +228,13 @@ export function submissionIssues(input: SubmissionInput): FieldIssue[] {
               code: 'SCHOLARSHIP_TYPE_NOT_ENABLED',
               message: 'Ese tipo de beca no está disponible para este diplomado.',
             }
-          : null,
+          : input.fullScholarshipTypeIds?.includes(input.requestedScholarshipTypeId)
+            ? {
+                field: 'requestedScholarshipTypeId',
+                code: 'SCHOLARSHIP_TYPE_FULL',
+                message: 'Ya no hay cupo para ese tipo de beca: elige otro.',
+              }
+            : null,
       lengthIssue(
         'intentLetter',
         input.intentLetter,

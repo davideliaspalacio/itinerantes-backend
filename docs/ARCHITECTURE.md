@@ -418,7 +418,15 @@ que creó los 5 tipos iniciales con las mismas keys y migró ofertas, postulacio
   del solicitado (`interviewRequired`, `applicationRequiresInterview`).
 - Respuestas: todo `scholarshipTypeId` va acompañado de un resumen `{ id, key, name, minPercent,
   maxPercent, requiresInterview }` con el rango de la oferta (`summaryInOffer` / `assignedSummary`).
-- El seed crea los tipos por defecto que falten (`seedScholarshipTypes`, por `key`; seguro en producción).
+- **Cupo** (`scholarship-quota.policy` + `scholarship-quota.ts`): `ScholarshipType.maxRecipients` (global)
+  y `OfferScholarshipType.maxRecipients` (tope por oferta), null = sin límite, CHECK ≥ 1. Cupo usado =
+  postulaciones con `assignedScholarshipTypeId` en `SCHOLARSHIP_SEAT_STATUSES` (APPROVED_PENDING_PAYMENT,
+  APPROVED_PENDING_CONFIRMATION, ENROLLED); se calcula, nunca se guarda (vencer/no seleccionar libera solo).
+  Aprobar y reactivar una vencida verifican el cupo dentro de la transacción de la transición
+  (`lockAndAssertScholarshipQuota`: `SELECT … FOR NO KEY UPDATE` sobre el tipo y la fila puente; NO KEY
+  porque la FK de la postulación ya tomó KEY SHARE y `FOR UPDATE` provocaría deadlock) → 409
+  `SCHOLARSHIP_TYPE_FULL`. `EXPIRED → ENROLLED` por pago tardío (SISTEMA) no se bloquea.
+- El seed crea los tipos por defecto solo si el catálogo está vacío (`seedScholarshipTypes`; un tipo borrado desde el panel no reaparece).
 
 ## Reglas de negocio configurables
 

@@ -38,6 +38,7 @@ renombran una vez publicados.
 | `COURSE_MAX_HOURS_EXCEEDED`, `DIPLOMA_HOURS_MISMATCH` | Panel (Fase 06): curso de más de 9 h / diplomado que no suma 60 h (asistente de ofertas y vista previa de sesiones). |
 | `INVALID_MEETING_URL` | Panel (Fase 06): enlace de sesión que no es `https://…zoom.us` ni `https://meet.google.com`. |
 | `NOT_APPLICABLE`, `SCHOLARSHIP_TYPE_NOT_ENABLED`, `MIN_FILES`, `MUST_ACCEPT` | Formulario de postulación (Fase 04): campo de otro tipo, tipo de beca no habilitado o desactivado en la oferta (antes `LEVEL_NOT_ENABLED`; también al asignar/sugerir en el panel), faltan evidencias, casilla obligatoria sin marcar. |
+| `SCHOLARSHIP_TYPE_FULL` | Tipo de beca sin cupo: al solicitarlo en el formulario (`422 BUSINESS_RULE_VIOLATION` al guardar, o pendiente de `422 APPLICATION_INCOMPLETE` al enviar) → elegir otro tipo. |
 | `SCHOLARSHIP_TYPE_NOT_FOUND`, `SCHOLARSHIP_TYPE_INACTIVE` | Panel (asistente de ofertas, paso 4): tipo de beca inexistente / desactivado (no se puede agregar a la oferta). |
 | `IS_EMAIL`, `IS_STRING`, `IS_INT`, `IS_ENUM`, `IS_UUID`, `IS_DATE_STRING`, `MIN_LENGTH`, `MAX_LENGTH`, `MIN`, `MAX`, `MATCHES`, ... | Restricción de validación incumplida (nombre de la regla en `SCREAMING_SNAKE_CASE`). |
 
@@ -198,6 +199,7 @@ son UUID o inexistentes → `404 NOT_FOUND`.
 | `SCHOLARSHIP_TYPE_KEY_TAKEN` | 409 | Ya existe un tipo de beca con esa clave. | — | Crear tipo de beca: `details[].field = key` (`ALREADY_EXISTS`). |
 | `SCHOLARSHIP_TYPE_IN_USE` | 409 | El tipo de beca ya está en ofertas, postulaciones o evaluaciones: desactívalo en lugar de borrarlo. | `usage` | Borrar un tipo en uso → ofrecer "Desactivar". |
 | `SCHOLARSHIP_TYPE_INVALID_RANGE` | 422 | El rango de porcentaje no es válido (1 ≤ mínimo ≤ máximo ≤ 100). | — | Crear/editar tipo o rango propio en el paso 4 de la oferta: `details[].field` (`minPercent` / `maxPercent` / `scholarshipTypes.N.maxPercent`). |
+| `SCHOLARSHIP_TYPE_FULL` | 409 | Ya no hay cupo para este tipo de beca. | `scholarshipTypeId`, `maxRecipients`, `used`, `scope` (`TYPE` / `OFFER`) | Aprobar (o reactivar con [Extender plazo]) sin cupo del tipo (global) o de la oferta. Elegir otro tipo o subir el cupo. |
 | `SCHOLARSHIP_TYPE_NOT_AVAILABLE` | 422 | Algún tipo de beca no existe o está desactivado. | — | Paso 4 de la oferta: `details[]` por `scholarshipTypes.N.scholarshipTypeId` con `SCHOLARSHIP_TYPE_NOT_FOUND` / `SCHOLARSHIP_TYPE_INACTIVE`. |
 | `ADMIN_LAST_SUPER_ADMIN` | 409 | Debe quedar al menos una cuenta SUPER_ADMIN activa. | — | Quitar el rol o deshabilitar al último SUPER_ADMIN. |
 | `ADMIN_SELF_ACTION` | 409 | No puedes quitarte el rol SUPER_ADMIN ni deshabilitar tu propia cuenta. | — | Gestión del equipo sobre la propia cuenta. |

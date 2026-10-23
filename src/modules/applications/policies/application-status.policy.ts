@@ -268,7 +268,7 @@ export interface TimelineInput {
   status: ApplicationStatus;
   /** Historial (cualquier orden). */
   history: ReadonlyArray<{ toStatus: ApplicationStatus; at: Date }>;
-  /** Requiere entrevista (convocatoria o beca especial > 70%). */
+  /** Requiere entrevista (convocatoria o tipo de beca con `requiresInterview`). */
   interviewRequired: boolean;
   /** La respuesta es un pago (saldo > 0 o la oferta tiene costo) o una confirmación. */
   responseKind: 'PAYMENT' | 'CONFIRMATION';

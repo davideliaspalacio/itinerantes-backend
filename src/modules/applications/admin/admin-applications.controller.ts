@@ -59,7 +59,7 @@ export class AdminApplicationsController {
     summary: 'Bandeja de postulaciones (becas y convocatorias)',
     description:
       'HU-31: pestañas Becas (`kind=SCHOLARSHIP`) / Convocatorias (`kind=OPEN_CALL`); filtros por ' +
-      'oferta, estado (HU-21), nivel solicitado, país, "Requiere entrevista" y "Sin mi evaluación"; ' +
+      'oferta, estado (HU-21), tipo de beca solicitado, país, "Requiere entrevista" y "Sin mi evaluación"; ' +
       'búsqueda por nombre, correo o folio. Nunca lista borradores. Cada fila trae las insignias ' +
       '(`requiresInterview`, `evaluationCount`, `myEvaluation`). Permiso `applications.read`.',
   })
@@ -109,7 +109,7 @@ export class AdminApplicationsController {
       'HU-31: datos de contacto, carta o respuestas, evidencias (URLs firmadas ~10 min), historial ' +
       'con notas internas, entrevistas, evaluaciones de todo el comité + resumen ("2 aprobar · 1 con ' +
       'dudas · nivel más sugerido: Aguas Libres 50%"), bloque de decisión (`canDecide`, ' +
-      '`blockedReason`, niveles con saldo en la moneda del postulante) y estado de los correos ' +
+      '`blockedReason`, tipos de beca con cupo y saldo en la moneda del postulante) y estado de los correos ' +
       '(`emails[]`, `decision.emailStatus`). `prevId`/`nextId` para [Anterior]/[Siguiente]. ' +
       '**Efecto:** si la postulación está "Enviada" y quien la abre puede evaluar o decidir, pasa a ' +
       '"En revisión" (`reviewStarted: true`, aviso solo en el portal). Permiso `applications.read`.' +
@@ -254,11 +254,13 @@ export class AdminApplicationsController {
   @ApiOperation({
     summary: 'Registrar decisión: Aprobada',
     description:
-      'HU-31: beca → nivel asignado (puede diferir del solicitado; Beca especial 71–80%); con saldo ' +
+      'HU-31: beca → tipo asignado (puede diferir del solicitado) y % dentro de su rango en la ' +
+      'oferta; con saldo ' +
       'pasa a "Aprobada – pendiente de pago" (link de pago a 7 días, HU-23) y reserva la inscripción; ' +
       'sin costo → "Aprobada – confirma tu participación". `message` = párrafo editable que se agrega ' +
-      'al correo; `emailPreviewConfirmed: true` obligatorio. Convocatoria o beca > 70% sin entrevista ' +
-      '"Realizada" → 422 `APPLICATION_INTERVIEW_REQUIRED`. Si el correo falla, la decisión se conserva ' +
+      'al correo; `emailPreviewConfirmed: true` obligatorio. Convocatoria o tipo de beca con `requiresInterview` sin entrevista ' +
+      '"Realizada" → 422 `APPLICATION_INTERVIEW_REQUIRED`. Sin cupo del tipo de beca (global o de la ' +
+      'oferta) → 409 `SCHOLARSHIP_TYPE_FULL` (`meta.scope`). Si el correo falla, la decisión se conserva ' +
       'y `decision.emailStatus = FAILED` ("Correo no enviado" + [Reintentar envío]). Permiso ' +
       '`applications.decide`.' +
       NOT_FOUND,
@@ -271,6 +273,7 @@ export class AdminApplicationsController {
     'NOT_FOUND',
     'APPLICATION_INVALID_STATE',
     'APPLICATION_INTERVIEW_REQUIRED',
+    'SCHOLARSHIP_TYPE_FULL',
   )
   approve(
     @CurrentUser() user: AdminUser,

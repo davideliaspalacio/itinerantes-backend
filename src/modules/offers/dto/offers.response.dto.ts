@@ -345,6 +345,22 @@ export class OfferScholarshipTypeDto {
     description: 'Saldo estimado a pagar ("el tipo final lo asigna el equipo").',
   })
   estimatedBalance!: AmountRangeDto | null;
+
+  @ApiProperty({
+    type: Number,
+    nullable: true,
+    example: 12,
+    description:
+      'Becas de este tipo que aún se pueden asignar en esta oferta (mínimo entre el cupo global ' +
+      'del tipo y el de la oferta). null = sin límite.',
+  })
+  availableRecipients!: number | null;
+
+  @ApiProperty({
+    example: false,
+    description: 'Cupo agotado: muéstralo como "Agotado"; no se puede solicitar.',
+  })
+  isFull!: boolean;
 }
 
 export class OfferScholarshipDto extends ScholarshipBadgeDto {
