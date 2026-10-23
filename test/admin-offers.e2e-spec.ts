@@ -10,6 +10,7 @@ import { createParticipant, createStaffUser, type TestUser } from './utils/admin
 import { createTestApp } from './utils/create-test-app';
 import { FakeStorage } from './utils/fake-storage';
 import { MailCapture } from './utils/mail-capture';
+import { scholarshipTypeIds } from './utils/scholarship-types';
 
 /**
  * Panel — ofertas y contenido (Fase 06): HU-27 (asistente de 7 pasos, publicar, duplicar, docentes,
@@ -29,6 +30,7 @@ describe('Admin — ofertas y contenido (e2e) — Fase 06', () => {
   let finance: TestUser;
   let committee: TestUser;
   let participant: TestUser;
+  let types: Record<string, string>;
 
   const api = () => request(app.getHttpServer());
   const as = (u: TestUser) => ({ Authorization: `Bearer ${u.token}` });
@@ -58,6 +60,7 @@ describe('Admin — ofertas y contenido (e2e) — Fase 06', () => {
     finance = await createStaffUser(app, mail, ['FINANCE']);
     committee = await createStaffUser(app, mail, ['REVIEW_COMMITTEE']);
     participant = await createParticipant(app, mail);
+    types = await scholarshipTypeIds(prisma);
   }, 180_000);
 
   afterAll(async () => {
@@ -233,9 +236,51 @@ describe('Admin — ofertas y contenido (e2e) — Fase 06', () => {
         installmentsEnabled: true,
         installmentsMax: 3,
         scholarshipEnabled: true,
-        scholarshipLevels: ['AGUAS_LIBRES', 'SPECIAL'],
+        scholarshipTypes: [
+          { scholarshipTypeId: types.AGUAS_LIBRES },
+          { scholarshipTypeId: types.SPECIAL, minPercent: 75 },
+        ],
       }).expect(200);
       expect(pricing.body.wizard.canPublish).toBe(true);
+      // Rango propio de la oferta: Beca especial 75–80 solo aquí; el tipo sigue en 71–80.
+      expect(pricing.body.originPricing.scholarshipTypes).toEqual([
+        expect.objectContaining({
+          scholarshipTypeId: types.AGUAS_LIBRES,
+          minPercent: null,
+          active: true,
+          scholarshipType: expect.objectContaining({ minPercent: 50, maxPercent: 50 }),
+        }),
+        expect.objectContaining({
+          scholarshipTypeId: types.SPECIAL,
+          minPercent: 75,
+          maxPercent: null,
+          scholarshipType: expect.objectContaining({ minPercent: 75, maxPercent: 80 }),
+        }),
+      ]);
+      // Tipo inexistente → 422 por campo; rango propio inválido → 422.
+      const missing = await patch(`/admin/offers/${offerId}/steps/origin-pricing`, coord, {
+        scholarshipTypes: [{ scholarshipTypeId: randomUUID() }],
+      }).expect(422);
+      expect(missing.body).toMatchObject({
+        code: 'SCHOLARSHIP_TYPE_NOT_AVAILABLE',
+        details: [
+          { field: 'scholarshipTypes.0.scholarshipTypeId', code: 'SCHOLARSHIP_TYPE_NOT_FOUND' },
+        ],
+      });
+      const badRange = await patch(`/admin/offers/${offerId}/steps/origin-pricing`, coord, {
+        scholarshipTypes: [{ scholarshipTypeId: types.SPECIAL, minPercent: 90 }],
+      }).expect(422);
+      expect(badRange.body).toMatchObject({
+        code: 'SCHOLARSHIP_TYPE_INVALID_RANGE',
+        details: [{ field: 'scholarshipTypes.0.maxPercent', code: 'INVALID' }],
+      });
+      // Duplicado → 400.
+      await patch(`/admin/offers/${offerId}/steps/origin-pricing`, coord, {
+        scholarshipTypes: [
+          { scholarshipTypeId: types.SPECIAL },
+          { scholarshipTypeId: types.SPECIAL },
+        ],
+      }).expect(400);
 
       await patch(`/admin/offers/${offerId}/steps/attendance`, coord, {
         attendanceWindowHours: 80,
@@ -470,6 +515,18 @@ describe('Admin — ofertas y contenido (e2e) — Fase 06', () => {
       expect(res.body.schedule.startsAt).toBeNull();
       expect(res.body.whatsapp.whatsappGroupUrl).toBeNull();
       expect(res.body.resources).toMatchObject({ moduleCount: 2, publishedModuleCount: 0 });
+      // Copia los tipos de beca con su rango propio.
+      expect(
+        res.body.originPricing.scholarshipTypes.map(
+          (t: { scholarshipType: { key: string }; minPercent: number | null }) => [
+            t.scholarshipType.key,
+            t.minPercent,
+          ],
+        ),
+      ).toEqual([
+        ['AGUAS_LIBRES', null],
+        ['SPECIAL', 75],
+      ]);
       const copyId = res.body.id;
 
       await post(`/admin/offers/${copyId}/unpublish`, coord).expect(409);

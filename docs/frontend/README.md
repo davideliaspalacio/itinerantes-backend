@@ -14,7 +14,44 @@ agrega su guía específica en `docs/frontend/fase-XX-<nombre>.md`.
 | [`fase-03-portal.md`](fase-03-portal.md) | Dashboard, Mi formación, inscripción gratuita, Aula, materiales, sesiones en vivo, asistencia, calendario, biblioteca, notificaciones | Fase 03 ✔ |
 | [`fase-04-postulaciones.md`](fase-04-postulaciones.md) | Becas disponibles, convocatorias abiertas, formulario con borrador y evidencias, envío, Mis postulaciones (línea de tiempo, entrevista, resultado, confirmación) + widgets, calendario y acciones de la ficha | Fase 04 ✔ |
 | [`fase-05-pagos.md`](fase-05-pagos.md) | Stripe Checkout (pago completo y saldo tras beca), transferencia México, cuotas con cobro automático (fallos, mora, actualizar tarjeta), acceso Moodle, Mis pagos y recibos PDF + acciones de ficha/postulaciones, Dashboard y notificaciones | Fase 05 ✔ |
-| [`fase-06-admin.md`](fase-06-admin.md) | Panel administrativo: acceso por roles y matriz de permisos, equipo y auditoría, asistente de ofertas de 7 pasos, docentes, imágenes, módulos y recursos, generación de sesiones y calendario, asistencia, revisión de postulaciones, embudo y seguimiento, pagos/transferencias/cuotas/reembolsos, Moodle | Fase 06 ✔ |
+| [`fase-06-admin.md`](fase-06-admin.md) | Panel administrativo: acceso por roles y matriz de permisos, equipo y auditoría, tipos de beca parametrizables, asistente de ofertas de 7 pasos, docentes, imágenes, módulos y recursos, generación de sesiones y calendario, asistencia, revisión de postulaciones, embudo y seguimiento, pagos/transferencias/cuotas/reembolsos, Moodle | Fase 06 ✔ |
+
+## Cambio incompatible (becas parametrizables)
+
+Los niveles de beca dejaron de ser un enum fijo (`ScholarshipLevel`: `AGUA_VIVA`, `RIOS_VIVOS`,
+`AGUAS_LIBRES`, `CENOTES_VIVOS`, `SPECIAL` con % en el código). Ahora son **tipos de beca** en la BD
+que un SUPER_ADMIN administra (`/admin/scholarship-types`, permiso `scholarship_types.write`); cada
+oferta habilita los suyos y puede ajustar el rango de % solo para ella; la entrevista depende de
+`requiresInterview` del tipo (ya no del umbral "> 70%"). Detalle en
+[`fase-06-admin.md`](fase-06-admin.md#tipos-de-beca-parametrizables).
+
+Donde antes llegaba un `level` enum ahora llega `scholarshipTypeId` (uuid) + un objeto resumido
+`{ id, key, name, minPercent, maxPercent, requiresInterview }` (en ofertas, con el rango efectivo de esa
+oferta). **Muestra siempre `name` y los % recibidos**; `key` es estable si necesitas íconos por tipo.
+
+| Antes | Ahora | Dónde |
+|---|---|---|
+| — | `GET /scholarship-types` (público) | Tipos activos |
+| — | `GET/POST /admin/scholarship-types`, `PATCH/DELETE /admin/scholarship-types/{id}` | Panel |
+| `scholarshipDetails.levels[]` (`level`, `label`, `minPercent`, `maxPercent`, `requiresInterview`, …) | `scholarshipDetails.scholarshipTypes[]` (`scholarshipTypeId`, `scholarshipType`, `description`, `estimatedScholarship`, `estimatedBalance`) | Ficha (Fase 02) |
+| `scholarshipDetails.interviewRequiredAbovePercent` | eliminado (usa `scholarshipType.requiresInterview`) | Ficha |
+| `levels[]` / `form.levels[]` | `scholarshipTypes[]` / `form.scholarshipTypes[]` | Becas disponibles y formulario (Fase 04) |
+| `requestedLevel` (request y `answers`) | `requestedScholarshipTypeId` (+ `answers.requestedScholarshipType`) | Formulario (Fase 04) |
+| `scholarshipResult.requestedLevel` / `assignedLevel` | `requestedScholarshipTypeId` + `requestedScholarshipType`, `assignedScholarshipTypeId` + `assignedScholarshipType` | Mis postulaciones (Fase 04) |
+| `quote.application.assignedLevel` | `assignedScholarshipTypeId` + `assignedScholarshipType` | Pagos (Fase 05) |
+| Paso 4 `scholarshipLevels[]` (request y `originPricing`) | `scholarshipTypes: [{ scholarshipTypeId, minPercent?, maxPercent?, sortOrder? }]` | Asistente de ofertas (Fase 06) |
+| Filtro `?level=` | `?scholarshipTypeId=` | Bandeja de postulaciones (Fase 06) |
+| `requestedLevel` / `assignedLevel` (bandeja, detalle, seguimiento) | `requestedScholarshipTypeId` + `requestedScholarshipType`, `assignedScholarshipTypeId` + `assignedScholarshipType` | Panel (Fase 06) |
+| `decision.levels[]` (`level`, `label`, …) | `decision.scholarshipTypes[]` (`scholarshipTypeId`, `scholarshipType`, `active`, `balanceAtMaxPercent`) | Panel (Fase 06) |
+| `suggestedLevel` (evaluación) | `suggestedScholarshipTypeId` (+ `suggestedScholarshipType`) | Panel (Fase 06) |
+| `evaluationSummary.mostSuggestedLevel` | `mostSuggestedScholarshipTypeId` + `mostSuggestedScholarshipType` | Panel (Fase 06) |
+| `assignedLevel` (decision-preview query, approve body y respuesta) | `assignedScholarshipTypeId` (+ `assignedScholarshipType` en la respuesta) | Panel (Fase 06) |
+| `details[].code = LEVEL_NOT_ENABLED` | `SCHOLARSHIP_TYPE_NOT_ENABLED` | Formulario y panel |
+
+Códigos nuevos: `SCHOLARSHIP_TYPE_KEY_TAKEN` (409), `SCHOLARSHIP_TYPE_IN_USE` (409),
+`SCHOLARSHIP_TYPE_INVALID_RANGE` (422), `SCHOLARSHIP_TYPE_NOT_AVAILABLE` (422) y de campo
+`SCHOLARSHIP_TYPE_NOT_FOUND` / `SCHOLARSHIP_TYPE_INACTIVE` (ver [`errores.md`](errores.md)).
+`assignedPercent` se mantiene: es el % final que fija el comité dentro del rango del tipo en la oferta.
 
 ## URLs
 

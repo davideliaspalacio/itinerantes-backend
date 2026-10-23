@@ -12,6 +12,7 @@ import type { Prisma } from '../src/generated/prisma/client';
 import { createTestApp } from './utils/create-test-app';
 import { createVerifiedUser, login } from './utils/identity';
 import { MailCapture } from './utils/mail-capture';
+import { withScholarshipTypes } from './utils/scholarship-types';
 
 /**
  * Catálogo, ficha y disponibilidad (Fase 02). Usa ofertas propias con fechas RELATIVAS a hoy
@@ -87,7 +88,7 @@ describe('Oferta formativa (e2e) — HU-15, HU-16, HU-34', () => {
           installmentsEnabled: true,
           installmentsMax: 3,
           scholarshipEnabled: true,
-          scholarshipLevels: ['AGUA_VIVA', 'SPECIAL'],
+          scholarshipTypes: withScholarshipTypes(['AGUA_VIVA', 'SPECIAL']),
           scheduleRule: {
             weekdays: [6, 7],
             startTime: '10:00',
@@ -322,10 +323,9 @@ describe('Oferta formativa (e2e) — HU-15, HU-16, HU-34', () => {
         minPercent: 10,
         maxPercent: 80,
         windowStatus: 'OPEN',
-        levels: [
+        scholarshipTypes: [
           {
-            level: 'AGUA_VIVA',
-            requiresInterview: false,
+            scholarshipType: { key: 'AGUA_VIVA', name: 'Agua Viva', requiresInterview: false },
             estimatedScholarship: {
               minAmountCents: 102_000,
               maxAmountCents: 102_000,
@@ -333,10 +333,13 @@ describe('Oferta formativa (e2e) — HU-15, HU-16, HU-34', () => {
             },
           },
           {
-            level: 'SPECIAL',
-            minPercent: 71,
-            maxPercent: 80,
-            requiresInterview: true,
+            scholarshipType: {
+              key: 'SPECIAL',
+              name: 'Beca especial',
+              minPercent: 71,
+              maxPercent: 80,
+              requiresInterview: true,
+            },
             estimatedBalance: { minAmountCents: 204_000, maxAmountCents: 295_800, currency: 'MXN' },
           },
         ],

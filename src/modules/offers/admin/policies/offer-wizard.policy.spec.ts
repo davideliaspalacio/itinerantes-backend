@@ -44,7 +44,7 @@ function diploma(overrides: Partial<WizardOffer> = {}): WizardOffer {
     installmentsEnabled: true,
     installmentsMax: 3,
     scholarshipEnabled: true,
-    scholarshipLevels: ['AGUAS_LIBRES'],
+    scholarshipTypes: [{ scholarshipType: { active: true } }],
     scholarshipOpensAt: null,
     scholarshipClosesAt: null,
     attendanceWindowHours: 24,
@@ -121,9 +121,16 @@ describe('offer-wizard.policy', () => {
     expect(issuesOf(diploma({ installmentsMax: 5 }), 'ORIGIN_PRICING')).toEqual([
       'installmentsMax:INVALID',
     ]);
-    expect(issuesOf(diploma({ scholarshipLevels: [] }), 'ORIGIN_PRICING')).toEqual([
-      'scholarshipLevels:REQUIRED',
+    expect(issuesOf(diploma({ scholarshipTypes: [] }), 'ORIGIN_PRICING')).toEqual([
+      'scholarshipTypes:REQUIRED',
     ]);
+    // Solo tipos desactivados = como si no hubiera ninguno.
+    expect(
+      issuesOf(
+        diploma({ scholarshipTypes: [{ scholarshipType: { active: false } }] }),
+        'ORIGIN_PRICING',
+      ),
+    ).toEqual(['scholarshipTypes:REQUIRED']);
     expect(issuesOf(diploma({ type: 'COURSE' }), 'ORIGIN_PRICING')).toContain(
       'scholarshipEnabled:NOT_APPLICABLE',
     );

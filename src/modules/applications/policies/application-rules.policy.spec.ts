@@ -1,4 +1,5 @@
 import { BUSINESS_RULES } from '../../../config/business-rules';
+import { testLink } from '../../scholarship-types/policies/scholarship-type.fixtures';
 import {
   type ApplicableOffer,
   applicationKindFor,
@@ -10,7 +11,6 @@ import {
   interviewRequired,
   isResponseOverdue,
   isValidEvidenceFile,
-  resolveAssignedPercent,
   responseDeadline,
   type SubmissionInput,
   submissionIssues,
@@ -24,7 +24,7 @@ const diploma: ApplicableOffer = {
   type: 'DIPLOMA',
   origin: 'NAS',
   scholarshipEnabled: true,
-  scholarshipLevels: ['AGUA_VIVA', 'AGUAS_LIBRES', 'SPECIAL'],
+  scholarshipTypes: [testLink('AGUA_VIVA'), testLink('AGUAS_LIBRES'), testLink('SPECIAL')],
   scholarshipOpensAt: d('2026-10-01T06:00:00Z'),
   scholarshipClosesAt: d('2026-10-31T06:00:00Z'),
   enrollmentOpensAt: d('2026-09-01T06:00:00Z'),
@@ -36,7 +36,7 @@ const call: ApplicableOffer = {
   ...diploma,
   type: 'OPEN_CALL',
   scholarshipEnabled: false,
-  scholarshipLevels: [],
+  scholarshipTypes: [],
   scholarshipOpensAt: null,
   scholarshipClosesAt: null,
 };
@@ -46,7 +46,14 @@ describe('applicationKindFor / applicationWindow (HU-19 / HU-20)', () => {
     expect(applicationKindFor(diploma)).toBe('SCHOLARSHIP');
     expect(applicationKindFor(call)).toBe('OPEN_CALL');
     expect(applicationKindFor({ ...diploma, scholarshipEnabled: false })).toBeNull();
-    expect(applicationKindFor({ ...diploma, scholarshipLevels: [] })).toBeNull();
+    expect(applicationKindFor({ ...diploma, scholarshipTypes: [] })).toBeNull();
+    // Solo tipos desactivados → ya no se ofrece beca.
+    expect(
+      applicationKindFor({
+        ...diploma,
+        scholarshipTypes: [testLink('AGUA_VIVA', { active: false })],
+      }),
+    ).toBeNull();
     expect(applicationKindFor({ ...diploma, type: 'COURSE' })).toBeNull();
     expect(applicationKindFor({ ...diploma, origin: 'MOODLE' })).toBeNull();
     expect(applicationKindFor({ ...call, origin: 'MOODLE' })).toBeNull();
@@ -115,10 +122,10 @@ describe('submissionIssues (HU-19 / HU-20)', () => {
   const answer = 'b'.repeat(BUSINESS_RULES.OPEN_CALL_ANSWER_MIN_LENGTH);
   const scholarship: SubmissionInput = {
     kind: 'SCHOLARSHIP',
-    enabledLevels: ['AGUAS_LIBRES'],
+    enabledScholarshipTypeIds: ['st-AGUAS_LIBRES'],
     requiresTravel: false,
     age: 30,
-    requestedLevel: 'AGUAS_LIBRES',
+    requestedScholarshipTypeId: 'st-AGUAS_LIBRES',
     intentLetter: letter,
     eligibilityConfirmed: false,
     organization: null,
@@ -136,19 +143,19 @@ describe('submissionIssues (HU-19 / HU-20)', () => {
     expect(submissionIssues(scholarship)).toEqual([]);
   });
 
-  it('beca: carta corta, sin evidencia, sin términos, nivel no habilitado', () => {
+  it('beca: carta corta, sin evidencia, sin términos, tipo no habilitado', () => {
     expect(
       codes({
         ...scholarship,
         age: null,
-        requestedLevel: 'SPECIAL',
+        requestedScholarshipTypeId: 'st-SPECIAL',
         intentLetter: '  corta  ',
         documentCount: 0,
         termsAccepted: false,
       }),
     ).toEqual([
       'age:REQUIRED',
-      'requestedLevel:LEVEL_NOT_ENABLED',
+      'requestedScholarshipTypeId:SCHOLARSHIP_TYPE_NOT_ENABLED',
       'intentLetter:MIN_LENGTH',
       'documents:MIN_FILES',
       'termsAccepted:MUST_ACCEPT',
@@ -168,7 +175,7 @@ describe('submissionIssues (HU-19 / HU-20)', () => {
       kind: 'OPEN_CALL',
       requiresTravel: true,
       age: null,
-      requestedLevel: null,
+      requestedScholarshipTypeId: null,
       intentLetter: null,
       documentCount: 0,
       eligibilityConfirmed: true,
@@ -219,21 +226,12 @@ describe('folio, decisión y plazos (HU-21, 23, 31, 32)', () => {
     expect(formatFolio('OPEN_CALL', 45)).toBe('CONV-000045');
   });
 
-  it('entrevista obligatoria: convocatorias y becas > 70%', () => {
+  it('entrevista obligatoria: convocatorias y tipos de beca con requiresInterview', () => {
     expect(interviewRequired('OPEN_CALL', null)).toBe(true);
-    expect(interviewRequired('SCHOLARSHIP', 70)).toBe(false);
-    expect(interviewRequired('SCHOLARSHIP', 71)).toBe(true);
+    expect(interviewRequired('OPEN_CALL', false)).toBe(true);
+    expect(interviewRequired('SCHOLARSHIP', false)).toBe(false);
+    expect(interviewRequired('SCHOLARSHIP', true)).toBe(true);
     expect(interviewRequired('SCHOLARSHIP', null)).toBe(false);
-  });
-
-  it('porcentaje asignado: fijo por nivel; Beca especial 71–80', () => {
-    const enabled = ['AGUAS_LIBRES', 'SPECIAL'] as const;
-    expect(resolveAssignedPercent('AGUAS_LIBRES', enabled, 99)).toEqual({ ok: true, percent: 50 });
-    expect(resolveAssignedPercent('SPECIAL', enabled, 75)).toEqual({ ok: true, percent: 75 });
-    expect(resolveAssignedPercent('SPECIAL', enabled, 70).ok).toBe(false);
-    expect(resolveAssignedPercent('SPECIAL', enabled, 81).ok).toBe(false);
-    expect(resolveAssignedPercent('SPECIAL', enabled, null).ok).toBe(false);
-    expect(resolveAssignedPercent('AGUA_VIVA', enabled).ok).toBe(false);
   });
 
   it('saldo: 10,200 MXN con 50% → 5,100 MXN; sin precio → 0', () => {

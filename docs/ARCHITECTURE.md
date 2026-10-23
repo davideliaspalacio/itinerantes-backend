@@ -145,7 +145,7 @@ del usuario demo (Fase 04; nunca en producción, solo se crean si no existen). E
 Módulo `src/modules/offers/`. Reglas puras en `policies/` (con pruebas unitarias):
 `offer-status` (estado derivado), `viewer-currency` (moneda), `schedule-rule` (regla de horario JSON
 validada con zod), `session-generation` (generación de sesiones HU-29 + festivos de México + reglas de
-horas), `important-dates`, `scholarship` (niveles y montos), `offer-actions` (CTA de la ficha),
+horas), `important-dates`, `scholarship` (tipos de beca de la oferta y montos), `offer-actions` (CTA de la ficha),
 `catalog` (filtros/orden) y `public-topics` (temáticas HU-34).
 
 Decisiones de modelo (`prisma/schema.prisma`):
@@ -395,9 +395,34 @@ separados de los públicos/portal (pueden exponer `hostUrl`, notas internas, eva
   `SUSPEND_ACCESS_ON_DELINQUENCY` sigue en `true` (automática) aunque HU-33/Anexo A dicen manual: pendiente
   de decisión del cliente (ver la guía).
 
+## Tipos de beca parametrizables
+
+Módulo `src/modules/scholarship-types/` (catálogo público `GET /scholarship-types` + CRUD
+`/admin/scholarship-types`, permiso `scholarship_types.write` solo SUPER_ADMIN; lectura con
+`offers.read`). Reemplaza al antiguo enum `ScholarshipLevel` (migración `20261023120000_scholarship_types`,
+que creó los 5 tipos iniciales con las mismas keys y migró ofertas, postulaciones y evaluaciones).
+
+- `ScholarshipType`: `key` estable e inmutable (MAYÚSCULAS_CON_GUION_BAJO), `name`, `description`,
+  `minPercent`/`maxPercent` (1 ≤ min ≤ max ≤ 100, CHECK en BD; fijo si son iguales), `requiresInterview`,
+  `active`, `sortOrder`. Solo se borra si nada lo usa (FKs `RESTRICT` → 409 `SCHOLARSHIP_TYPE_IN_USE`);
+  desactivar = no se ofrece en ofertas/postulaciones nuevas, lo asignado se conserva.
+- `OfferScholarshipType` (puente, PK `(offerId, scholarshipTypeId)`, `CASCADE` desde la oferta):
+  `minPercent`/`maxPercent` opcionales sobrescriben el rango SOLO en esa oferta; rango efectivo =
+  override ?? tipo (`scholarship-type.policy.effectiveRange`). La ficha y el formulario solo muestran los
+  tipos activos (`scholarshipOptions`); una oferta sin tipos activos no ofrece beca (`offersScholarship`).
+- `Application.requestedScholarshipTypeId` / `assignedScholarshipTypeId` (+ snapshot
+  `assignedScholarshipTypeName` al aprobar) y `ApplicationEvaluation.suggestedScholarshipTypeId`.
+  `assignedPercent` es el % final del comité, validado contra el rango efectivo
+  (`application-rules.policy.resolveScholarshipAssignment`).
+- Entrevista: convocatorias siempre; becas según `requiresInterview` del tipo asignado o, sin decisión,
+  del solicitado (`interviewRequired`, `applicationRequiresInterview`).
+- Respuestas: todo `scholarshipTypeId` va acompañado de un resumen `{ id, key, name, minPercent,
+  maxPercent, requiresInterview }` con el rango de la oferta (`summaryInOffer` / `assignedSummary`).
+- El seed crea los tipos por defecto que falten (`seedScholarshipTypes`, por `key`; seguro en producción).
+
 ## Reglas de negocio configurables
 
-`src/config/business-rules.ts` centraliza valores del Anexo A (zona oficial `America/Mexico_City`, OTP 6 dígitos y su expiración, cooldown de reenvío, intentos máximos y bloqueo, ventana de asistencia por defecto 24 h, plazo de pago tras beca 7 días, mora 15 días, cuotas 2–4, niveles de beca, límites de archivos, etc.).
+`src/config/business-rules.ts` centraliza valores del Anexo A (zona oficial `America/Mexico_City`, OTP 6 dígitos y su expiración, cooldown de reenvío, intentos máximos y bloqueo, ventana de asistencia por defecto 24 h, plazo de pago tras beca 7 días, mora 15 días, cuotas 2–4, límites de archivos, etc.). Los **tipos de beca** NO están aquí: son datos administrables (ver "Tipos de beca parametrizables").
 
 ## Pruebas
 

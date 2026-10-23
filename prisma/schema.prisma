@@ -352,15 +352,6 @@ enum Currency {
   USD
 }
 
-/// Niveles de beca (porcentajes en BUSINESS_RULES.SCHOLARSHIP_LEVELS).
-enum ScholarshipLevel {
-  AGUA_VIVA
-  RIOS_VIVOS
-  AGUAS_LIBRES
-  CENOTES_VIVOS
-  SPECIAL
-}
-
 /// Categorías de color del calendario (HU-10 / HU-29).
 enum CalendarCategory {
   /// Formación (azul)
@@ -489,11 +480,11 @@ model Offer {
   moodleCourseUrl     String? @map("moodle_course_url") @db.VarChar(500)
 
   // --- Beca (solo diplomados NAS) ---
-  scholarshipEnabled  Boolean            @default(false) @map("scholarship_enabled")
-  scholarshipLevels   ScholarshipLevel[] @map("scholarship_levels")
+  /// Los tipos de beca habilitados viven en `OfferScholarshipType` (con rango propio opcional).
+  scholarshipEnabled  Boolean   @default(false) @map("scholarship_enabled")
   /// Ventana de la convocatoria de becas; si es null se usa la de inscripción.
-  scholarshipOpensAt  DateTime?          @map("scholarship_opens_at") @db.Timestamptz(3)
-  scholarshipClosesAt DateTime?          @map("scholarship_closes_at") @db.Timestamptz(3)
+  scholarshipOpensAt  DateTime? @map("scholarship_opens_at") @db.Timestamptz(3)
+  scholarshipClosesAt DateTime? @map("scholarship_closes_at") @db.Timestamptz(3)
 
   // --- Convocatoria (OPEN_CALL) ---
   eligibilityText      String?  @map("eligibility_text") @db.Text
@@ -520,6 +511,7 @@ model Offer {
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   teachers         OfferTeacher[]
+  scholarshipTypes OfferScholarshipType[]
   modules          OfferModule[]
   sessions         OfferSession[]
   calendarEvents   CalendarEvent[]
@@ -1080,8 +1072,9 @@ model Application {
   organizationRole String? @map("organization_role") @db.VarChar(120)
 
   // --- Beca (HU-19) ---
-  requestedLevel ScholarshipLevel? @map("requested_level")
-  intentLetter   String?           @map("intent_letter") @db.Text
+  /// Tipo de beca que solicita la persona (uno de los habilitados y activos en la oferta).
+  requestedScholarshipTypeId String? @map("requested_scholarship_type_id") @db.Uuid
+  intentLetter               String? @map("intent_letter") @db.Text
 
   // --- Convocatoria (HU-20) ---
   eligibilityConfirmed Boolean  @default(false) @map("eligibility_confirmed")
@@ -1099,14 +1092,17 @@ model Application {
   originalAmountCents Int?      @map("original_amount_cents")
 
   // --- Decisión (Fase 06, HU-31) ---
-  assignedLevel   ScholarshipLevel? @map("assigned_level")
-  assignedPercent Int?              @map("assigned_percent")
+  assignedScholarshipTypeId   String?   @map("assigned_scholarship_type_id") @db.Uuid
+  /// Nombre del tipo al aprobar (snapshot: renombrar el tipo no altera el histórico).
+  assignedScholarshipTypeName String?   @map("assigned_scholarship_type_name") @db.VarChar(80)
+  /// % final que fija el comité, dentro del rango efectivo del tipo en la oferta.
+  assignedPercent             Int?      @map("assigned_percent")
   /// Saldo a pagar = original − % asignado (HU-23). 0 → confirmación.
-  balanceCents    Int?              @map("balance_cents")
-  decidedById     String?           @map("decided_by_id") @db.Uuid
-  decisionNote    String?           @map("decision_note") @db.VarChar(1000)
+  balanceCents                Int?      @map("balance_cents")
+  decidedById                 String?   @map("decided_by_id") @db.Uuid
+  decisionNote                String?   @map("decision_note") @db.VarChar(1000)
   /// Fecha límite para pagar o confirmar (7 días, sin superar el inicio; HU-23/32 la extienden).
-  responseDueAt   DateTime?         @map("response_due_at") @db.Timestamptz(3)
+  responseDueAt               DateTime? @map("response_due_at") @db.Timestamptz(3)
 
   // --- Hitos ---
   submittedAt     DateTime? @map("submitted_at") @db.Timestamptz(3)
@@ -1130,19 +1126,21 @@ model Application {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  user             User                      @relation("ApplicationApplicant", fields: [userId], references: [id], onDelete: Cascade)
-  offer            Offer                     @relation(fields: [offerId], references: [id], onDelete: Restrict)
-  decidedBy        User?                     @relation("ApplicationDecidedBy", fields: [decidedById], references: [id], onDelete: SetNull)
-  documents        ApplicationDocument[]
-  statusEvents     ApplicationStatusEvent[]
-  interviews       ApplicationInterview[]
-  enrollment       Enrollment?
+  user                     User                      @relation("ApplicationApplicant", fields: [userId], references: [id], onDelete: Cascade)
+  offer                    Offer                     @relation(fields: [offerId], references: [id], onDelete: Restrict)
+  decidedBy                User?                     @relation("ApplicationDecidedBy", fields: [decidedById], references: [id], onDelete: SetNull)
+  requestedScholarshipType ScholarshipType?          @relation("ApplicationRequestedScholarshipType", fields: [requestedScholarshipTypeId], references: [id], onDelete: Restrict)
+  assignedScholarshipType  ScholarshipType?          @relation("ApplicationAssignedScholarshipType", fields: [assignedScholarshipTypeId], references: [id], onDelete: Restrict)
+  documents                ApplicationDocument[]
+  statusEvents             ApplicationStatusEvent[]
+  interviews               ApplicationInterview[]
+  enrollment               Enrollment?
   // Fase 05
-  payments         Payment[]
-  installmentPlans InstallmentPlan[]
+  payments                 Payment[]
+  installmentPlans         InstallmentPlan[]
   // Fase 06
-  evaluations      ApplicationEvaluation[]
-  followUpNotes    ApplicationFollowUpNote[]
+  evaluations              ApplicationEvaluation[]
+  followUpNotes            ApplicationFollowUpNote[]
 
   @@unique([userId, offerId])
   @@index([offerId, status])
@@ -1561,17 +1559,18 @@ enum EvaluationRecommendation {
  * Evaluación de una postulación por un integrante del comité (HU-31). Una editable por integrante.
  */
 model ApplicationEvaluation {
-  id             String                   @id @default(uuid()) @db.Uuid
-  applicationId  String                   @map("application_id") @db.Uuid
-  evaluatorId    String                   @map("evaluator_id") @db.Uuid
-  recommendation EvaluationRecommendation
-  suggestedLevel ScholarshipLevel?        @map("suggested_level")
-  comment        String?                  @db.VarChar(2000)
-  createdAt      DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt      DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id                         String                   @id @default(uuid()) @db.Uuid
+  applicationId              String                   @map("application_id") @db.Uuid
+  evaluatorId                String                   @map("evaluator_id") @db.Uuid
+  recommendation             EvaluationRecommendation
+  suggestedScholarshipTypeId String?                  @map("suggested_scholarship_type_id") @db.Uuid
+  comment                    String?                  @db.VarChar(2000)
+  createdAt                  DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                  DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  evaluator   User        @relation(fields: [evaluatorId], references: [id], onDelete: Cascade)
+  application              Application      @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  evaluator                User             @relation(fields: [evaluatorId], references: [id], onDelete: Cascade)
+  suggestedScholarshipType ScholarshipType? @relation(fields: [suggestedScholarshipTypeId], references: [id], onDelete: Restrict)
 
   @@unique([applicationId, evaluatorId])
   @@map("application_evaluations")
@@ -1668,4 +1667,52 @@ model SiteMetric {
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   @@map("site_metrics")
+}
+
+/**
+ * Tipo de beca parametrizable (Agua Viva 10%, Beca especial 71–80%...). Lo administra un SUPER_ADMIN
+ * desde el panel. `key` es estable e inmutable. Desactivar (`active = false`) lo deja de ofrecer en
+ * ofertas y postulaciones nuevas sin tocar lo ya asignado; solo se borra si nada lo usa.
+ */
+model ScholarshipType {
+  id                String   @id @default(uuid()) @db.Uuid
+  /// MAYÚSCULAS_CON_GUION_BAJO, único, no editable tras crear (p. ej. AGUA_VIVA).
+  key               String   @unique @db.VarChar(40)
+  name              String   @db.VarChar(80)
+  description       String?  @db.VarChar(500)
+  /// 1 ≤ minPercent ≤ maxPercent ≤ 100. Fijo si min = max.
+  minPercent        Int      @map("min_percent")
+  maxPercent        Int      @map("max_percent")
+  /// La postulación con este tipo requiere entrevista por Zoom (HU-19/21).
+  requiresInterview Boolean  @default(false) @map("requires_interview")
+  active            Boolean  @default(true)
+  sortOrder         Int      @default(0) @map("sort_order")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  offers                OfferScholarshipType[]
+  requestedApplications Application[]           @relation("ApplicationRequestedScholarshipType")
+  assignedApplications  Application[]           @relation("ApplicationAssignedScholarshipType")
+  evaluations           ApplicationEvaluation[]
+
+  @@index([active, sortOrder])
+  @@map("scholarship_types")
+}
+
+/// Tipo de beca habilitado en una oferta (HU-27). min/max opcionales sobrescriben el rango del tipo
+/// SOLO en esta oferta.
+model OfferScholarshipType {
+  offerId           String @map("offer_id") @db.Uuid
+  scholarshipTypeId String @map("scholarship_type_id") @db.Uuid
+  minPercent        Int?   @map("min_percent")
+  maxPercent        Int?   @map("max_percent")
+  /// Orden dentro de la oferta; si es null se usa el del tipo.
+  sortOrder         Int?   @map("sort_order")
+
+  offer           Offer           @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  scholarshipType ScholarshipType @relation(fields: [scholarshipTypeId], references: [id], onDelete: Restrict)
+
+  @@id([offerId, scholarshipTypeId])
+  @@index([scholarshipTypeId])
+  @@map("offer_scholarship_types")
 }

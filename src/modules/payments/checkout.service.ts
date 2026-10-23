@@ -38,6 +38,11 @@ import {
 } from './policies/payment-amounts.policy';
 import { isActivePlan } from './policies/payment-status.policy';
 import { transferAvailability, transferReference } from './policies/transfer.policy';
+import {
+  OFFER_SCHOLARSHIP_TYPES_RELATION,
+  SCHOLARSHIP_TYPE_SELECT,
+} from '../scholarship-types/scholarship-type.select';
+import { assignedSummary } from '../scholarship-types/policies/scholarship-type.policy';
 
 const OFFER_SELECT = {
   ...OFFER_REF_SELECT,
@@ -65,8 +70,11 @@ const APPLICATION_SELECT = {
   currency: true,
   originalAmountCents: true,
   balanceCents: true,
-  assignedLevel: true,
+  assignedScholarshipTypeId: true,
+  assignedScholarshipTypeName: true,
+  assignedScholarshipType: { select: SCHOLARSHIP_TYPE_SELECT },
   assignedPercent: true,
+  offer: { select: { scholarshipTypes: OFFER_SCHOLARSHIP_TYPES_RELATION } },
   responseDueAt: true,
   pendingTransferSince: true,
 } as const satisfies Prisma.ApplicationSelect;
@@ -193,7 +201,12 @@ export class CheckoutService {
             folio: formatFolio(application.kind, application.number),
             kind: application.kind,
             status: application.status,
-            assignedLevel: application.assignedLevel,
+            assignedScholarshipTypeId: application.assignedScholarshipTypeId,
+            assignedScholarshipType: assignedSummary(
+              application.assignedScholarshipType,
+              application.offer.scholarshipTypes,
+              application.assignedScholarshipTypeName,
+            ),
             assignedPercent: application.assignedPercent,
             originalAmount:
               application.originalAmountCents !== null

@@ -395,6 +395,24 @@ export const ERROR_CODES = {
     status: HttpStatus.UNPROCESSABLE_ENTITY,
     message: 'El monto a reembolsar debe ser mayor a 0 y no superar lo pagado.',
   },
+  // Tipos de beca parametrizables
+  SCHOLARSHIP_TYPE_KEY_TAKEN: {
+    status: HttpStatus.CONFLICT,
+    message: 'Ya existe un tipo de beca con esa clave.',
+  },
+  SCHOLARSHIP_TYPE_IN_USE: {
+    status: HttpStatus.CONFLICT,
+    message:
+      'El tipo de beca ya está en ofertas, postulaciones o evaluaciones: desactívalo en lugar de borrarlo.',
+  },
+  SCHOLARSHIP_TYPE_INVALID_RANGE: {
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    message: 'El rango de porcentaje no es válido (1 ≤ mínimo ≤ máximo ≤ 100).',
+  },
+  SCHOLARSHIP_TYPE_NOT_AVAILABLE: {
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    message: 'Algún tipo de beca no existe o está desactivado.',
+  },
   // Equipo y roles
   ADMIN_LAST_SUPER_ADMIN: {
     status: HttpStatus.CONFLICT,
@@ -427,8 +445,12 @@ export const FIELD_ERROR_CODES = {
   MIN_FILES: 'MIN_FILES',
   /** Fase 04: casilla obligatoria sin marcar (términos, elegibilidad). */
   MUST_ACCEPT: 'MUST_ACCEPT',
-  /** Fase 04: nivel de beca no habilitado en la oferta. */
-  LEVEL_NOT_ENABLED: 'LEVEL_NOT_ENABLED',
+  /** Tipo de beca no habilitado (o desactivado) en la oferta. Antes `LEVEL_NOT_ENABLED`. */
+  SCHOLARSHIP_TYPE_NOT_ENABLED: 'SCHOLARSHIP_TYPE_NOT_ENABLED',
+  /** Tipo de beca inexistente. */
+  SCHOLARSHIP_TYPE_NOT_FOUND: 'SCHOLARSHIP_TYPE_NOT_FOUND',
+  /** Tipo de beca desactivado: ya no se puede agregar a una oferta. */
+  SCHOLARSHIP_TYPE_INACTIVE: 'SCHOLARSHIP_TYPE_INACTIVE',
   /** Fase 04: campo que no corresponde al tipo de postulación (beca / convocatoria). */
   NOT_APPLICABLE: 'NOT_APPLICABLE',
 } as const;

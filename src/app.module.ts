@@ -32,6 +32,7 @@ import { MoodleModule } from './modules/moodle/moodle.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { OffersModule } from './modules/offers/offers.module';
 import { PaymentsModule } from './modules/payments/payments.module';
+import { ScholarshipTypesModule } from './modules/scholarship-types/scholarship-types.module';
 import { UsersModule } from './modules/users/users.module';
 
 @Module({
@@ -90,6 +91,7 @@ import { UsersModule } from './modules/users/users.module';
     AuthModule,
     ContactModule,
     SiteModule,
+    ScholarshipTypesModule,
     OffersModule,
     // Fase 03 — Portal del participante
     NotificationsModule,

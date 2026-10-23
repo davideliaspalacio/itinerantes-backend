@@ -15,6 +15,7 @@ import { FakePaymentGateway } from './utils/fake-payment-gateway';
 import { FakeStorage } from './utils/fake-storage';
 import { createVerifiedUser, login } from './utils/identity';
 import { MailCapture } from './utils/mail-capture';
+import { scholarshipTypeIds, withScholarshipTypes } from './utils/scholarship-types';
 
 /**
  * Pagos (Fase 05): HU-22 (Stripe Checkout), HU-23 (saldo tras beca: tarjeta y transferencia),
@@ -25,6 +26,8 @@ import { MailCapture } from './utils/mail-capture';
 describe('Pagos (e2e) — Fase 05', () => {
   let app: NestExpressApplication;
   let prisma: PrismaService;
+  /** key → id de los tipos de beca. */
+  let T: Record<string, string>;
   let jobs: PaymentJobsService;
   let transfers: TransfersService;
   let moodle: MoodleAccessService;
@@ -107,8 +110,9 @@ describe('Pagos (e2e) — Fase 05', () => {
         countryCode: profile.countryCode,
         divisionName: profile.divisionName,
         municipalityName: profile.municipalityName,
-        requestedLevel: 'AGUAS_LIBRES',
-        assignedLevel: 'AGUAS_LIBRES',
+        requestedScholarshipTypeId: T.AGUAS_LIBRES,
+        assignedScholarshipTypeId: T.AGUAS_LIBRES,
+        assignedScholarshipTypeName: 'Aguas Libres',
         assignedPercent: 50,
         currency,
         originalAmountCents: currency === 'MXN' ? 1_020_000 : 58_500,
@@ -147,6 +151,7 @@ describe('Pagos (e2e) — Fase 05', () => {
           .useValue(gateway),
     });
     prisma = app.get(PrismaService);
+    T = await scholarshipTypeIds(prisma);
     jobs = app.get(PaymentJobsService);
     transfers = app.get(TransfersService);
     moodle = app.get(MoodleAccessService);
@@ -166,8 +171,14 @@ describe('Pagos (e2e) — Fase 05', () => {
     await create('seat', { capacity: 1, installmentsEnabled: false, installmentsMax: null });
     await create('plan');
     await create('cancel');
-    await create('balance', { scholarshipEnabled: true, scholarshipLevels: ['AGUAS_LIBRES'] });
-    await create('balance-card', { scholarshipEnabled: true, scholarshipLevels: ['AGUAS_LIBRES'] });
+    await create('balance', {
+      scholarshipEnabled: true,
+      scholarshipTypes: withScholarshipTypes(['AGUAS_LIBRES']),
+    });
+    await create('balance-card', {
+      scholarshipEnabled: true,
+      scholarshipTypes: withScholarshipTypes(['AGUAS_LIBRES']),
+    });
     await create('free', { isFree: true, priceMxnCents: null, priceUsdCents: null });
     await create('moodle', {
       origin: 'MOODLE',
@@ -540,7 +551,12 @@ describe('Pagos (e2e) — Fase 05', () => {
       expect(r.body).toMatchObject({
         concept: 'BALANCE',
         amount: { amountCents: 510_000, currency: 'MXN' },
-        application: { assignedPercent: 50, originalAmount: { amountCents: 1_020_000 } },
+        application: {
+          assignedScholarshipTypeId: T.AGUAS_LIBRES,
+          assignedScholarshipType: { key: 'AGUAS_LIBRES', name: 'Aguas Libres', minPercent: 50 },
+          assignedPercent: 50,
+          originalAmount: { amountCents: 1_020_000 },
+        },
         bankTransfer: {
           clabe: '000000000000000000',
           reference: expect.stringMatching(/^EIA BEC-\d{6}$/),

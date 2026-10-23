@@ -12,6 +12,7 @@ import { createTestApp } from './utils/create-test-app';
 import { FakeStorage } from './utils/fake-storage';
 import { createVerifiedUser, login } from './utils/identity';
 import { MailCapture } from './utils/mail-capture';
+import { scholarshipTypeIds, withScholarshipTypes } from './utils/scholarship-types';
 
 /**
  * Postulaciones (Fase 04): HU-19 (beca), HU-20 (convocatoria), HU-21 (seguimiento) + transiciones de
@@ -40,6 +41,8 @@ describe('Postulaciones (e2e) — Fase 04', () => {
   let beto: User; // convocatoria
   let carla: User; // ajena / otros casos
   let staff: User;
+  /** key → id de los tipos de beca. */
+  let T: Record<string, string>;
 
   const api = () => request(app.getHttpServer());
   const auth = (user: User) => ({ Authorization: `Bearer ${user.token}` });
@@ -71,7 +74,7 @@ describe('Postulaciones (e2e) — Fase 04', () => {
     priceMxnCents: 1_020_000,
     priceUsdCents: 58_500,
     scholarshipEnabled: true,
-    scholarshipLevels: ['AGUA_VIVA', 'AGUAS_LIBRES', 'SPECIAL'],
+    scholarshipTypes: withScholarshipTypes(['AGUA_VIVA', 'AGUAS_LIBRES', 'SPECIAL']),
     scholarshipOpensAt: days(-5),
     scholarshipClosesAt: days(10),
     ...overrides,
@@ -99,6 +102,8 @@ describe('Postulaciones (e2e) — Fase 04', () => {
     prisma = app.get(PrismaService);
     workflow = app.get(ApplicationWorkflowService);
     jobs = app.get(ApplicationJobsService);
+    T = await scholarshipTypeIds(prisma);
+    scholarshipBody.requestedScholarshipTypeId = T.AGUAS_LIBRES;
     [ana, beto, carla, staff] = [
       await newUser(),
       await newUser(),
@@ -116,7 +121,7 @@ describe('Postulaciones (e2e) — Fase 04', () => {
       scholarshipClosesAt: days(-1),
     });
     await create('diploma-soon', { scholarshipOpensAt: days(3), scholarshipClosesAt: days(12) });
-    await create('course', { type: 'COURSE', scholarshipEnabled: false, scholarshipLevels: [] });
+    await create('course', { type: 'COURSE', scholarshipEnabled: false, scholarshipTypes: {} });
     await create('draft', { publicationStatus: 'DRAFT' });
     const call = {
       type: 'OPEN_CALL' as const,
@@ -125,7 +130,7 @@ describe('Postulaciones (e2e) — Fase 04', () => {
       priceMxnCents: null,
       priceUsdCents: null,
       scholarshipEnabled: false,
-      scholarshipLevels: [],
+      scholarshipTypes: {},
       scholarshipOpensAt: null,
       scholarshipClosesAt: null,
       venueName: 'Sede E2E',
@@ -142,15 +147,14 @@ describe('Postulaciones (e2e) — Fase 04', () => {
       priceMxnCents: 200_000,
       priceUsdCents: 12_000,
     });
-  });
+  }, 180_000);
 
   afterAll(async () => {
     await app.close();
   });
 
-  const scholarshipBody = {
+  const scholarshipBody: Record<string, unknown> = {
     age: 34,
-    requestedLevel: 'AGUAS_LIBRES',
     intentLetter: LETTER,
     evidenceLinks: ['https://www.youtube.com/watch?v=abc123'],
     termsAccepted: true,
@@ -207,11 +211,11 @@ describe('Postulaciones (e2e) — Fase 04', () => {
         canApply: true,
         enrolled: false,
       });
-      expect(bySlug[slug('diploma')].levels.map((l: { level: string }) => l.level)).toEqual([
-        'AGUA_VIVA',
-        'AGUAS_LIBRES',
-        'SPECIAL',
-      ]);
+      expect(
+        bySlug[slug('diploma')].scholarshipTypes.map(
+          (t: { scholarshipType: { key: string } }) => t.scholarshipType.key,
+        ),
+      ).toEqual(['AGUA_VIVA', 'AGUAS_LIBRES', 'SPECIAL']);
       expect(bySlug[slug('diploma-soon')]).toMatchObject({
         window: { state: 'UPCOMING', reason: 'SCHOLARSHIP_NOT_OPEN_YET' },
         canApply: false,
@@ -232,7 +236,7 @@ describe('Postulaciones (e2e) — Fase 04', () => {
       expect(call).toMatchObject({
         kind: 'OPEN_CALL',
         price: null,
-        levels: [],
+        scholarshipTypes: [],
         offer: { venue: { name: 'Sede E2E', city: 'Oaxaca' } },
         eligibility: {
           text: 'Dirigida a mujeres lideresas de Centroamérica y México.',
@@ -289,7 +293,7 @@ describe('Postulaciones (e2e) — Fase 04', () => {
     it('crea el borrador con datos del perfil y pendientes para enviar', async () => {
       const res = await post('/me/applications', ana, {
         offerId: ids.diploma,
-        requestedLevel: 'AGUAS_LIBRES',
+        requestedScholarshipTypeId: T.AGUAS_LIBRES,
       }).expect(201);
       appId = res.body.id;
       expect(res.body).toMatchObject({
@@ -300,7 +304,12 @@ describe('Postulaciones (e2e) — Fase 04', () => {
         requiresAction: false,
         action: { type: 'CONTINUE_DRAFT', enabled: true },
         applicant: { email: ana.email, countryCode: 'MX', currency: 'MXN' },
-        answers: { requestedLevel: 'AGUAS_LIBRES', termsAccepted: false, evidenceLinks: [] },
+        answers: {
+          requestedScholarshipTypeId: T.AGUAS_LIBRES,
+          requestedScholarshipType: { key: 'AGUAS_LIBRES', name: 'Aguas Libres', minPercent: 50 },
+          termsAccepted: false,
+          evidenceLinks: [],
+        },
         form: {
           window: { state: 'OPEN' },
           price: { amountCents: 1_020_000, currency: 'MXN' },
@@ -311,8 +320,8 @@ describe('Postulaciones (e2e) — Fase 04', () => {
       });
       expect(res.body.folio).toMatch(/^BEC-\d{6}$/);
       expect(res.body.history).toEqual([{ status: 'DRAFT', at: expect.any(String) }]);
-      expect(res.body.form.levels[1]).toMatchObject({
-        level: 'AGUAS_LIBRES',
+      expect(res.body.form.scholarshipTypes[1]).toMatchObject({
+        scholarshipTypeId: T.AGUAS_LIBRES,
         estimatedBalance: { minAmountCents: 510_000, currency: 'MXN' },
       });
       expect(res.body.missingRequirements.map((i: { field: string }) => i.field)).toEqual([
@@ -331,7 +340,7 @@ describe('Postulaciones (e2e) — Fase 04', () => {
       });
     });
 
-    it('autoguardado: valida formato, nivel habilitado y campos del otro tipo', async () => {
+    it('autoguardado: valida formato, tipo de beca habilitado y campos del otro tipo', async () => {
       const notApplicable = await patch(`/me/applications/${appId}`, ana, {
         experience: 'algo',
       }).expect(400);
@@ -339,11 +348,11 @@ describe('Postulaciones (e2e) — Fase 04', () => {
         { field: 'experience', code: 'NOT_APPLICABLE', message: expect.any(String) },
       ]);
       const level = await patch(`/me/applications/${appId}`, ana, {
-        requestedLevel: 'CENOTES_VIVOS',
+        requestedScholarshipTypeId: T.CENOTES_VIVOS,
       }).expect(400);
       expect(level.body.details[0]).toMatchObject({
-        field: 'requestedLevel',
-        code: 'LEVEL_NOT_ENABLED',
+        field: 'requestedScholarshipTypeId',
+        code: 'SCHOLARSHIP_TYPE_NOT_ENABLED',
       });
       const links = await patch(`/me/applications/${appId}`, ana, {
         evidenceLinks: ['notaurl'],
@@ -360,12 +369,12 @@ describe('Postulaciones (e2e) — Fase 04', () => {
 
       const saved = await patch(`/me/applications/${appId}`, ana, {
         age: 34,
-        requestedLevel: 'SPECIAL',
+        requestedScholarshipTypeId: T.SPECIAL,
         intentLetter: 'Carta corta',
         phone: { countryCode: '+52', number: '5598765432' },
       }).expect(200);
       expect(saved.body).toMatchObject({
-        answers: { age: 34, requestedLevel: 'SPECIAL', intentLetter: 'Carta corta' },
+        answers: { age: 34, requestedScholarshipTypeId: T.SPECIAL, intentLetter: 'Carta corta' },
         applicant: { phone: { countryCode: '+52', number: '5598765432' } },
         form: { interviewNotice: true },
       });
@@ -466,7 +475,7 @@ describe('Postulaciones (e2e) — Fase 04', () => {
     it('envía: folio, Enviada, correo y notificación; queda en solo lectura', async () => {
       await patch(`/me/applications/${appId}`, ana, {
         ...scholarshipBody,
-        requestedLevel: 'AGUAS_LIBRES',
+        requestedScholarshipTypeId: T.AGUAS_LIBRES,
       }).expect(200);
       const res = await post(`/me/applications/${appId}/submit`, ana).expect(200);
       expect(res.body).toMatchObject({
@@ -537,21 +546,30 @@ describe('Postulaciones (e2e) — Fase 04', () => {
       expect(reviewNotices[0].title).toContain('En revisión');
 
       await expect(
-        workflow.approve(appId, { assignedLevel: 'SPECIAL', assignedPercent: 75 }, staff.id),
+        workflow.approve(
+          appId,
+          { assignedScholarshipTypeId: T.SPECIAL, assignedPercent: 75 },
+          staff.id,
+        ),
       ).rejects.toMatchObject({ code: 'APPLICATION_INTERVIEW_REQUIRED' });
       await expect(
-        workflow.approve(appId, { assignedLevel: 'SPECIAL', assignedPercent: 90 }, staff.id),
+        workflow.approve(
+          appId,
+          { assignedScholarshipTypeId: T.SPECIAL, assignedPercent: 90 },
+          staff.id,
+        ),
       ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
 
-      await workflow.approve(appId, { assignedLevel: 'AGUAS_LIBRES' }, staff.id);
+      await workflow.approve(appId, { assignedScholarshipTypeId: T.AGUAS_LIBRES }, staff.id);
       const res = await get(`/me/applications/${appId}`, ana).expect(200);
       expect(res.body).toMatchObject({
         status: 'APPROVED_PENDING_PAYMENT',
         requiresAction: true,
         action: { type: 'PAY_BALANCE', enabled: true },
         scholarshipResult: {
-          requestedLevel: 'AGUAS_LIBRES',
-          assignedLevel: 'AGUAS_LIBRES',
+          requestedScholarshipTypeId: T.AGUAS_LIBRES,
+          assignedScholarshipTypeId: T.AGUAS_LIBRES,
+          assignedScholarshipType: { key: 'AGUAS_LIBRES', name: 'Aguas Libres' },
           assignedPercent: 50,
           originalAmount: { amountCents: 1_020_000, currency: 'MXN' },
           balance: { amountCents: 510_000, currency: 'MXN' },
@@ -649,7 +667,7 @@ describe('Postulaciones (e2e) — Fase 04', () => {
         form: {
           interviewNotice: true,
           price: null,
-          levels: [],
+          scholarshipTypes: [],
           limits: { answerMinLength: 300, answerMaxLength: 2000, minFiles: 0 },
           eligibility: { eligible: false, reasons: ['TRAVEL_REQUIRED'] },
         },
@@ -673,10 +691,10 @@ describe('Postulaciones (e2e) — Fase 04', () => {
 
     it('campos de beca no aplican; respuestas cortas → incompleta', async () => {
       const notApplicable = await patch(`/me/applications/${appId}`, beto, {
-        requestedLevel: 'AGUA_VIVA',
+        requestedScholarshipTypeId: T.AGUA_VIVA,
       }).expect(400);
       expect(notApplicable.body.details[0]).toMatchObject({
-        field: 'requestedLevel',
+        field: 'requestedScholarshipTypeId',
         code: 'NOT_APPLICABLE',
       });
       await patch(`/me/applications/${appId}`, beto, { motivation: 'corta' }).expect(200);

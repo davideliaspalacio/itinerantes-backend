@@ -12,6 +12,8 @@
  *   solo si no existen (no pisan lo que se haga desde el portal).
  * - Pagos demo (Fase 05: plan de cuotas, pago completo) y acceso Moodle demo (lista y código): nunca
  *   con NODE_ENV=production ni sin SEED_DEMO_DATA; se crean solo si no existen.
+ * - Tipos de beca por defecto: en TODOS los entornos, solo los que falten por `key` (nunca pisa lo
+ *   editado en el panel).
  * - Primer SUPER_ADMIN (Fase 06): en TODOS los entornos, solo si hay BOOTSTRAP_ADMIN_EMAIL y no existe
  *   ningún SUPER_ADMIN activo (seguro en producción; nunca usa contraseñas demo).
  *
@@ -37,6 +39,7 @@ import { COUNTRIES } from './data/countries';
 import { DEMO_APPLICATIONS } from './data/demo-applications';
 import { DEMO_OFFERS, DEMO_TEACHERS } from './data/demo-offers';
 import { DEFAULT_SITE_METRICS } from '../src/modules/site/site-metrics.defaults';
+import { DEFAULT_SCHOLARSHIP_TYPES } from '../src/modules/scholarship-types/scholarship-types.defaults';
 import {
   DEMO_CALENDAR_EVENTS,
   DEMO_ENROLLMENTS,
@@ -219,6 +222,17 @@ async function seedDemoOffers(prisma: PrismaClient): Promise<void> {
       create: { slug, ...data },
       update: data,
     });
+
+    await prisma.offerScholarshipType.deleteMany({ where: { offerId: offer.id } });
+    if (demo.scholarshipTypeKeys?.length) {
+      const types = await prisma.scholarshipType.findMany({
+        where: { key: { in: demo.scholarshipTypeKeys } },
+        select: { id: true },
+      });
+      await prisma.offerScholarshipType.createMany({
+        data: types.map((type) => ({ offerId: offer.id, scholarshipTypeId: type.id })),
+      });
+    }
 
     await prisma.offerTeacher.deleteMany({ where: { offerId: offer.id } });
     await prisma.offerTeacher.createMany({
@@ -481,9 +495,16 @@ async function seedDemoApplications(prisma: PrismaClient): Promise<void> {
       where: { userId_offerId: { userId: participant.id, offerId: offer.id } },
     });
     if (existing) continue;
+    const typeByKey = (key?: string) =>
+      key ? prisma.scholarshipType.findUnique({ where: { key } }) : Promise.resolve(null);
+    const requestedType = await typeByKey(demo.requestedScholarshipTypeKey);
+    const assignedType = await typeByKey(demo.assignedScholarshipTypeKey);
     const application = await prisma.application.create({
       data: {
         ...demo.data,
+        requestedScholarshipTypeId: requestedType?.id ?? null,
+        assignedScholarshipTypeId: assignedType?.id ?? null,
+        assignedScholarshipTypeName: assignedType?.name ?? null,
         userId: participant.id,
         offerId: offer.id,
         applicantName: participant.fullName,
@@ -696,9 +717,23 @@ async function seedSiteMetrics(prisma: PrismaClient): Promise<void> {
   console.log(`  ${count} cifras nuevas de la landing.`);
 }
 
+/**
+ * Tipos de beca por defecto (Agua Viva 10% … Beca especial 71–80%): crea los que falten por `key`,
+ * nunca pisa lo editado en el panel (seguro en producción). En BDs migradas ya existen (los inserta la
+ * migración `scholarship_types`).
+ */
+async function seedScholarshipTypes(prisma: PrismaClient): Promise<void> {
+  const { count } = await prisma.scholarshipType.createMany({
+    data: DEFAULT_SCHOLARSHIP_TYPES.map((type) => ({ ...type })),
+    skipDuplicates: true,
+  });
+  console.log(`  ${count} tipos de beca nuevos.`);
+}
+
 const seeders: Array<[name: string, run: Seeder]> = [
   ['Fase 01 — ubicaciones', seedLocations],
   ['Sitio — cifras de la landing', seedSiteMetrics],
+  ['Becas — tipos de beca por defecto', seedScholarshipTypes],
   ['Fase 01 — usuarios demo', seedDemoUsers],
   ['Fase 06 — primer SUPER_ADMIN (BOOTSTRAP_ADMIN_*)', seedBootstrapAdmin],
   ['Fase 02 — ofertas demo', seedDemoOffers],

@@ -37,7 +37,8 @@ renombran una vez publicados.
 | `INVALID_PHONE` | Longitud del teléfono no válida para el indicativo (Fase 01). |
 | `COURSE_MAX_HOURS_EXCEEDED`, `DIPLOMA_HOURS_MISMATCH` | Panel (Fase 06): curso de más de 9 h / diplomado que no suma 60 h (asistente de ofertas y vista previa de sesiones). |
 | `INVALID_MEETING_URL` | Panel (Fase 06): enlace de sesión que no es `https://…zoom.us` ni `https://meet.google.com`. |
-| `NOT_APPLICABLE`, `LEVEL_NOT_ENABLED`, `MIN_FILES`, `MUST_ACCEPT` | Formulario de postulación (Fase 04): campo de otro tipo, nivel de beca no habilitado, faltan evidencias, casilla obligatoria sin marcar. |
+| `NOT_APPLICABLE`, `SCHOLARSHIP_TYPE_NOT_ENABLED`, `MIN_FILES`, `MUST_ACCEPT` | Formulario de postulación (Fase 04): campo de otro tipo, tipo de beca no habilitado o desactivado en la oferta (antes `LEVEL_NOT_ENABLED`; también al asignar/sugerir en el panel), faltan evidencias, casilla obligatoria sin marcar. |
+| `SCHOLARSHIP_TYPE_NOT_FOUND`, `SCHOLARSHIP_TYPE_INACTIVE` | Panel (asistente de ofertas, paso 4): tipo de beca inexistente / desactivado (no se puede agregar a la oferta). |
 | `IS_EMAIL`, `IS_STRING`, `IS_INT`, `IS_ENUM`, `IS_UUID`, `IS_DATE_STRING`, `MIN_LENGTH`, `MAX_LENGTH`, `MIN`, `MAX`, `MATCHES`, ... | Restricción de validación incumplida (nombre de la regla en `SCREAMING_SNAKE_CASE`). |
 
 ## Por fase
@@ -117,17 +118,17 @@ Guía de pantallas: [`fase-04-postulaciones.md`](fase-04-postulaciones.md).
 | `APPLICATION_WINDOW_CLOSED` | 422 | La convocatoria no está abierta. | `reason`, `availableFrom`, `closesAt` | Crear, editar, subir o enviar fuera de la ventana. `reason` = `SCHOLARSHIP_NOT_OPEN_YET` / `SCHOLARSHIP_CLOSED` / `ENROLLMENT_NOT_OPEN_YET` / `ENROLLMENT_CLOSED` / `OFFER_FINISHED` → "Convocatoria cerrada" (borrador en solo lectura) o "Abre el …". |
 | `APPLICATION_ALREADY_EXISTS` | 409 | Ya tienes una postulación para esta oferta. | `applicationId`, `status`, `folio` | Una postulación por cohorte (HU-19/20) → ir a `/portal/postulaciones/{applicationId}`. |
 | `APPLICATION_NOT_EDITABLE` | 409 | Tu postulación ya fue enviada y no se puede modificar. | `status` | Editar, adjuntar, descartar o reenviar una postulación ya enviada → recargar el detalle. |
-| `APPLICATION_INCOMPLETE` | 422 | Completa los campos obligatorios para enviar tu postulación. | — | Enviar con pendientes: `details[]` por campo (`REQUIRED`, `MIN_LENGTH`, `MAX_LENGTH`, `MIN_FILES`, `MUST_ACCEPT`, `LEVEL_NOT_ENABLED`). |
+| `APPLICATION_INCOMPLETE` | 422 | Completa los campos obligatorios para enviar tu postulación. | — | Enviar con pendientes: `details[]` por campo (`REQUIRED`, `MIN_LENGTH`, `MAX_LENGTH`, `MIN_FILES`, `MUST_ACCEPT`, `SCHOLARSHIP_TYPE_NOT_ENABLED`). |
 | `APPLICATION_NOT_ELIGIBLE` | 422 | No cumples con la elegibilidad de esta convocatoria. | `reasons`, `eligibilityText` | `COUNTRY_NOT_ELIGIBLE` (país del perfil) / `TRAVEL_REQUIRED` ("No" a viajar) (HU-20) → mostrar el motivo; no se puede enviar. |
 | `APPLICATION_INVALID_FILE` | 422 | El archivo debe ser JPG, PNG o HEIC de máximo 10 MB, o MP4/MOV de máximo 100 MB. | — | Tipo o tamaño no permitido (declarado o real) de una evidencia. |
 | `APPLICATION_TOO_MANY_FILES` | 422 | Puedes adjuntar como máximo 10 archivos. | `max` | Límite de evidencias. |
 | `APPLICATION_UPLOAD_NOT_FOUND` | 422 | No encontramos el archivo subido. Vuelve a subirlo. | — | Se confirmó una `key` que no existe en storage o no es de esa postulación. |
 | `APPLICATION_INVALID_TRANSITION` | 409 | Tu postulación no está en un estado que permita esta acción. | `status`, `to` | Confirmar participación cuando la postulación no lo espera (o acción concurrente) → recargar. |
 | `APPLICATION_DEADLINE_PASSED` | 422 | El plazo para responder ya venció. | `dueAt` | Confirmar participación después de la fecha límite (HU-21) → "Vencida, contacta al equipo". |
-| `APPLICATION_INTERVIEW_REQUIRED` | 422 | Esta postulación requiere entrevista por Zoom. | — | Panel (Fase 06, HU-31): aprobar Beca especial o convocatoria sin entrevista "Realizada". |
+| `APPLICATION_INTERVIEW_REQUIRED` | 422 | Esta postulación requiere entrevista por Zoom. | — | Panel (Fase 06, HU-31): aprobar una beca cuyo tipo tiene `requiresInterview` (p. ej. Beca especial) o una convocatoria sin entrevista "Realizada". |
 
 Validación (`400 VALIDATION_ERROR`) del formulario: `details[].code` = `NOT_APPLICABLE` (campo del otro
-tipo de postulación), `LEVEL_NOT_ENABLED` (nivel no habilitado), `INVALID_PHONE`, `MAX_LENGTH`,
+tipo de postulación), `SCHOLARSHIP_TYPE_NOT_ENABLED` (tipo de beca no habilitado o desactivado), `INVALID_PHONE`, `MAX_LENGTH`,
 `IS_URL` / `ARRAY_MAX_SIZE` (enlaces de evidencia), `IS_INT` / `MIN` / `MAX` (edad). Ids de ruta que no
 son UUID y postulaciones ajenas → `404 NOT_FOUND`.
 
@@ -194,6 +195,10 @@ son UUID o inexistentes → `404 NOT_FOUND`.
 | `FOLLOW_UP_PHONE_INVALID` | 422 | La persona no tiene un teléfono válido con indicativo para WhatsApp. | — | HU-32: botón WhatsApp deshabilitado. |
 | `PAYMENT_PLAN_INVALID_STATE` | 409 | El plan de cuotas no está en un estado que permita esta acción. | `status` | HU-33: reintentar, mora, suspender (solo En mora), restablecer o cancelar desde un estado inválido. |
 | `PAYMENT_REFUND_INVALID` | 422 | El monto a reembolsar debe ser mayor a 0 y no superar lo pagado. | `refundableCents` | HU-33 reembolso. |
+| `SCHOLARSHIP_TYPE_KEY_TAKEN` | 409 | Ya existe un tipo de beca con esa clave. | — | Crear tipo de beca: `details[].field = key` (`ALREADY_EXISTS`). |
+| `SCHOLARSHIP_TYPE_IN_USE` | 409 | El tipo de beca ya está en ofertas, postulaciones o evaluaciones: desactívalo en lugar de borrarlo. | `usage` | Borrar un tipo en uso → ofrecer "Desactivar". |
+| `SCHOLARSHIP_TYPE_INVALID_RANGE` | 422 | El rango de porcentaje no es válido (1 ≤ mínimo ≤ máximo ≤ 100). | — | Crear/editar tipo o rango propio en el paso 4 de la oferta: `details[].field` (`minPercent` / `maxPercent` / `scholarshipTypes.N.maxPercent`). |
+| `SCHOLARSHIP_TYPE_NOT_AVAILABLE` | 422 | Algún tipo de beca no existe o está desactivado. | — | Paso 4 de la oferta: `details[]` por `scholarshipTypes.N.scholarshipTypeId` con `SCHOLARSHIP_TYPE_NOT_FOUND` / `SCHOLARSHIP_TYPE_INACTIVE`. |
 | `ADMIN_LAST_SUPER_ADMIN` | 409 | Debe quedar al menos una cuenta SUPER_ADMIN activa. | — | Quitar el rol o deshabilitar al último SUPER_ADMIN. |
 | `ADMIN_SELF_ACTION` | 409 | No puedes quitarte el rol SUPER_ADMIN ni deshabilitar tu propia cuenta. | — | Gestión del equipo sobre la propia cuenta. |
 

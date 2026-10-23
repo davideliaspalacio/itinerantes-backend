@@ -5,6 +5,7 @@ import { EnrollmentLookupService } from '../enrollments/enrollment-lookup.servic
 import { EnrollmentsModule } from '../enrollments/enrollments.module';
 import { LocationsModule } from '../locations/locations.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { ScholarshipTypesModule } from '../scholarship-types/scholarship-types.module';
 import { UsersModule } from '../users/users.module';
 import { AdminContentJobsService } from './admin/admin-content-jobs.service';
 import { AdminContentController } from './admin/admin-content.controller';
@@ -26,6 +27,7 @@ import { OffersService } from './offers.service';
     EnrollmentsModule,
     ApplicationsModule,
     NotificationsModule,
+    ScholarshipTypesModule,
   ],
   controllers: [
     OffersController,

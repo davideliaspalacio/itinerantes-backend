@@ -1,11 +1,7 @@
 import { formatMoney, type Money } from '../../../common/utils/money';
 import { formatInZone, OFFICIAL_TIMEZONE } from '../../../common/utils/time';
 import { BUSINESS_RULES } from '../../../config/business-rules';
-import type {
-  ApplicationKind,
-  ApplicationStatus,
-  ScholarshipLevel,
-} from '../../../generated/prisma/client';
+import type { ApplicationKind, ApplicationStatus } from '../../../generated/prisma/client';
 import type { NotifyInput } from '../../notifications/notifications.service';
 import { PORTAL_LINKS } from '../../notifications/portal-links';
 import { APPLICATION_STATUS_LABELS } from './application-status.policy';
@@ -21,8 +17,10 @@ export interface ApplicationMessageContext {
   offer: { id: string; name: string };
   /** Zona del perfil, para "tu hora" junto a la hora CDMX (HU-11). */
   userTimezone: string;
-  requestedLevel?: ScholarshipLevel | null;
-  assignedLevel?: ScholarshipLevel | null;
+  /** Tipo de beca solicitado (para avisar de la entrevista al enviar). */
+  requestedScholarshipType?: { name: string; requiresInterview: boolean } | null;
+  /** Nombre del tipo asignado guardado al aprobar. */
+  assignedScholarshipTypeName?: string | null;
   assignedPercent?: number | null;
   balance?: Money | null;
   responseDueAt?: Date | null;
@@ -66,8 +64,8 @@ export function statusChangeMessage(
       const next =
         ctx.kind === 'OPEN_CALL'
           ? 'El proceso incluye una entrevista por Zoom: te avisaremos cuando la agendemos.'
-          : ctx.requestedLevel === 'SPECIAL'
-            ? 'Solicitaste Beca especial: el proceso incluye una entrevista por Zoom.'
+          : ctx.requestedScholarshipType?.requiresInterview
+            ? `Solicitaste ${ctx.requestedScholarshipType.name}: el proceso incluye una entrevista por Zoom.`
             : 'El equipo la revisará y te avisaremos de cada cambio.';
       return {
         type: 'APPLICATION_SUBMITTED',
@@ -93,13 +91,13 @@ export function statusChangeMessage(
       const amount = ctx.balance ? formatMoney(ctx.balance) : 'el saldo';
       const due = deadline(ctx.responseDueAt, ctx.userTimezone);
       const pay = { label: 'Pagar saldo', path: PORTAL_LINKS.payBalance(ctx.applicationId) };
-      if (ctx.kind === 'SCHOLARSHIP' && ctx.assignedLevel) {
-        const levelLabel = BUSINESS_RULES.SCHOLARSHIP_LEVELS[ctx.assignedLevel].label;
+      if (ctx.kind === 'SCHOLARSHIP' && ctx.assignedScholarshipTypeName) {
         return {
           type: 'SCHOLARSHIP_APPROVED',
           title: `Tu beca fue aprobada: ${name}`,
           body:
-            `Estado: ${label}. Nivel asignado: ${levelLabel} (${ctx.assignedPercent ?? '—'}%). ` +
+            `Estado: ${label}. Beca asignada: ${ctx.assignedScholarshipTypeName} ` +
+            `(${ctx.assignedPercent ?? '—'}%). ` +
             `Saldo a pagar: ${amount}. Fecha límite: ${due}. Paga con tarjeta o, si vives en México, ` +
             'por transferencia.',
           action: pay,

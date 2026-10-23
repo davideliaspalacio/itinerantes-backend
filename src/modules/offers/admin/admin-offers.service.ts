@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { AdminUser } from '../../../common/guards/permissions.guard';
 import { AppException, type ErrorDetail } from '../../../common/errors/app.exception';
+import { FIELD_ERROR_CODES } from '../../../common/errors/error-codes';
 import { paginate, type PaginatedResponseDto } from '../../../common/dto/pagination.dto';
 import { slugify } from '../../../common/utils/slug';
 import { nowUtc, OFFICIAL_TIMEZONE } from '../../../common/utils/time';
@@ -8,12 +9,22 @@ import { isWhatsappGroupUrl } from '../../../common/utils/urls';
 import { Prisma, type Offer } from '../../../generated/prisma/client';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
 import { AuditService } from '../../audit/audit.service';
+import {
+  type OfferScholarshipTypeLink,
+  percentRangeIssues,
+  scholarshipOptions,
+  toScholarshipTypeSummary,
+} from '../../scholarship-types/policies/scholarship-type.policy';
+import { OFFER_SCHOLARSHIP_TYPES_RELATION } from '../../scholarship-types/scholarship-type.select';
+import { ScholarshipTypesService } from '../../scholarship-types/scholarship-types.service';
 import { seatHoldingWhere } from '../../enrollments/policies/enrollment.policy';
 import { deriveOfferAvailability } from '../policies/offer-status.policy';
 import { safeParseScheduleRule, scheduleRuleSchema } from '../policies/schedule-rule';
 import { AdminImagesService } from './admin-images.service';
 import type {
   AdminOfferDetailDto,
+  AdminOfferScholarshipTypeDto,
+  OfferScholarshipTypeInputDto,
   AdminOfferListItemDto,
   CreateOfferRequestDto,
   DuplicateOfferRequestDto,
@@ -77,6 +88,42 @@ type ListRow = Prisma.OfferGetPayload<{ select: typeof LIST_SELECT }> & {
 /** Campos que toca cada paso (para la auditoría "antes"). */
 type OfferData = Prisma.OfferUncheckedUpdateInput;
 
+/** Oferta con sus tipos de beca (lo que necesita el asistente para validar). */
+type OfferWithScholarship = Offer & { scholarshipTypes: OfferScholarshipTypeLink[] };
+
+/** Fila nueva de `offer_scholarship_types` (paso 4). */
+interface ScholarshipTypeLinkInput {
+  scholarshipTypeId: string;
+  minPercent: number | null;
+  maxPercent: number | null;
+  sortOrder: number | null;
+}
+
+/** Tipos de beca de la oferta para el panel (incluye desactivados; rango efectivo). */
+function adminScholarshipTypes(
+  links: readonly OfferScholarshipTypeLink[],
+): AdminOfferScholarshipTypeDto[] {
+  const byId = new Map(links.map((link) => [link.scholarshipType.id, link]));
+  return scholarshipOptions(links, { activeOnly: false }).map((option) => {
+    const link = byId.get(option.id)!;
+    return {
+      scholarshipTypeId: option.id,
+      minPercent: link.minPercent,
+      maxPercent: link.maxPercent,
+      sortOrder: link.sortOrder,
+      active: option.active,
+      scholarshipType: toScholarshipTypeSummary(option),
+    };
+  });
+}
+
+/** Para la auditoría: "AGUA_VIVA", "SPECIAL 72–80". */
+function auditScholarshipTypes(links: readonly OfferScholarshipTypeLink[]): string[] {
+  return scholarshipOptions(links, { activeOnly: false }).map((o) =>
+    o.rangeOverridden ? `${o.key} ${o.minPercent}–${o.maxPercent}` : o.key,
+  );
+}
+
 /**
  * Ofertas en el panel (HU-27): listado, asistente de 7 pasos con guardado por paso, publicación,
  * despublicación, archivo, duplicado y borrado de borradores. Toda escritura queda en la auditoría.
@@ -87,6 +134,7 @@ export class AdminOffersService {
     private readonly prisma: PrismaService,
     private readonly images: AdminImagesService,
     private readonly audit: AuditService,
+    private readonly scholarshipTypes: ScholarshipTypesService,
   ) {}
 
   async list(query: ListAdminOffersQueryDto): Promise<PaginatedResponseDto<AdminOfferListItemDto>> {
@@ -126,6 +174,7 @@ export class AdminOffersService {
       where: { id: offerId },
       include: {
         teachers: { orderBy: { position: 'asc' }, include: { teacher: true } },
+        scholarshipTypes: OFFER_SCHOLARSHIP_TYPES_RELATION,
         ...countsSelect(now),
       },
     });
@@ -197,7 +246,7 @@ export class AdminOffersService {
         installmentsMax: offer.installmentsMax,
         moodleCourseUrl: offer.moodleCourseUrl,
         scholarshipEnabled: offer.scholarshipEnabled,
-        scholarshipLevels: offer.scholarshipLevels,
+        scholarshipTypes: adminScholarshipTypes(offer.scholarshipTypes),
         scholarshipOpensAt: iso(offer.scholarshipOpensAt),
         scholarshipClosesAt: iso(offer.scholarshipClosesAt),
       },
@@ -422,7 +471,6 @@ export class AdminOffersService {
       'installmentsMax',
       'moodleCourseUrl',
       'scholarshipEnabled',
-      'scholarshipLevels',
     ] as const) {
       if (dto[key] !== undefined) Object.assign(data, { [key]: dto[key] });
     }
@@ -430,6 +478,10 @@ export class AdminOffersService {
       const value = dateOrNull(dto[key]);
       if (value !== undefined) data[key] = value;
     }
+    let links =
+      dto.scholarshipTypes !== undefined
+        ? await this.validateScholarshipTypes(offer, dto.scholarshipTypes)
+        : undefined;
     // HU-27: "elijo origen Moodle → se ocultan precio, cuotas y beca".
     if ((dto.origin ?? offer.origin) === 'MOODLE') {
       Object.assign(data, {
@@ -439,15 +491,34 @@ export class AdminOffersService {
         installmentsEnabled: false,
         installmentsMax: null,
         scholarshipEnabled: false,
-        scholarshipLevels: [],
         scholarshipOpensAt: null,
         scholarshipClosesAt: null,
       });
+      links = [];
     } else if (dto.origin === 'NAS') {
       data.moodleCourseUrl = dto.moodleCourseUrl ?? null;
     }
-    await this.prisma.offer.update({ where: { id: offerId }, data });
-    await this.recordStep(user, offer, 'origin-pricing', data);
+    await this.prisma.$transaction(async (tx) => {
+      await tx.offer.update({ where: { id: offerId }, data });
+      if (links !== undefined) {
+        await tx.offerScholarshipType.deleteMany({ where: { offerId } });
+        await tx.offerScholarshipType.createMany({
+          data: links.map((link) => ({ offerId, ...link })),
+        });
+      }
+    });
+    let extra: Parameters<AdminOffersService['recordStep']>[4] = {};
+    if (links !== undefined) {
+      const after = await this.prisma.offerScholarshipType.findMany({
+        where: { offerId },
+        select: OFFER_SCHOLARSHIP_TYPES_RELATION.select,
+      });
+      extra = {
+        before: { scholarshipTypes: auditScholarshipTypes(offer.scholarshipTypes) },
+        after: { scholarshipTypes: auditScholarshipTypes(after) },
+      };
+    }
+    await this.recordStep(user, offer, 'origin-pricing', data, extra);
     return this.detail(offerId);
   }
 
@@ -553,6 +624,7 @@ export class AdminOffersService {
       where: { id: offerId },
       include: {
         teachers: true,
+        scholarshipTypes: true,
         modules: { orderBy: { position: 'asc' }, include: { resources: true } },
       },
     });
@@ -573,6 +645,7 @@ export class AdminOffersService {
       id: _id,
       teachers,
       modules,
+      scholarshipTypes,
       createdAt: _c,
       updatedAt: _u,
       scheduleRule: _r,
@@ -610,6 +683,15 @@ export class AdminOffersService {
             offerId: created.id,
             teacherId: t.teacherId,
             position: t.position,
+          })),
+        });
+        await tx.offerScholarshipType.createMany({
+          data: scholarshipTypes.map((link) => ({
+            offerId: created.id,
+            scholarshipTypeId: link.scholarshipTypeId,
+            minPercent: link.minPercent,
+            maxPercent: link.maxPercent,
+            sortOrder: link.sortOrder,
           })),
         });
         for (const module of modules) {
@@ -685,10 +767,85 @@ export class AdminOffersService {
 
   // ------------------------------------------------------------------------------------------------
 
-  private async require(offerId: string): Promise<Offer> {
-    const offer = await this.prisma.offer.findUnique({ where: { id: offerId } });
+  private async require(offerId: string): Promise<OfferWithScholarship> {
+    const offer = await this.prisma.offer.findUnique({
+      where: { id: offerId },
+      include: { scholarshipTypes: OFFER_SCHOLARSHIP_TYPES_RELATION },
+    });
     if (!offer) throw AppException.notFound('La oferta no existe.');
     return offer;
+  }
+
+  /**
+   * Paso 4: tipos de beca de la oferta. Rechaza (422, por campo) los inexistentes, los desactivados
+   * que la oferta no tenía y los rangos propios inválidos (1 ≤ min ≤ max ≤ 100 sobre el rango
+   * efectivo). Duplicados → 400.
+   */
+  private async validateScholarshipTypes(
+    offer: OfferWithScholarship,
+    input: readonly OfferScholarshipTypeInputDto[],
+  ): Promise<ScholarshipTypeLinkInput[]> {
+    const field = (index: number, name: string) => `scholarshipTypes.${index}.${name}`;
+    const seen = new Set<string>();
+    const duplicates: ErrorDetail[] = [];
+    input.forEach((item, index) => {
+      if (seen.has(item.scholarshipTypeId)) {
+        duplicates.push({
+          field: field(index, 'scholarshipTypeId'),
+          code: FIELD_ERROR_CODES.ALREADY_EXISTS,
+          message: 'Este tipo de beca ya está en la lista.',
+        });
+      }
+      seen.add(item.scholarshipTypeId);
+    });
+    if (duplicates.length > 0) throw AppException.validation(duplicates);
+
+    const types = new Map(
+      (await this.scholarshipTypes.findByIds(input.map((i) => i.scholarshipTypeId))).map((t) => [
+        t.id,
+        t,
+      ]),
+    );
+    const alreadyLinked = new Set(offer.scholarshipTypes.map((l) => l.scholarshipType.id));
+    const unavailable: ErrorDetail[] = [];
+    const invalidRange: ErrorDetail[] = [];
+    input.forEach((item, index) => {
+      const type = types.get(item.scholarshipTypeId);
+      if (!type) {
+        unavailable.push({
+          field: field(index, 'scholarshipTypeId'),
+          code: FIELD_ERROR_CODES.SCHOLARSHIP_TYPE_NOT_FOUND,
+          message: 'El tipo de beca no existe.',
+        });
+        return;
+      }
+      if (!type.active && !alreadyLinked.has(type.id)) {
+        unavailable.push({
+          field: field(index, 'scholarshipTypeId'),
+          code: FIELD_ERROR_CODES.SCHOLARSHIP_TYPE_INACTIVE,
+          message: `«${type.name}» está desactivado: no se puede agregar a la oferta.`,
+        });
+        return;
+      }
+      for (const issue of percentRangeIssues(
+        item.minPercent ?? type.minPercent,
+        item.maxPercent ?? type.maxPercent,
+      )) {
+        invalidRange.push({ ...issue, field: field(index, issue.field) });
+      }
+    });
+    if (unavailable.length > 0) {
+      throw new AppException('SCHOLARSHIP_TYPE_NOT_AVAILABLE', { details: unavailable });
+    }
+    if (invalidRange.length > 0) {
+      throw new AppException('SCHOLARSHIP_TYPE_INVALID_RANGE', { details: invalidRange });
+    }
+    return input.map((item) => ({
+      scholarshipTypeId: item.scholarshipTypeId,
+      minPercent: item.minPercent ?? null,
+      maxPercent: item.maxPercent ?? null,
+      sortOrder: item.sortOrder ?? null,
+    }));
   }
 
   private async assertNameFree(name: string, excludeId?: string): Promise<void> {

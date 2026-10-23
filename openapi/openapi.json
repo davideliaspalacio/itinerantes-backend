@@ -5049,6 +5049,531 @@
         ]
       }
     },
+    "/api/v1/scholarship-types": {
+      "get": {
+        "description": "HU-15/16/19. Público, sin token. Tipos de beca ACTIVOS (nombre, rango de %, si requiere entrevista) ordenados. Los administra un SUPER_ADMIN en `/admin/scholarship-types`. Cada oferta habilita un subconjunto y puede ajustar el rango: para mostrar lo de una oferta usa `scholarshipDetails.scholarshipTypes` de la ficha. Caché de 5 minutos.",
+        "operationId": "ScholarshipTypes_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScholarshipTypesResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [],
+        "summary": "Tipos de beca vigentes",
+        "tags": [
+          "Becas"
+        ]
+      }
+    },
+    "/api/v1/admin/scholarship-types": {
+      "get": {
+        "description": "HU-27/31: catálogo para el asistente de ofertas (paso 4), el filtro de postulaciones y la pantalla de administración. Incluye inactivos y `usage` (ofertas, postulaciones y evaluaciones que lo usan). Permiso `offers.read` (todo el equipo).",
+        "operationId": "AdminScholarshipTypes_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminScholarshipTypesResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error. `code` posibles: `UNAUTHORIZED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "UNAUTHORIZED": {
+                    "summary": "UNAUTHORIZED",
+                    "value": {
+                      "statusCode": 401,
+                      "code": "UNAUTHORIZED",
+                      "message": "Necesitas iniciar sesión para continuar.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error. `code` posibles: `FORBIDDEN`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "FORBIDDEN": {
+                    "summary": "FORBIDDEN",
+                    "value": {
+                      "statusCode": 403,
+                      "code": "FORBIDDEN",
+                      "message": "No tienes permiso para realizar esta acción.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Tipos de beca (incluye inactivos)",
+        "tags": [
+          "Admin – Tipos de beca"
+        ],
+        "x-required-permissions": [
+          "offers.read"
+        ]
+      },
+      "post": {
+        "description": "`key` MAYÚSCULAS_CON_GUION_BAJO, única e inmutable. Rango 1 ≤ minPercent ≤ maxPercent ≤ 100 (fijo si son iguales). Queda en la auditoría (`scholarship_type.create`). Permiso `scholarship_types.write` (SUPER_ADMIN).",
+        "operationId": "AdminScholarshipTypes_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateScholarshipTypeRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminScholarshipTypeDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error. `code` posibles: `VALIDATION_ERROR`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "summary": "VALIDATION_ERROR",
+                    "value": {
+                      "statusCode": 400,
+                      "code": "VALIDATION_ERROR",
+                      "message": "Los datos enviados no son válidos.",
+                      "details": [
+                        {
+                          "field": "email",
+                          "code": "IS_EMAIL",
+                          "message": "Debe ser un correo electrónico válido."
+                        }
+                      ],
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error. `code` posibles: `UNAUTHORIZED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "UNAUTHORIZED": {
+                    "summary": "UNAUTHORIZED",
+                    "value": {
+                      "statusCode": 401,
+                      "code": "UNAUTHORIZED",
+                      "message": "Necesitas iniciar sesión para continuar.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error. `code` posibles: `FORBIDDEN`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "FORBIDDEN": {
+                    "summary": "FORBIDDEN",
+                    "value": {
+                      "statusCode": 403,
+                      "code": "FORBIDDEN",
+                      "message": "No tienes permiso para realizar esta acción.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error. `code` posibles: `SCHOLARSHIP_TYPE_KEY_TAKEN`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "SCHOLARSHIP_TYPE_KEY_TAKEN": {
+                    "summary": "SCHOLARSHIP_TYPE_KEY_TAKEN",
+                    "value": {
+                      "statusCode": 409,
+                      "code": "SCHOLARSHIP_TYPE_KEY_TAKEN",
+                      "message": "Ya existe un tipo de beca con esa clave.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Error. `code` posibles: `SCHOLARSHIP_TYPE_INVALID_RANGE`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "SCHOLARSHIP_TYPE_INVALID_RANGE": {
+                    "summary": "SCHOLARSHIP_TYPE_INVALID_RANGE",
+                    "value": {
+                      "statusCode": 422,
+                      "code": "SCHOLARSHIP_TYPE_INVALID_RANGE",
+                      "message": "El rango de porcentaje no es válido (1 ≤ mínimo ≤ máximo ≤ 100).",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Crear tipo de beca",
+        "tags": [
+          "Admin – Tipos de beca"
+        ],
+        "x-required-permissions": [
+          "scholarship_types.write"
+        ]
+      }
+    },
+    "/api/v1/admin/scholarship-types/{id}": {
+      "patch": {
+        "description": "Nombre, descripción, rango, entrevista, orden y `active`. `key` NO es editable (400 `UNKNOWN_FIELD`). Desactivar lo deja de ofrecer en ofertas y postulaciones nuevas; lo ya asignado se conserva (el nombre asignado queda guardado en la postulación). Cambiar el rango afecta a las ofertas que no lo sobrescriben. Auditoría `scholarship_type.update`. Permiso `scholarship_types.write` (SUPER_ADMIN).",
+        "operationId": "AdminScholarshipTypes_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateScholarshipTypeRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminScholarshipTypeDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error. `code` posibles: `VALIDATION_ERROR`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "summary": "VALIDATION_ERROR",
+                    "value": {
+                      "statusCode": 400,
+                      "code": "VALIDATION_ERROR",
+                      "message": "Los datos enviados no son válidos.",
+                      "details": [
+                        {
+                          "field": "email",
+                          "code": "IS_EMAIL",
+                          "message": "Debe ser un correo electrónico válido."
+                        }
+                      ],
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error. `code` posibles: `UNAUTHORIZED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "UNAUTHORIZED": {
+                    "summary": "UNAUTHORIZED",
+                    "value": {
+                      "statusCode": 401,
+                      "code": "UNAUTHORIZED",
+                      "message": "Necesitas iniciar sesión para continuar.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error. `code` posibles: `FORBIDDEN`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "FORBIDDEN": {
+                    "summary": "FORBIDDEN",
+                    "value": {
+                      "statusCode": 403,
+                      "code": "FORBIDDEN",
+                      "message": "No tienes permiso para realizar esta acción.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error. `code` posibles: `NOT_FOUND`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "summary": "NOT_FOUND",
+                    "value": {
+                      "statusCode": 404,
+                      "code": "NOT_FOUND",
+                      "message": "El recurso solicitado no existe.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Error. `code` posibles: `SCHOLARSHIP_TYPE_INVALID_RANGE`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "SCHOLARSHIP_TYPE_INVALID_RANGE": {
+                    "summary": "SCHOLARSHIP_TYPE_INVALID_RANGE",
+                    "value": {
+                      "statusCode": 422,
+                      "code": "SCHOLARSHIP_TYPE_INVALID_RANGE",
+                      "message": "El rango de porcentaje no es válido (1 ≤ mínimo ≤ máximo ≤ 100).",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Editar tipo de beca",
+        "tags": [
+          "Admin – Tipos de beca"
+        ],
+        "x-required-permissions": [
+          "scholarship_types.write"
+        ]
+      },
+      "delete": {
+        "description": "Solo si ninguna oferta, postulación ni evaluación lo usa; si no → 409 `SCHOLARSHIP_TYPE_IN_USE` (`meta.usage`): desactívalo en su lugar. Auditoría `scholarship_type.delete`. Permiso `scholarship_types.write` (SUPER_ADMIN).",
+        "operationId": "AdminScholarshipTypes_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "401": {
+            "description": "Error. `code` posibles: `UNAUTHORIZED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "UNAUTHORIZED": {
+                    "summary": "UNAUTHORIZED",
+                    "value": {
+                      "statusCode": 401,
+                      "code": "UNAUTHORIZED",
+                      "message": "Necesitas iniciar sesión para continuar.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error. `code` posibles: `FORBIDDEN`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "FORBIDDEN": {
+                    "summary": "FORBIDDEN",
+                    "value": {
+                      "statusCode": 403,
+                      "code": "FORBIDDEN",
+                      "message": "No tienes permiso para realizar esta acción.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error. `code` posibles: `NOT_FOUND`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "summary": "NOT_FOUND",
+                    "value": {
+                      "statusCode": 404,
+                      "code": "NOT_FOUND",
+                      "message": "El recurso solicitado no existe.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error. `code` posibles: `SCHOLARSHIP_TYPE_IN_USE`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "SCHOLARSHIP_TYPE_IN_USE": {
+                    "summary": "SCHOLARSHIP_TYPE_IN_USE",
+                    "value": {
+                      "statusCode": 409,
+                      "code": "SCHOLARSHIP_TYPE_IN_USE",
+                      "message": "El tipo de beca ya está en ofertas, postulaciones o evaluaciones: desactívalo en lugar de borrarlo.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Borrar tipo de beca",
+        "tags": [
+          "Admin – Tipos de beca"
+        ],
+        "x-required-permissions": [
+          "scholarship_types.write"
+        ]
+      }
+    },
     "/api/v1/offers": {
       "get": {
         "description": "HU-15: ofertas PUBLICADAS (nunca borradores) con filtros combinables (AND): `type` (varios), `modality`, `status` (por defecto `ENROLLMENT_OPEN,UPCOMING`), `scholarship=true` (solo diplomados NAS con beca), `topic` (HU-34) y `q` (≥ 3 caracteres; nombre o docente, sin acentos). Orden: abiertas/próximas por inicio más cercano; cerradas y finalizadas al final. Costo en MXN o USD según el visitante (`pricing.currency`); Moodle → `EXTERNAL_ENROLLMENT` sin precio. Horario: regla en hora CDMX + `firstSession` en UTC. Pública con sesión OPCIONAL: con `Authorization: Bearer` válido se personaliza (moneda del país del perfil y estado \"Inscrito\"); un token ausente o vencido NO da 401, se responde como visitante.",
@@ -11619,19 +12144,13 @@
             }
           },
           {
-            "name": "level",
+            "name": "scholarshipTypeId",
             "required": false,
             "in": "query",
-            "description": "Nivel solicitado.",
+            "description": "Tipo de beca solicitado (antes `level`). Ids de `GET /admin/scholarship-types`.",
             "schema": {
-              "type": "string",
-              "enum": [
-                "AGUA_VIVA",
-                "RIOS_VIVOS",
-                "AGUAS_LIBRES",
-                "CENOTES_VIVOS",
-                "SPECIAL"
-              ]
+              "format": "uuid",
+              "type": "string"
             }
           },
           {
@@ -11877,19 +12396,13 @@
             }
           },
           {
-            "name": "level",
+            "name": "scholarshipTypeId",
             "required": false,
             "in": "query",
-            "description": "Nivel solicitado.",
+            "description": "Tipo de beca solicitado (antes `level`). Ids de `GET /admin/scholarship-types`.",
             "schema": {
-              "type": "string",
-              "enum": [
-                "AGUA_VIVA",
-                "RIOS_VIVOS",
-                "AGUAS_LIBRES",
-                "CENOTES_VIVOS",
-                "SPECIAL"
-              ]
+              "format": "uuid",
+              "type": "string"
             }
           },
           {
@@ -12806,26 +13319,20 @@
             }
           },
           {
-            "name": "assignedLevel",
+            "name": "assignedScholarshipTypeId",
             "required": false,
             "in": "query",
-            "description": "Beca: nivel a asignar.",
+            "description": "Beca: tipo a asignar.",
             "schema": {
-              "type": "string",
-              "enum": [
-                "AGUA_VIVA",
-                "RIOS_VIVOS",
-                "AGUAS_LIBRES",
-                "CENOTES_VIVOS",
-                "SPECIAL"
-              ]
+              "format": "uuid",
+              "type": "string"
             }
           },
           {
             "name": "assignedPercent",
             "required": false,
             "in": "query",
-            "description": "Beca especial: 71–80.",
+            "description": "Beca: % dentro del rango del tipo en la oferta (opcional si es fijo).",
             "schema": {
               "example": 75,
               "type": "number"
@@ -25771,6 +26278,10 @@
               "FOLLOW_UP_PHONE_INVALID",
               "PAYMENT_PLAN_INVALID_STATE",
               "PAYMENT_REFUND_INVALID",
+              "SCHOLARSHIP_TYPE_KEY_TAKEN",
+              "SCHOLARSHIP_TYPE_IN_USE",
+              "SCHOLARSHIP_TYPE_INVALID_RANGE",
+              "SCHOLARSHIP_TYPE_NOT_AVAILABLE",
               "ADMIN_LAST_SUPER_ADMIN",
               "ADMIN_SELF_ACTION"
             ]
@@ -26461,7 +26972,8 @@
                 "payments.manage",
                 "users.manage",
                 "audit.read",
-                "site.write"
+                "site.write",
+                "scholarship_types.write"
               ]
             }
           }
@@ -26517,7 +27029,8 @@
                 "payments.manage",
                 "users.manage",
                 "audit.read",
-                "site.write"
+                "site.write",
+                "scholarship_types.write"
               ]
             }
           }
@@ -26644,7 +27157,8 @@
                 "payments.manage",
                 "users.manage",
                 "audit.read",
-                "site.write"
+                "site.write",
+                "scholarship_types.write"
               ]
             }
           },
@@ -28174,6 +28688,291 @@
           }
         }
       },
+      "ScholarshipTypeDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b9a3c52-5f3e-4c1b-9d8e-1c2f3a4b5c6d"
+          },
+          "key": {
+            "type": "string",
+            "example": "AGUAS_LIBRES",
+            "description": "Clave estable (no cambia)."
+          },
+          "name": {
+            "type": "string",
+            "example": "Aguas Libres",
+            "description": "Texto a mostrar (editable en el panel)."
+          },
+          "minPercent": {
+            "type": "number",
+            "example": 50
+          },
+          "maxPercent": {
+            "type": "number",
+            "example": 50,
+            "description": "Igual a minPercent si el porcentaje es fijo."
+          },
+          "requiresInterview": {
+            "type": "boolean",
+            "example": false,
+            "description": "La postulación requiere entrevista por Zoom."
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "example": "Para personas que ya acompañan procesos comunitarios del agua."
+          },
+          "sortOrder": {
+            "type": "number",
+            "example": 3,
+            "description": "Orden de presentación (menor primero)."
+          }
+        },
+        "required": [
+          "id",
+          "key",
+          "name",
+          "minPercent",
+          "maxPercent",
+          "requiresInterview",
+          "description",
+          "sortOrder"
+        ]
+      },
+      "ScholarshipTypesResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "description": "Solo los activos, ordenados.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScholarshipTypeDto"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "ScholarshipTypeUsageDto": {
+        "type": "object",
+        "properties": {
+          "offers": {
+            "type": "number",
+            "example": 2,
+            "description": "Ofertas que lo habilitan."
+          },
+          "applications": {
+            "type": "number",
+            "example": 14,
+            "description": "Postulaciones que lo solicitaron o lo tienen asignado."
+          },
+          "evaluations": {
+            "type": "number",
+            "example": 3,
+            "description": "Evaluaciones del comité que lo sugieren."
+          }
+        },
+        "required": [
+          "offers",
+          "applications",
+          "evaluations"
+        ]
+      },
+      "AdminScholarshipTypeDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b9a3c52-5f3e-4c1b-9d8e-1c2f3a4b5c6d"
+          },
+          "key": {
+            "type": "string",
+            "example": "AGUAS_LIBRES",
+            "description": "Clave estable (no cambia)."
+          },
+          "name": {
+            "type": "string",
+            "example": "Aguas Libres",
+            "description": "Texto a mostrar (editable en el panel)."
+          },
+          "minPercent": {
+            "type": "number",
+            "example": 50
+          },
+          "maxPercent": {
+            "type": "number",
+            "example": 50,
+            "description": "Igual a minPercent si el porcentaje es fijo."
+          },
+          "requiresInterview": {
+            "type": "boolean",
+            "example": false,
+            "description": "La postulación requiere entrevista por Zoom."
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "example": "Para personas que ya acompañan procesos comunitarios del agua."
+          },
+          "sortOrder": {
+            "type": "number",
+            "example": 3,
+            "description": "Orden de presentación (menor primero)."
+          },
+          "active": {
+            "type": "boolean",
+            "example": true,
+            "description": "Desactivado = no se ofrece en ofertas ni postulaciones nuevas."
+          },
+          "usage": {
+            "description": "Uso actual. Solo se puede borrar si todo es 0 (si no, desactívalo).",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ScholarshipTypeUsageDto"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "example": "2026-10-23T12:00:00.000Z"
+          },
+          "updatedAt": {
+            "type": "string",
+            "example": "2026-10-23T12:00:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "key",
+          "name",
+          "minPercent",
+          "maxPercent",
+          "requiresInterview",
+          "description",
+          "sortOrder",
+          "active",
+          "usage",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "AdminScholarshipTypesResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "description": "Todos (incluye inactivos), ordenados.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminScholarshipTypeDto"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "CreateScholarshipTypeRequestDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "MANANTIALES",
+            "maxLength": 40,
+            "description": "MAYÚSCULAS_CON_GUION_BAJO, única. No se puede cambiar después."
+          },
+          "name": {
+            "type": "string",
+            "example": "Manantiales",
+            "maxLength": 80
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 500
+          },
+          "minPercent": {
+            "type": "number",
+            "example": 30,
+            "minimum": 1,
+            "maximum": 100
+          },
+          "maxPercent": {
+            "type": "number",
+            "example": 40,
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Igual a minPercent = % fijo."
+          },
+          "requiresInterview": {
+            "type": "boolean",
+            "example": false,
+            "default": false
+          },
+          "active": {
+            "type": "boolean",
+            "example": true,
+            "default": true
+          },
+          "sortOrder": {
+            "type": "number",
+            "example": 6,
+            "description": "Por defecto, al final."
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "minPercent",
+          "maxPercent"
+        ]
+      },
+      "UpdateScholarshipTypeRequestDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Aguas Libres",
+            "maxLength": 80
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "example": "Para personas que ya acompañan procesos comunitarios del agua.",
+            "maxLength": 500
+          },
+          "minPercent": {
+            "type": "number",
+            "example": 50,
+            "minimum": 1,
+            "maximum": 100
+          },
+          "maxPercent": {
+            "type": "number",
+            "example": 50,
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Igual a minPercent = % fijo."
+          },
+          "requiresInterview": {
+            "type": "boolean",
+            "example": false
+          },
+          "active": {
+            "type": "boolean",
+            "example": true,
+            "description": "false = deja de ofrecerse en ofertas y postulaciones nuevas (lo asignado se conserva)."
+          },
+          "sortOrder": {
+            "type": "number",
+            "example": 3
+          }
+        }
+      },
       "OfferDatesDto": {
         "type": "object",
         "properties": {
@@ -28828,6 +29627,48 @@
           "description"
         ]
       },
+      "ScholarshipTypeSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b9a3c52-5f3e-4c1b-9d8e-1c2f3a4b5c6d"
+          },
+          "key": {
+            "type": "string",
+            "example": "AGUAS_LIBRES",
+            "description": "Clave estable (no cambia)."
+          },
+          "name": {
+            "type": "string",
+            "example": "Aguas Libres",
+            "description": "Texto a mostrar (editable en el panel)."
+          },
+          "minPercent": {
+            "type": "number",
+            "example": 50
+          },
+          "maxPercent": {
+            "type": "number",
+            "example": 50,
+            "description": "Igual a minPercent si el porcentaje es fijo."
+          },
+          "requiresInterview": {
+            "type": "boolean",
+            "example": false,
+            "description": "La postulación requiere entrevista por Zoom."
+          }
+        },
+        "required": [
+          "id",
+          "key",
+          "name",
+          "minPercent",
+          "maxPercent",
+          "requiresInterview"
+        ]
+      },
       "AmountRangeDto": {
         "type": "object",
         "properties": {
@@ -28854,37 +29695,26 @@
           "currency"
         ]
       },
-      "ScholarshipLevelDto": {
+      "OfferScholarshipTypeDto": {
         "type": "object",
         "properties": {
-          "level": {
+          "scholarshipTypeId": {
             "type": "string",
-            "enum": [
-              "AGUA_VIVA",
-              "RIOS_VIVOS",
-              "AGUAS_LIBRES",
-              "CENOTES_VIVOS",
-              "SPECIAL"
-            ],
-            "example": "AGUAS_LIBRES"
+            "format": "uuid",
+            "example": "0b9a3c52-5f3e-4c1b-9d8e-1c2f3a4b5c6d"
           },
-          "label": {
+          "scholarshipType": {
+            "description": "Tipo de beca con el rango EFECTIVO en esta oferta (la oferta puede ajustar el rango del tipo). `requiresInterview` = la postulación pasa por entrevista por Zoom.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ScholarshipTypeSummaryDto"
+              }
+            ]
+          },
+          "description": {
             "type": "string",
-            "example": "Aguas Libres"
-          },
-          "minPercent": {
-            "type": "number",
-            "example": 50
-          },
-          "maxPercent": {
-            "type": "number",
-            "example": 50,
-            "description": "Igual a minPercent salvo en Beca especial (71–80)."
-          },
-          "requiresInterview": {
-            "type": "boolean",
-            "example": false,
-            "description": "Más de 70%: entrevista por Zoom."
+            "nullable": true,
+            "example": null
           },
           "estimatedScholarship": {
             "nullable": true,
@@ -28898,7 +29728,7 @@
           },
           "estimatedBalance": {
             "nullable": true,
-            "description": "Saldo estimado a pagar (\"el nivel final lo asigna el equipo\").",
+            "description": "Saldo estimado a pagar (\"el tipo final lo asigna el equipo\").",
             "type": "object",
             "allOf": [
               {
@@ -28908,11 +29738,9 @@
           }
         },
         "required": [
-          "level",
-          "label",
-          "minPercent",
-          "maxPercent",
-          "requiresInterview",
+          "scholarshipTypeId",
+          "scholarshipType",
+          "description",
           "estimatedScholarship",
           "estimatedBalance"
         ]
@@ -28927,10 +29755,6 @@
           "maxPercent": {
             "type": "number",
             "example": 80
-          },
-          "interviewRequiredAbovePercent": {
-            "type": "number",
-            "example": 70
           },
           "windowStatus": {
             "type": "string",
@@ -28954,21 +29778,21 @@
             "nullable": true,
             "example": "2026-10-25T05:59:59.000Z"
           },
-          "levels": {
+          "scholarshipTypes": {
+            "description": "Tipos de beca activos de esta oferta, ordenados (antes `levels`).",
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ScholarshipLevelDto"
+              "$ref": "#/components/schemas/OfferScholarshipTypeDto"
             }
           }
         },
         "required": [
           "minPercent",
           "maxPercent",
-          "interviewRequiredAbovePercent",
           "windowStatus",
           "opensAt",
           "closesAt",
-          "levels"
+          "scholarshipTypes"
         ]
       },
       "EligibleCountryDto": {
@@ -29975,6 +30799,53 @@
           "timezone"
         ]
       },
+      "AdminOfferScholarshipTypeDto": {
+        "type": "object",
+        "properties": {
+          "scholarshipTypeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "minPercent": {
+            "type": "number",
+            "nullable": true,
+            "example": null,
+            "description": "Override de la oferta."
+          },
+          "maxPercent": {
+            "type": "number",
+            "nullable": true,
+            "example": null,
+            "description": "Override de la oferta."
+          },
+          "sortOrder": {
+            "type": "number",
+            "nullable": true,
+            "example": null
+          },
+          "active": {
+            "type": "boolean",
+            "example": true,
+            "description": "false = tipo desactivado: no se ofrece."
+          },
+          "scholarshipType": {
+            "description": "Tipo con el rango EFECTIVO en esta oferta.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ScholarshipTypeSummaryDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "scholarshipTypeId",
+          "minPercent",
+          "maxPercent",
+          "sortOrder",
+          "active",
+          "scholarshipType"
+        ]
+      },
       "AdminOfferOriginPricingDto": {
         "type": "object",
         "properties": {
@@ -30013,17 +30884,11 @@
           "scholarshipEnabled": {
             "type": "boolean"
           },
-          "scholarshipLevels": {
+          "scholarshipTypes": {
+            "description": "Tipos de beca habilitados (antes `scholarshipLevels`), incluye desactivados.",
             "type": "array",
             "items": {
-              "type": "string",
-              "enum": [
-                "AGUA_VIVA",
-                "RIOS_VIVOS",
-                "AGUAS_LIBRES",
-                "CENOTES_VIVOS",
-                "SPECIAL"
-              ]
+              "$ref": "#/components/schemas/AdminOfferScholarshipTypeDto"
             }
           },
           "scholarshipOpensAt": {
@@ -30044,7 +30909,7 @@
           "installmentsMax",
           "moodleCourseUrl",
           "scholarshipEnabled",
-          "scholarshipLevels",
+          "scholarshipTypes",
           "scholarshipOpensAt",
           "scholarshipClosesAt"
         ]
@@ -30664,6 +31529,41 @@
           }
         }
       },
+      "OfferScholarshipTypeInputDto": {
+        "type": "object",
+        "properties": {
+          "scholarshipTypeId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "0b9a3c52-5f3e-4c1b-9d8e-1c2f3a4b5c6d"
+          },
+          "minPercent": {
+            "type": "number",
+            "nullable": true,
+            "example": null,
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Sobrescribe el % mínimo del tipo SOLO en esta oferta (null = el del tipo)."
+          },
+          "maxPercent": {
+            "type": "number",
+            "nullable": true,
+            "example": null,
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Sobrescribe el % máximo del tipo SOLO en esta oferta (null = el del tipo)."
+          },
+          "sortOrder": {
+            "type": "number",
+            "nullable": true,
+            "example": null,
+            "description": "Orden en esta oferta (null = el del tipo)."
+          }
+        },
+        "required": [
+          "scholarshipTypeId"
+        ]
+      },
       "UpdateOriginPricingStepDto": {
         "type": "object",
         "properties": {
@@ -30712,22 +31612,11 @@
             "example": true,
             "description": "Solo diplomados NAS."
           },
-          "scholarshipLevels": {
+          "scholarshipTypes": {
+            "description": "Tipos de beca habilitados (REEMPLAZA la lista; antes `scholarshipLevels`). Ids de `GET /admin/scholarship-types`. Un tipo inexistente o desactivado → 422 `SCHOLARSHIP_TYPE_NOT_AVAILABLE` (los desactivados que la oferta ya tenía se pueden conservar). `minPercent`/`maxPercent` opcionales ajustan el rango SOLO en esta oferta (rango inválido → 422 `SCHOLARSHIP_TYPE_INVALID_RANGE`).",
             "type": "array",
-            "example": [
-              "AGUA_VIVA",
-              "AGUAS_LIBRES",
-              "SPECIAL"
-            ],
             "items": {
-              "type": "string",
-              "enum": [
-                "AGUA_VIVA",
-                "RIOS_VIVOS",
-                "AGUAS_LIBRES",
-                "CENOTES_VIVOS",
-                "SPECIAL"
-              ]
+              "$ref": "#/components/schemas/OfferScholarshipTypeInputDto"
             }
           },
           "scholarshipOpensAt": {
@@ -31961,11 +32850,11 @@
               }
             ]
           },
-          "levels": {
-            "description": "Beca: niveles y monto estimado. Vacío en convocatorias.",
+          "scholarshipTypes": {
+            "description": "Beca: tipos de beca y monto estimado (antes `levels`). Vacío en convocatorias.",
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ScholarshipLevelDto"
+              "$ref": "#/components/schemas/OfferScholarshipTypeDto"
             }
           },
           "eligibility": {
@@ -32003,7 +32892,7 @@
           "offer",
           "window",
           "price",
-          "levels",
+          "scholarshipTypes",
           "eligibility",
           "myApplication",
           "canApply",
@@ -32208,33 +33097,36 @@
       "ScholarshipResultDto": {
         "type": "object",
         "properties": {
-          "requestedLevel": {
+          "requestedScholarshipTypeId": {
             "type": "string",
-            "enum": [
-              "AGUA_VIVA",
-              "RIOS_VIVOS",
-              "AGUAS_LIBRES",
-              "CENOTES_VIVOS",
-              "SPECIAL"
-            ],
-            "nullable": true,
-            "example": "AGUAS_LIBRES"
+            "format": "uuid",
+            "nullable": true
           },
-          "assignedLevel": {
+          "requestedScholarshipType": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ScholarshipTypeSummaryDto"
+              }
+            ]
+          },
+          "assignedScholarshipTypeId": {
             "type": "string",
-            "enum": [
-              "AGUA_VIVA",
-              "RIOS_VIVOS",
-              "AGUAS_LIBRES",
-              "CENOTES_VIVOS",
-              "SPECIAL"
-            ],
-            "example": "AGUAS_LIBRES"
+            "format": "uuid"
+          },
+          "assignedScholarshipType": {
+            "description": "Tipo asignado. `name` es el nombre que tenía al aprobar (no cambia si luego se renombra).",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ScholarshipTypeSummaryDto"
+              }
+            ]
           },
           "assignedPercent": {
             "type": "number",
             "example": 50,
-            "description": "% asignado (Beca especial: 71–80)."
+            "description": "% asignado (dentro del rango del tipo en la oferta)."
           },
           "originalAmount": {
             "nullable": true,
@@ -32263,8 +33155,10 @@
           }
         },
         "required": [
-          "requestedLevel",
-          "assignedLevel",
+          "requestedScholarshipTypeId",
+          "requestedScholarshipType",
+          "assignedScholarshipTypeId",
+          "assignedScholarshipType",
           "assignedPercent",
           "originalAmount",
           "balance",
@@ -32414,7 +33308,7 @@
           },
           "scholarshipResult": {
             "nullable": true,
-            "description": "Solo becas aprobadas: nivel solicitado y asignado, saldo y fecha límite.",
+            "description": "Solo becas aprobadas: tipo solicitado y asignado, saldo y fecha límite.",
             "type": "object",
             "allOf": [
               {
@@ -32490,18 +33384,12 @@
             "maxLength": 120,
             "description": "Rol en la organización (obligatorio en convocatorias)."
           },
-          "requestedLevel": {
+          "requestedScholarshipTypeId": {
             "type": "string",
-            "enum": [
-              "AGUA_VIVA",
-              "RIOS_VIVOS",
-              "AGUAS_LIBRES",
-              "CENOTES_VIVOS",
-              "SPECIAL"
-            ],
+            "format": "uuid",
             "nullable": true,
-            "example": "AGUAS_LIBRES",
-            "description": "Beca: nivel solicitado (solo niveles habilitados en el diplomado: `form.levels`). `SPECIAL` (Beca especial, > 70%) requiere entrevista por Zoom."
+            "example": "0b9a3c52-5f3e-4c1b-9d8e-1c2f3a4b5c6d",
+            "description": "Beca: tipo de beca solicitado (antes `requestedLevel`). Solo los tipos activos del diplomado (`form.scholarshipTypes[].scholarshipTypeId`); otro → 400 `SCHOLARSHIP_TYPE_NOT_ENABLED`. Si el tipo tiene `requiresInterview`, habrá entrevista por Zoom."
           },
           "intentLetter": {
             "type": "string",
@@ -32643,17 +33531,20 @@
             "nullable": true,
             "example": "Coordinadora"
           },
-          "requestedLevel": {
+          "requestedScholarshipTypeId": {
             "type": "string",
-            "enum": [
-              "AGUA_VIVA",
-              "RIOS_VIVOS",
-              "AGUAS_LIBRES",
-              "CENOTES_VIVOS",
-              "SPECIAL"
-            ],
+            "format": "uuid",
             "nullable": true,
-            "example": "AGUAS_LIBRES"
+            "description": "Tipo de beca solicitado (antes `requestedLevel`)."
+          },
+          "requestedScholarshipType": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ScholarshipTypeSummaryDto"
+              }
+            ]
           },
           "intentLetter": {
             "type": "string",
@@ -32704,7 +33595,8 @@
           "partnerCode",
           "organization",
           "organizationRole",
-          "requestedLevel",
+          "requestedScholarshipTypeId",
+          "requestedScholarshipType",
           "intentLetter",
           "eligibilityConfirmed",
           "experience",
@@ -32775,7 +33667,7 @@
               "MAX_LENGTH",
               "MIN_FILES",
               "MUST_ACCEPT",
-              "LEVEL_NOT_ENABLED",
+              "SCHOLARSHIP_TYPE_NOT_ENABLED",
               "NOT_APPLICABLE"
             ],
             "example": "MIN_LENGTH"
@@ -32901,11 +33793,11 @@
           "window": {
             "$ref": "#/components/schemas/ApplicationWindowDto"
           },
-          "levels": {
-            "description": "Beca: niveles habilitados con monto estimado en tu moneda (\"el nivel final lo asigna el equipo\"). Vacío en convocatorias.",
+          "scholarshipTypes": {
+            "description": "Beca: tipos de beca activos del diplomado con monto estimado en tu moneda (\"el tipo final lo asigna el equipo\"; antes `levels`). Vacío en convocatorias.",
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ScholarshipLevelDto"
+              "$ref": "#/components/schemas/OfferScholarshipTypeDto"
             }
           },
           "price": {
@@ -32930,7 +33822,7 @@
           "interviewNotice": {
             "type": "boolean",
             "example": false,
-            "description": "Mostrar aviso de entrevista por Zoom: siempre en convocatorias; en becas al elegir Beca especial."
+            "description": "Mostrar aviso de entrevista por Zoom: siempre en convocatorias; en becas si el tipo solicitado tiene `requiresInterview`."
           },
           "limits": {
             "$ref": "#/components/schemas/ApplicationFormLimitsDto"
@@ -32938,7 +33830,7 @@
         },
         "required": [
           "window",
-          "levels",
+          "scholarshipTypes",
           "price",
           "eligibility",
           "interviewNotice",
@@ -33035,7 +33927,7 @@
           },
           "scholarshipResult": {
             "nullable": true,
-            "description": "Solo becas aprobadas: nivel solicitado y asignado, saldo y fecha límite.",
+            "description": "Solo becas aprobadas: tipo solicitado y asignado, saldo y fecha límite.",
             "type": "object",
             "allOf": [
               {
@@ -33157,18 +34049,12 @@
             "maxLength": 120,
             "description": "Rol en la organización (obligatorio en convocatorias)."
           },
-          "requestedLevel": {
+          "requestedScholarshipTypeId": {
             "type": "string",
-            "enum": [
-              "AGUA_VIVA",
-              "RIOS_VIVOS",
-              "AGUAS_LIBRES",
-              "CENOTES_VIVOS",
-              "SPECIAL"
-            ],
+            "format": "uuid",
             "nullable": true,
-            "example": "AGUAS_LIBRES",
-            "description": "Beca: nivel solicitado (solo niveles habilitados en el diplomado: `form.levels`). `SPECIAL` (Beca especial, > 70%) requiere entrevista por Zoom."
+            "example": "0b9a3c52-5f3e-4c1b-9d8e-1c2f3a4b5c6d",
+            "description": "Beca: tipo de beca solicitado (antes `requestedLevel`). Solo los tipos activos del diplomado (`form.scholarshipTypes[].scholarshipTypeId`); otro → 400 `SCHOLARSHIP_TYPE_NOT_ENABLED`. Si el tipo tiene `requiresInterview`, habrá entrevista por Zoom."
           },
           "intentLetter": {
             "type": "string",
@@ -33456,29 +34342,36 @@
           "offer": {
             "$ref": "#/components/schemas/AdminOfferRefDto"
           },
-          "requestedLevel": {
+          "requestedScholarshipTypeId": {
             "type": "string",
-            "enum": [
-              "AGUA_VIVA",
-              "RIOS_VIVOS",
-              "AGUAS_LIBRES",
-              "CENOTES_VIVOS",
-              "SPECIAL"
-            ],
+            "format": "uuid",
             "nullable": true,
-            "example": "AGUAS_LIBRES"
+            "description": "Tipo de beca solicitado (antes `requestedLevel`)."
           },
-          "assignedLevel": {
-            "type": "string",
-            "enum": [
-              "AGUA_VIVA",
-              "RIOS_VIVOS",
-              "AGUAS_LIBRES",
-              "CENOTES_VIVOS",
-              "SPECIAL"
-            ],
+          "requestedScholarshipType": {
             "nullable": true,
-            "example": null
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ScholarshipTypeSummaryDto"
+              }
+            ]
+          },
+          "assignedScholarshipTypeId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "Tipo de beca asignado (antes `assignedLevel`)."
+          },
+          "assignedScholarshipType": {
+            "nullable": true,
+            "description": "`name` = nombre que tenía el tipo al aprobar.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ScholarshipTypeSummaryDto"
+              }
+            ]
           },
           "assignedPercent": {
             "type": "number",
@@ -33534,8 +34427,10 @@
           "status",
           "applicant",
           "offer",
-          "requestedLevel",
-          "assignedLevel",
+          "requestedScholarshipTypeId",
+          "requestedScholarshipType",
+          "assignedScholarshipTypeId",
+          "assignedScholarshipType",
           "assignedPercent",
           "submittedAt",
           "requiresInterview",
@@ -33849,16 +34744,20 @@
               "UNSURE"
             ]
           },
-          "suggestedLevel": {
+          "suggestedScholarshipTypeId": {
             "type": "string",
-            "enum": [
-              "AGUA_VIVA",
-              "RIOS_VIVOS",
-              "AGUAS_LIBRES",
-              "CENOTES_VIVOS",
-              "SPECIAL"
-            ],
-            "nullable": true
+            "format": "uuid",
+            "nullable": true,
+            "description": "Tipo de beca sugerido (antes `suggestedLevel`)."
+          },
+          "suggestedScholarshipType": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ScholarshipTypeSummaryDto"
+              }
+            ]
           },
           "comment": {
             "type": "string",
@@ -33874,7 +34773,8 @@
           "id",
           "evaluator",
           "recommendation",
-          "suggestedLevel",
+          "suggestedScholarshipTypeId",
+          "suggestedScholarshipType",
           "comment",
           "updatedAt"
         ]
@@ -33898,21 +34798,25 @@
             "type": "number",
             "example": 3
           },
-          "mostSuggestedLevel": {
+          "mostSuggestedScholarshipTypeId": {
             "type": "string",
-            "enum": [
-              "AGUA_VIVA",
-              "RIOS_VIVOS",
-              "AGUAS_LIBRES",
-              "CENOTES_VIVOS",
-              "SPECIAL"
-            ],
+            "format": "uuid",
             "nullable": true,
-            "example": "AGUAS_LIBRES"
+            "description": "Tipo más sugerido (empate → el de menor %)."
+          },
+          "mostSuggestedScholarshipType": {
+            "nullable": true,
+            "description": "Antes `mostSuggestedLevel`.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ScholarshipTypeSummaryDto"
+              }
+            ]
           },
           "label": {
             "type": "string",
-            "example": "2 aprobar · 1 con dudas · nivel más sugerido: Aguas Libres 50%"
+            "example": "2 aprobar · 1 con dudas · tipo más sugerido: Aguas Libres 50%"
           }
         },
         "required": [
@@ -33920,7 +34824,8 @@
           "notSelect",
           "unsure",
           "total",
-          "mostSuggestedLevel",
+          "mostSuggestedScholarshipTypeId",
+          "mostSuggestedScholarshipType",
           "label"
         ]
       },
@@ -33945,39 +34850,29 @@
           "currency"
         ]
       },
-      "AdminLevelOptionDto": {
+      "AdminScholarshipTypeOptionDto": {
         "type": "object",
         "properties": {
-          "level": {
+          "scholarshipTypeId": {
             "type": "string",
-            "enum": [
-              "AGUA_VIVA",
-              "RIOS_VIVOS",
-              "AGUAS_LIBRES",
-              "CENOTES_VIVOS",
-              "SPECIAL"
+            "format": "uuid"
+          },
+          "scholarshipType": {
+            "description": "Con el rango EFECTIVO en la oferta. `requiresInterview` exige entrevista \"Realizada\".",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ScholarshipTypeSummaryDto"
+              }
             ]
           },
-          "label": {
-            "type": "string",
-            "example": "Aguas Libres"
-          },
-          "minPercent": {
-            "type": "number",
-            "example": 50
-          },
-          "maxPercent": {
-            "type": "number",
-            "example": 50
-          },
-          "requiresInterview": {
+          "active": {
             "type": "boolean",
-            "example": false,
-            "description": "> 70%: exige entrevista \"Realizada\"."
+            "example": true,
+            "description": "false = tipo desactivado (se puede asignar si la oferta ya lo tenía)."
           },
           "balanceAtMaxPercent": {
             "nullable": true,
-            "description": "Saldo con el % máximo del nivel en la moneda del postulante.",
+            "description": "Saldo con el % máximo del tipo en la moneda del postulante.",
             "type": "object",
             "allOf": [
               {
@@ -33987,11 +34882,9 @@
           }
         },
         "required": [
-          "level",
-          "label",
-          "minPercent",
-          "maxPercent",
-          "requiresInterview",
+          "scholarshipTypeId",
+          "scholarshipType",
+          "active",
           "balanceAtMaxPercent"
         ]
       },
@@ -34016,7 +34909,7 @@
             "type": "string",
             "nullable": true,
             "example": null,
-            "description": "`APPLICATION_INTERVIEW_REQUIRED` = \"Esta postulación requiere entrevista por Zoom\" (aplica a convocatorias siempre y a becas cuando el nivel asignado supera 70%)."
+            "description": "`APPLICATION_INTERVIEW_REQUIRED` = \"Esta postulación requiere entrevista por Zoom\" (aplica a convocatorias siempre y a becas cuyo tipo asignado/solicitado tiene `requiresInterview`)."
           },
           "price": {
             "nullable": true,
@@ -34028,23 +34921,26 @@
               }
             ]
           },
-          "levels": {
-            "description": "Niveles habilitados en la oferta.",
+          "scholarshipTypes": {
+            "description": "Tipos de beca habilitados en la oferta (antes `levels`).",
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/AdminLevelOptionDto"
+              "$ref": "#/components/schemas/AdminScholarshipTypeOptionDto"
             }
           },
-          "assignedLevel": {
+          "assignedScholarshipTypeId": {
             "type": "string",
-            "enum": [
-              "AGUA_VIVA",
-              "RIOS_VIVOS",
-              "AGUAS_LIBRES",
-              "CENOTES_VIVOS",
-              "SPECIAL"
-            ],
+            "format": "uuid",
             "nullable": true
+          },
+          "assignedScholarshipType": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ScholarshipTypeSummaryDto"
+              }
+            ]
           },
           "assignedPercent": {
             "type": "number",
@@ -34099,8 +34995,9 @@
           "hasCompletedInterview",
           "blockedReason",
           "price",
-          "levels",
-          "assignedLevel",
+          "scholarshipTypes",
+          "assignedScholarshipTypeId",
+          "assignedScholarshipType",
           "assignedPercent",
           "balance",
           "responseDueAt",
@@ -34216,29 +35113,36 @@
           "offer": {
             "$ref": "#/components/schemas/AdminOfferRefDto"
           },
-          "requestedLevel": {
+          "requestedScholarshipTypeId": {
             "type": "string",
-            "enum": [
-              "AGUA_VIVA",
-              "RIOS_VIVOS",
-              "AGUAS_LIBRES",
-              "CENOTES_VIVOS",
-              "SPECIAL"
-            ],
+            "format": "uuid",
             "nullable": true,
-            "example": "AGUAS_LIBRES"
+            "description": "Tipo de beca solicitado (antes `requestedLevel`)."
           },
-          "assignedLevel": {
-            "type": "string",
-            "enum": [
-              "AGUA_VIVA",
-              "RIOS_VIVOS",
-              "AGUAS_LIBRES",
-              "CENOTES_VIVOS",
-              "SPECIAL"
-            ],
+          "requestedScholarshipType": {
             "nullable": true,
-            "example": null
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ScholarshipTypeSummaryDto"
+              }
+            ]
+          },
+          "assignedScholarshipTypeId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "Tipo de beca asignado (antes `assignedLevel`)."
+          },
+          "assignedScholarshipType": {
+            "nullable": true,
+            "description": "`name` = nombre que tenía el tipo al aprobar.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ScholarshipTypeSummaryDto"
+              }
+            ]
           },
           "assignedPercent": {
             "type": "number",
@@ -34366,8 +35270,10 @@
           "status",
           "applicant",
           "offer",
-          "requestedLevel",
-          "assignedLevel",
+          "requestedScholarshipTypeId",
+          "requestedScholarshipType",
+          "assignedScholarshipTypeId",
+          "assignedScholarshipType",
           "assignedPercent",
           "submittedAt",
           "requiresInterview",
@@ -34403,18 +35309,11 @@
             "example": "APPROVE",
             "description": "Aprobar / No seleccionar / Tengo dudas."
           },
-          "suggestedLevel": {
+          "suggestedScholarshipTypeId": {
             "type": "string",
-            "enum": [
-              "AGUA_VIVA",
-              "RIOS_VIVOS",
-              "AGUAS_LIBRES",
-              "CENOTES_VIVOS",
-              "SPECIAL"
-            ],
+            "format": "uuid",
             "nullable": true,
-            "example": "AGUAS_LIBRES",
-            "description": "Solo becas: nivel sugerido (habilitado en la oferta)."
+            "description": "Solo becas: tipo de beca sugerido, habilitado en la oferta (antes `suggestedLevel`). Otro → 400 `SCHOLARSHIP_TYPE_NOT_ENABLED`."
           },
           "comment": {
             "type": "object",
@@ -34499,16 +35398,19 @@
             "example": "APPROVED_PENDING_PAYMENT",
             "description": "Estado resultante."
           },
-          "assignedLevel": {
+          "assignedScholarshipTypeId": {
             "type": "string",
-            "enum": [
-              "AGUA_VIVA",
-              "RIOS_VIVOS",
-              "AGUAS_LIBRES",
-              "CENOTES_VIVOS",
-              "SPECIAL"
-            ],
+            "format": "uuid",
             "nullable": true
+          },
+          "assignedScholarshipType": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ScholarshipTypeSummaryDto"
+              }
+            ]
           },
           "assignedPercent": {
             "type": "number",
@@ -34544,7 +35446,7 @@
             "type": "object",
             "example": {
               "subject": "Tu beca fue aprobada: Diplomado en Ecotecnologías del Agua",
-              "body": "Estado: Aprobada – pendiente de pago. Nivel asignado: Aguas Libres (50%). Saldo a pagar: $5,100.00 MXN…"
+              "body": "Estado: Aprobada – pendiente de pago. Beca asignada: Aguas Libres (50%). Saldo a pagar: $5,100.00 MXN…"
             },
             "description": "Vista previa del correo/notificación (asunto y cuerpo)."
           }
@@ -34552,7 +35454,8 @@
         "required": [
           "decision",
           "status",
-          "assignedLevel",
+          "assignedScholarshipTypeId",
+          "assignedScholarshipType",
           "assignedPercent",
           "balance",
           "responseDueAt",
@@ -34564,22 +35467,15 @@
       "ApproveApplicationRequestDto": {
         "type": "object",
         "properties": {
-          "assignedLevel": {
+          "assignedScholarshipTypeId": {
             "type": "string",
-            "enum": [
-              "AGUA_VIVA",
-              "RIOS_VIVOS",
-              "AGUAS_LIBRES",
-              "CENOTES_VIVOS",
-              "SPECIAL"
-            ],
-            "example": "AGUAS_LIBRES",
-            "description": "Obligatorio en becas."
+            "format": "uuid",
+            "description": "Obligatorio en becas (antes `assignedLevel`): tipo habilitado en la oferta (otro → 400 `SCHOLARSHIP_TYPE_NOT_ENABLED`)."
           },
           "assignedPercent": {
             "type": "number",
             "example": 75,
-            "description": "Beca especial: entero 71–80."
+            "description": "Beca: % final, entero dentro del rango EFECTIVO del tipo en la oferta (fuera → 400 `INVALID`). Si el rango es fijo se toma solo."
           },
           "note": {
             "type": "string",
@@ -34884,16 +35780,20 @@
             "type": "string",
             "example": "MX"
           },
-          "assignedLevel": {
+          "assignedScholarshipTypeId": {
             "type": "string",
-            "enum": [
-              "AGUA_VIVA",
-              "RIOS_VIVOS",
-              "AGUAS_LIBRES",
-              "CENOTES_VIVOS",
-              "SPECIAL"
-            ],
-            "nullable": true
+            "format": "uuid",
+            "nullable": true,
+            "description": "Tipo de beca asignado (antes `assignedLevel`)."
+          },
+          "assignedScholarshipType": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ScholarshipTypeSummaryDto"
+              }
+            ]
           },
           "assignedPercent": {
             "type": "number",
@@ -34969,7 +35869,8 @@
           "email",
           "phone",
           "countryCode",
-          "assignedLevel",
+          "assignedScholarshipTypeId",
+          "assignedScholarshipType",
           "assignedPercent",
           "balance",
           "responseDueAt",
@@ -35113,16 +36014,20 @@
             "type": "string",
             "example": "MX"
           },
-          "assignedLevel": {
+          "assignedScholarshipTypeId": {
             "type": "string",
-            "enum": [
-              "AGUA_VIVA",
-              "RIOS_VIVOS",
-              "AGUAS_LIBRES",
-              "CENOTES_VIVOS",
-              "SPECIAL"
-            ],
-            "nullable": true
+            "format": "uuid",
+            "nullable": true,
+            "description": "Tipo de beca asignado (antes `assignedLevel`)."
+          },
+          "assignedScholarshipType": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ScholarshipTypeSummaryDto"
+              }
+            ]
           },
           "assignedPercent": {
             "type": "number",
@@ -35205,7 +36110,8 @@
           "email",
           "phone",
           "countryCode",
-          "assignedLevel",
+          "assignedScholarshipTypeId",
+          "assignedScholarshipType",
           "assignedPercent",
           "balance",
           "responseDueAt",
@@ -38625,17 +39531,21 @@
             ],
             "example": "APPROVED_PENDING_PAYMENT"
           },
-          "assignedLevel": {
+          "assignedScholarshipTypeId": {
             "type": "string",
-            "enum": [
-              "AGUA_VIVA",
-              "RIOS_VIVOS",
-              "AGUAS_LIBRES",
-              "CENOTES_VIVOS",
-              "SPECIAL"
-            ],
+            "format": "uuid",
             "nullable": true,
-            "example": "AGUAS_LIBRES"
+            "description": "Tipo de beca asignado (antes `assignedLevel`)."
+          },
+          "assignedScholarshipType": {
+            "nullable": true,
+            "description": "`name` = nombre del tipo al aprobar.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ScholarshipTypeSummaryDto"
+              }
+            ]
           },
           "assignedPercent": {
             "type": "number",
@@ -38665,7 +39575,8 @@
           "folio",
           "kind",
           "status",
-          "assignedLevel",
+          "assignedScholarshipTypeId",
+          "assignedScholarshipType",
           "assignedPercent",
           "originalAmount",
           "dueAt"

@@ -12,8 +12,8 @@ const ctx: ApplicationMessageContext = {
   folio: 'BEC-000123',
   offer: { id: 'offer-1', name: 'Diplomado en Ecotecnologías del Agua' },
   userTimezone: 'America/Bogota',
-  requestedLevel: 'AGUAS_LIBRES',
-  assignedLevel: 'AGUAS_LIBRES',
+  requestedScholarshipType: { name: 'Aguas Libres', requiresInterview: false },
+  assignedScholarshipTypeName: 'Aguas Libres',
   assignedPercent: 50,
   balance: { amountCents: 510_000, currency: 'MXN' },
   responseDueAt: new Date('2026-10-28T18:00:00Z'),
@@ -42,6 +42,13 @@ describe('mensajes de postulaciones (HU-13 / HU-21)', () => {
     expect(statusChangeMessage('SUBMITTED', { ...ctx, kind: 'OPEN_CALL' })!.body).toContain(
       'entrevista por Zoom',
     );
+    expect(statusChangeMessage('SUBMITTED', ctx)!.body).not.toContain('entrevista');
+    expect(
+      statusChangeMessage('SUBMITTED', {
+        ...ctx,
+        requestedScholarshipType: { name: 'Beca especial', requiresInterview: true },
+      })!.body,
+    ).toContain('Solicitaste Beca especial: el proceso incluye una entrevista por Zoom.');
   });
 
   it('"En revisión" solo en portal (sin correo)', () => {
@@ -52,7 +59,7 @@ describe('mensajes de postulaciones (HU-13 / HU-21)', () => {
     expect(statusChangeMessage('SUBMITTED', ctx)!.email).toBeUndefined();
   });
 
-  it('beca aprobada: nivel, %, saldo, plazo y Pagar saldo', () => {
+  it('beca aprobada: tipo, %, saldo, plazo y Pagar saldo', () => {
     const message = statusChangeMessage('APPROVED_PENDING_PAYMENT', ctx)!;
     expect(message.type).toBe('SCHOLARSHIP_APPROVED');
     expect(message.body).toContain('Aguas Libres (50%)');

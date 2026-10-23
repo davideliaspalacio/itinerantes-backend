@@ -23,8 +23,8 @@ import {
   InterviewStatus,
   NotificationEmailStatus,
   NotificationType,
-  ScholarshipLevel,
 } from '../../../../generated/prisma/client';
+import { ScholarshipTypeSummaryDto } from '../../../scholarship-types/dto/scholarship-types.dto';
 
 const toBool = ({ value }: { value: unknown }) =>
   value === true || value === 'true' || value === '1'
@@ -73,10 +73,13 @@ export class ListAdminApplicationsQueryDto extends PaginationQueryDto {
   @IsIn(SENT_STATUSES, { each: true })
   status?: ApplicationStatus[];
 
-  @ApiPropertyOptional({ enum: ScholarshipLevel, description: 'Nivel solicitado.' })
+  @ApiPropertyOptional({
+    format: 'uuid',
+    description: 'Tipo de beca solicitado (antes `level`). Ids de `GET /admin/scholarship-types`.',
+  })
   @IsOptional()
-  @IsIn(Object.values(ScholarshipLevel))
-  level?: ScholarshipLevel;
+  @IsUUID()
+  scholarshipTypeId?: string;
 
   @ApiPropertyOptional({ example: 'MX' })
   @IsOptional()
@@ -164,11 +167,31 @@ export class AdminApplicationListItemDto {
   @ApiProperty({ type: AdminOfferRefDto })
   offer!: AdminOfferRefDto;
 
-  @ApiProperty({ enum: ScholarshipLevel, nullable: true, example: 'AGUAS_LIBRES' })
-  requestedLevel!: ScholarshipLevel | null;
+  @ApiProperty({
+    type: String,
+    format: 'uuid',
+    nullable: true,
+    description: 'Tipo de beca solicitado (antes `requestedLevel`).',
+  })
+  requestedScholarshipTypeId!: string | null;
 
-  @ApiProperty({ enum: ScholarshipLevel, nullable: true, example: null })
-  assignedLevel!: ScholarshipLevel | null;
+  @ApiProperty({ type: ScholarshipTypeSummaryDto, nullable: true })
+  requestedScholarshipType!: ScholarshipTypeSummaryDto | null;
+
+  @ApiProperty({
+    type: String,
+    format: 'uuid',
+    nullable: true,
+    description: 'Tipo de beca asignado (antes `assignedLevel`).',
+  })
+  assignedScholarshipTypeId!: string | null;
+
+  @ApiProperty({
+    type: ScholarshipTypeSummaryDto,
+    nullable: true,
+    description: '`name` = nombre que tenía el tipo al aprobar.',
+  })
+  assignedScholarshipType!: ScholarshipTypeSummaryDto | null;
 
   @ApiProperty({ type: Number, nullable: true, example: null })
   assignedPercent!: number | null;
@@ -353,8 +376,16 @@ export class AdminEvaluationDto {
   @ApiProperty({ enum: EvaluationRecommendation })
   recommendation!: EvaluationRecommendation;
 
-  @ApiProperty({ enum: ScholarshipLevel, nullable: true })
-  suggestedLevel!: ScholarshipLevel | null;
+  @ApiProperty({
+    type: String,
+    format: 'uuid',
+    nullable: true,
+    description: 'Tipo de beca sugerido (antes `suggestedLevel`).',
+  })
+  suggestedScholarshipTypeId!: string | null;
+
+  @ApiProperty({ type: ScholarshipTypeSummaryDto, nullable: true })
+  suggestedScholarshipType!: ScholarshipTypeSummaryDto | null;
 
   @ApiProperty({ type: String, nullable: true, example: 'Experiencia territorial sólida.' })
   comment!: string | null;
@@ -376,33 +407,46 @@ export class EvaluationSummaryDto {
   @ApiProperty({ example: 3 })
   total!: number;
 
-  @ApiProperty({ enum: ScholarshipLevel, nullable: true, example: 'AGUAS_LIBRES' })
-  mostSuggestedLevel!: ScholarshipLevel | null;
+  @ApiProperty({
+    type: String,
+    format: 'uuid',
+    nullable: true,
+    description: 'Tipo más sugerido (empate → el de menor %).',
+  })
+  mostSuggestedScholarshipTypeId!: string | null;
 
-  @ApiProperty({ example: '2 aprobar · 1 con dudas · nivel más sugerido: Aguas Libres 50%' })
+  @ApiProperty({
+    type: ScholarshipTypeSummaryDto,
+    nullable: true,
+    description: 'Antes `mostSuggestedLevel`.',
+  })
+  mostSuggestedScholarshipType!: ScholarshipTypeSummaryDto | null;
+
+  @ApiProperty({ example: '2 aprobar · 1 con dudas · tipo más sugerido: Aguas Libres 50%' })
   label!: string;
 }
 
-export class AdminLevelOptionDto {
-  @ApiProperty({ enum: ScholarshipLevel })
-  level!: ScholarshipLevel;
+export class AdminScholarshipTypeOptionDto {
+  @ApiProperty({ format: 'uuid' })
+  scholarshipTypeId!: string;
 
-  @ApiProperty({ example: 'Aguas Libres' })
-  label!: string;
+  @ApiProperty({
+    type: ScholarshipTypeSummaryDto,
+    description:
+      'Con el rango EFECTIVO en la oferta. `requiresInterview` exige entrevista "Realizada".',
+  })
+  scholarshipType!: ScholarshipTypeSummaryDto;
 
-  @ApiProperty({ example: 50 })
-  minPercent!: number;
-
-  @ApiProperty({ example: 50 })
-  maxPercent!: number;
-
-  @ApiProperty({ example: false, description: '> 70%: exige entrevista "Realizada".' })
-  requiresInterview!: boolean;
+  @ApiProperty({
+    example: true,
+    description: 'false = tipo desactivado (se puede asignar si la oferta ya lo tenía).',
+  })
+  active!: boolean;
 
   @ApiProperty({
     type: MoneyAmountDto,
     nullable: true,
-    description: 'Saldo con el % máximo del nivel en la moneda del postulante.',
+    description: 'Saldo con el % máximo del tipo en la moneda del postulante.',
   })
   balanceAtMaxPercent!: MoneyAmountDto | null;
 }
@@ -423,7 +467,7 @@ export class AdminDecisionDto {
     example: null,
     description:
       '`APPLICATION_INTERVIEW_REQUIRED` = "Esta postulación requiere entrevista por Zoom" (aplica a ' +
-      'convocatorias siempre y a becas cuando el nivel asignado supera 70%).',
+      'convocatorias siempre y a becas cuyo tipo asignado/solicitado tiene `requiresInterview`).',
   })
   blockedReason!: string | null;
 
@@ -434,11 +478,17 @@ export class AdminDecisionDto {
   })
   price!: MoneyAmountDto | null;
 
-  @ApiProperty({ type: [AdminLevelOptionDto], description: 'Niveles habilitados en la oferta.' })
-  levels!: AdminLevelOptionDto[];
+  @ApiProperty({
+    type: [AdminScholarshipTypeOptionDto],
+    description: 'Tipos de beca habilitados en la oferta (antes `levels`).',
+  })
+  scholarshipTypes!: AdminScholarshipTypeOptionDto[];
 
-  @ApiProperty({ enum: ScholarshipLevel, nullable: true })
-  assignedLevel!: ScholarshipLevel | null;
+  @ApiProperty({ type: String, format: 'uuid', nullable: true })
+  assignedScholarshipTypeId!: string | null;
+
+  @ApiProperty({ type: ScholarshipTypeSummaryDto, nullable: true })
+  assignedScholarshipType!: ScholarshipTypeSummaryDto | null;
 
   @ApiProperty({ type: Number, nullable: true })
   assignedPercent!: number | null;
@@ -555,14 +605,16 @@ export class UpsertEvaluationRequestDto {
   recommendation!: EvaluationRecommendation;
 
   @ApiPropertyOptional({
-    enum: ScholarshipLevel,
+    type: String,
+    format: 'uuid',
     nullable: true,
-    example: 'AGUAS_LIBRES',
-    description: 'Solo becas: nivel sugerido (habilitado en la oferta).',
+    description:
+      'Solo becas: tipo de beca sugerido, habilitado en la oferta (antes `suggestedLevel`). Otro → ' +
+      '400 `SCHOLARSHIP_TYPE_NOT_ENABLED`.',
   })
   @IsOptional()
-  @IsIn(Object.values(ScholarshipLevel))
-  suggestedLevel?: ScholarshipLevel | null;
+  @IsUUID()
+  suggestedScholarshipTypeId?: string | null;
 
   @ApiPropertyOptional({ example: 'Experiencia territorial sólida.', maxLength: 2000 })
   @IsOptional()
@@ -613,12 +665,15 @@ export class DecisionPreviewQueryDto {
   @IsIn(['APPROVE', 'REJECT'])
   decision!: 'APPROVE' | 'REJECT';
 
-  @ApiPropertyOptional({ enum: ScholarshipLevel, description: 'Beca: nivel a asignar.' })
+  @ApiPropertyOptional({ format: 'uuid', description: 'Beca: tipo a asignar.' })
   @IsOptional()
-  @IsIn(Object.values(ScholarshipLevel))
-  assignedLevel?: ScholarshipLevel;
+  @IsUUID()
+  assignedScholarshipTypeId?: string;
 
-  @ApiPropertyOptional({ example: 75, description: 'Beca especial: 71–80.' })
+  @ApiPropertyOptional({
+    example: 75,
+    description: 'Beca: % dentro del rango del tipo en la oferta (opcional si es fijo).',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
@@ -647,8 +702,11 @@ export class DecisionPreviewDto {
   })
   status!: ApplicationStatus;
 
-  @ApiProperty({ enum: ScholarshipLevel, nullable: true })
-  assignedLevel!: ScholarshipLevel | null;
+  @ApiProperty({ type: String, format: 'uuid', nullable: true })
+  assignedScholarshipTypeId!: string | null;
+
+  @ApiProperty({ type: ScholarshipTypeSummaryDto, nullable: true })
+  assignedScholarshipType!: ScholarshipTypeSummaryDto | null;
 
   @ApiProperty({ type: Number, nullable: true, example: 50 })
   assignedPercent!: number | null;
@@ -681,7 +739,7 @@ export class DecisionPreviewDto {
   @ApiProperty({
     example: {
       subject: 'Tu beca fue aprobada: Diplomado en Ecotecnologías del Agua',
-      body: 'Estado: Aprobada – pendiente de pago. Nivel asignado: Aguas Libres (50%). Saldo a pagar: $5,100.00 MXN…',
+      body: 'Estado: Aprobada – pendiente de pago. Beca asignada: Aguas Libres (50%). Saldo a pagar: $5,100.00 MXN…',
     },
     description: 'Vista previa del correo/notificación (asunto y cuerpo).',
   })
@@ -690,15 +748,21 @@ export class DecisionPreviewDto {
 
 export class ApproveApplicationRequestDto {
   @ApiPropertyOptional({
-    enum: ScholarshipLevel,
-    example: 'AGUAS_LIBRES',
-    description: 'Obligatorio en becas.',
+    format: 'uuid',
+    description:
+      'Obligatorio en becas (antes `assignedLevel`): tipo habilitado en la oferta (otro → 400 ' +
+      '`SCHOLARSHIP_TYPE_NOT_ENABLED`).',
   })
   @IsOptional()
-  @IsIn(Object.values(ScholarshipLevel))
-  assignedLevel?: ScholarshipLevel;
+  @IsUUID()
+  assignedScholarshipTypeId?: string;
 
-  @ApiPropertyOptional({ example: 75, description: 'Beca especial: entero 71–80.' })
+  @ApiPropertyOptional({
+    example: 75,
+    description:
+      'Beca: % final, entero dentro del rango EFECTIVO del tipo en la oferta (fuera → 400 ' +
+      '`INVALID`). Si el rango es fijo se toma solo.',
+  })
   @IsOptional()
   @IsInt()
   @Min(1)

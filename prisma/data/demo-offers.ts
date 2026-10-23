@@ -56,6 +56,8 @@ export interface DemoOffer {
     scheduleRule?: ScheduleRuleInput;
   };
   teacherSlugs: string[];
+  /** Keys de `scholarship_types` habilitados (tabla puente `offer_scholarship_types`). */
+  scholarshipTypeKeys?: string[];
   modules: Array<{ title: string; description: string }>;
   /** Genera sesiones desde la regla entre startsAt y endsAt (fechas CDMX). */
   generateSessions: boolean;
@@ -121,7 +123,6 @@ export const DEMO_OFFERS: DemoOffer[] = [
       installmentsEnabled: true,
       installmentsMax: 3,
       scholarshipEnabled: true,
-      scholarshipLevels: ['AGUA_VIVA', 'RIOS_VIVOS', 'AGUAS_LIBRES', 'CENOTES_VIVOS', 'SPECIAL'],
       scholarshipOpensAt: cdmxToUtc('2026-09-01', '00:00'),
       scholarshipClosesAt: cdmxToUtc('2026-10-31', '23:59'),
       attendanceWindowHours: 24,
@@ -135,6 +136,7 @@ export const DEMO_OFFERS: DemoOffer[] = [
       finalProjectGuidelines:
         'Diseña una ecotecnología para tu vivienda o comunidad: diagnóstico, propuesta, dimensionamiento y plan de implementación. Entrega en PDF, DOCX, PPTX o ZIP (máx. 20 MB) y preséntala en la sesión final.',
     },
+    scholarshipTypeKeys: ['AGUA_VIVA', 'RIOS_VIVOS', 'AGUAS_LIBRES', 'CENOTES_VIVOS', 'SPECIAL'],
     teacherSlugs: ['ana-solis-rios', 'tomas-ek-canche'],
     modules: [
       {
@@ -459,11 +461,11 @@ export const DEMO_OFFERS: DemoOffer[] = [
       installmentsEnabled: true,
       installmentsMax: 4,
       scholarshipEnabled: true,
-      scholarshipLevels: ['AGUA_VIVA', 'RIOS_VIVOS', 'AGUAS_LIBRES', 'CENOTES_VIVOS', 'SPECIAL'],
       scholarshipOpensAt: cdmxToUtc('2026-10-01', '00:00'),
       scholarshipClosesAt: cdmxToUtc('2027-01-15', '23:59'),
       attendanceWindowHours: 24,
     },
+    scholarshipTypeKeys: ['AGUA_VIVA', 'RIOS_VIVOS', 'AGUAS_LIBRES', 'CENOTES_VIVOS', 'SPECIAL'],
     teacherSlugs: ['lucia-herrera-mendoza', 'ana-solis-rios'],
     modules: [
       {

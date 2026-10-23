@@ -40,7 +40,7 @@ que usan las notificaciones; ver `notifications/portal-links.ts`).
 | HU | Criterio | Endpoint / regla |
 |---|---|---|
 | 19 | Envío válido → folio, "Enviada", correo y notificación, visible al equipo | `POST …/submit` → `folio`, `status = SUBMITTED`; notificación `APPLICATION_SUBMITTED` (portal + correo) |
-| 19 | Nivel → monto estimado en mi moneda; Beca especial → aviso de entrevista | `form.levels[]` (`estimatedScholarship`, `estimatedBalance`, `requiresInterview`), `form.interviewNotice` |
+| 19 | Tipo de beca → monto estimado en mi moneda; tipo con entrevista → aviso | `form.scholarshipTypes[]` (`estimatedScholarship`, `estimatedBalance`, `scholarshipType.requiresInterview`), `form.interviewNotice` |
 | 19 | Curso/taller/evento, sin beca o convocatoria cerrada → no se postula y veo el motivo | `opportunities` (`window.reason`, `canApply`), ficha `actions[]`; `POST` → `APPLICATION_NOT_ALLOWED` / `APPLICATION_WINDOW_CLOSED` |
 | 19 | Ya postulé a esa cohorte → voy a la existente | `POST` → `409 APPLICATION_ALREADY_EXISTS` (`meta.applicationId`); `myApplication` / `VIEW_APPLICATION` |
 | 19 | Carta 800–4000, ≥ 1 evidencia, términos → validaciones en línea y "Enviar" deshabilitado | `missingRequirements[]` en cada `GET`/`PATCH`; `submit` → `422 APPLICATION_INCOMPLETE` con `details[]` |
@@ -51,7 +51,7 @@ que usan las notificaciones; ver `notifications/portal-links.ts`).
 | 20 | Obligatorios vacíos o fuera de rango → validaciones sin perder lo escrito | `missingRequirements[]`, `PATCH` guarda parcial |
 | 21 | Solo mis postulaciones del tipo, con estado, línea de tiempo y notificación por cambio | `GET /me/applications?kind=` (`timeline[]`); cada cambio emite notificación |
 | 21 | Entrevista: hora en mi zona + CDMX y Zoom habilitado 10 min antes | `interview.startsAt` + `interview.join` (`url` solo con `state = OPEN`) |
-| 21 | Aprobada: nivel asignado, saldo y [Pagar saldo]; sin costo [Confirmar mi participación]; al completar "Inscrita" | `scholarshipResult`, `response`, `action`; `POST …/confirm` |
+| 21 | Aprobada: tipo de beca y % asignados, saldo y [Pagar saldo]; sin costo [Confirmar mi participación]; al completar "Inscrita" | `scholarshipResult`, `response`, `action`; `POST …/confirm` |
 | 21 | 7 días sin pago ni comprobante → "Vencida"; con comprobante pendiente no vence | Job de vencimientos (`EXPIRED`, notificación `APPLICATION_EXPIRED`); `response.transferPendingValidation` |
 | 21 | Postulación ajena por URL → acceso negado | `404 NOT_FOUND` (no se revela que existe) |
 
@@ -70,7 +70,7 @@ que usan las notificaciones; ver `notifications/portal-links.ts`).
              "startsAt": "2027-02-15T15:00:00.000Z", "endsAt": "…", "venue": { "name": "Ecoaldea Río Vivo", "city": "…" } },
   "window": { "state": "OPEN", "opensAt": "…", "closesAt": "2026-12-01T05:59:00.000Z", "reason": null },
   "price": null,
-  "levels": [],
+  "scholarshipTypes": [],
   "eligibility": { "text": "Jóvenes de 18 a 30 años de México y Centroamérica…", "countries": [{ "code": "MX", "name": "México" }],
                    "requiresTravel": true, "eligible": true, "reasons": [] },
   "myApplication": null,
@@ -83,7 +83,9 @@ que usan las notificaciones; ver `notifications/portal-links.ts`).
   UPCOMING`, `reason = SCHOLARSHIP_NOT_OPEN_YET` / `ENROLLMENT_NOT_OPEN_YET`, abre en `opensAt`).
 - Tarjeta: etiqueta "Presencial" (`offer.modality`), lugar (`offer.venue`), costo (`price`; `null` =
   "Gratuito"), cuenta regresiva "Cierra en 5 días" con `window.closesAt` en la zona del usuario.
-- Becas: `levels[]` con nombre, %, `requiresInterview` (> 70%) y monto estimado en la moneda del perfil.
+- Becas: `scholarshipTypes[]` (antes `levels[]`): por tipo activo, `scholarshipType` (`name`, rango
+  `minPercent`–`maxPercent` efectivo en la oferta, `requiresInterview`) y monto estimado en la moneda
+  del perfil. Mismo formato que `scholarshipDetails.scholarshipTypes[]` de la ficha (Fase 02).
 - Botón: `canApply` → [Postular] / [Postular a beca]; `myApplication` → [Ver mi postulación] (una por
   cohorte); `enrolled` → "Ya estás inscrito".
 - Elegibilidad destacada al inicio: `eligibility.text` + `eligible`/`reasons` (ver tabla abajo).
@@ -115,7 +117,7 @@ Enviar un campo del otro tipo → `400` con `details[].code = NOT_APPLICABLE`.
 | `phone { countryCode, number }` | WhatsApp (precargado) | igual | Formato del perfil; longitud por país (`INVALID_PHONE`) |
 | `age` | **Obligatorio** | — | Entero 15–100 |
 | `partnerCode` | Opcional (código de iniciativa aliada) | Opcional | ≤ 40 |
-| `requestedLevel` | **Obligatorio** | — | Solo niveles de `form.levels` (`LEVEL_NOT_ENABLED`) |
+| `requestedScholarshipTypeId` (antes `requestedLevel`) | **Obligatorio** | — | Un `scholarshipTypeId` de `form.scholarshipTypes` (otro o desactivado → `SCHOLARSHIP_TYPE_NOT_ENABLED`) |
 | `intentLetter` | **Obligatorio** | — | 800–4000 caracteres (contador) |
 | `eligibilityConfirmed` | — | **Debe ser `true`** | Casilla "Cumplo con la elegibilidad" |
 | `organization`, `organizationRole` | Opcionales | **Obligatorios** | ≤ 150 / ≤ 120 |
@@ -143,7 +145,9 @@ evidencias):
 ]
 ```
 
-`code`: `REQUIRED`, `MIN_LENGTH`, `MAX_LENGTH`, `MIN_FILES`, `MUST_ACCEPT`, `LEVEL_NOT_ENABLED`. Los
+`code`: `REQUIRED`, `MIN_LENGTH`, `MAX_LENGTH`, `MIN_FILES`, `MUST_ACCEPT`,
+`SCHOLARSHIP_TYPE_NOT_ENABLED` (antes `LEVEL_NOT_ENABLED`: el tipo ya no está disponible, p. ej. se
+desactivó después de guardar el borrador → pide elegir otro). Los
 mismos llegan en `details[]` de `422 APPLICATION_INCOMPLETE` si se intenta enviar.
 
 ### Bloque `form`
@@ -151,10 +155,10 @@ mismos llegan en `details[]` de `422 APPLICATION_INCOMPLETE` si se intenta envia
 | Campo | Uso |
 |---|---|
 | `window` | `OPEN` editable; `CLOSED` → "Convocatoria cerrada": solo lectura (`editable = false`) |
-| `levels[]` | Tarjetas de nivel con % y monto estimado ("el nivel final lo asigna el equipo") |
+| `scholarshipTypes[]` | Tarjetas de tipo de beca con % y monto estimado ("el tipo final lo asigna el equipo"); antes `levels[]` |
 | `price` | Resumen lateral: costo en tu moneda (`null` = gratuito) |
 | `eligibility` | Bloque destacado; `eligible = false` bloquea el envío (ver motivos) |
-| `interviewNotice` | Mostrar "Incluye entrevista por Zoom" (convocatorias siempre; becas con Beca especial) |
+| `interviewNotice` | Mostrar "Incluye entrevista por Zoom" (convocatorias siempre; becas si el tipo solicitado tiene `requiresInterview`). En el formulario usa también `scholarshipTypes[].scholarshipType.requiresInterview` del tipo elegido antes de guardar |
 | `limits` | Contadores, límites de archivos y tipos aceptados (`accept` del input) |
 
 Motivos de elegibilidad (`eligibility.reasons[]`, también en `meta.reasons` del error):
@@ -223,7 +227,9 @@ más próxima (`action.dueAt`), luego por último cambio.
                 { "key": "RESULT", "state": "DONE", "at": "…" }, { "key": "PAYMENT", "state": "CURRENT", "at": null },
                 { "key": "ENROLLED", "state": "UPCOMING", "at": null } ],
   "interview": null,
-  "scholarshipResult": { "requestedLevel": "AGUAS_LIBRES", "assignedLevel": "AGUAS_LIBRES", "assignedPercent": 50,
+  "scholarshipResult": { "requestedScholarshipTypeId": "…", "requestedScholarshipType": { "id": "…", "key": "AGUAS_LIBRES", "name": "Aguas Libres", "minPercent": 50, "maxPercent": 50, "requiresInterview": false },
+                         "assignedScholarshipTypeId": "…", "assignedScholarshipType": { "id": "…", "key": "AGUAS_LIBRES", "name": "Aguas Libres", "minPercent": 50, "maxPercent": 50, "requiresInterview": false },
+                         "assignedPercent": 50,
                          "originalAmount": { "amountCents": 1020000, "currency": "MXN" },
                          "balance": { "amountCents": 510000, "currency": "MXN" }, "dueAt": "…" },
   "response": { "kind": "PAYMENT", "dueAt": "…", "amount": { "amountCents": 510000, "currency": "MXN" },
@@ -232,7 +238,8 @@ más próxima (`action.dueAt`), luego por último cambio.
 ```
 
 `GET /me/applications/{id}` agrega `answers`, `documents`, `applicant`, `history[]` (estados con fecha y
-hora), `form`, `missingRequirements` y `editable`. Postulación ajena o id inválido → `404`.
+hora), `form`, `missingRequirements` y `editable`. `answers.requestedScholarshipTypeId` + `answers.requestedScholarshipType`
+(resumen con el rango de la oferta) reemplazan a `answers.requestedLevel`. Postulación ajena o id inválido → `404`.
 
 ### Línea de tiempo (`timeline[]`)
 
@@ -269,7 +276,9 @@ También aparece en el Calendario (ver abajo) y llega un recordatorio 24 h antes
 
 ### Resultado y respuesta
 
-- `scholarshipResult` (solo becas aprobadas): nivel solicitado y asignado, %, monto original, **saldo** en
+- `scholarshipResult` (solo becas aprobadas): tipo solicitado y asignado (`assignedScholarshipType.name` es
+  el nombre que tenía al aprobar: no cambia si el tipo se renombra), `assignedPercent` (el % final),
+  monto original, **saldo** en
   tu moneda y fecha límite (7 días naturales, sin superar el inicio del diplomado).
 - `response` (solo en "Aprobada – …"): `kind` `PAYMENT` (con `amount`) o `CONFIRMATION`, `dueAt` y
   `transferPendingValidation` (Fase 05: comprobante "Pendiente de validación" → no vence).
@@ -333,7 +342,7 @@ Todas en la categoría `APPLICATIONS` (salvo el recordatorio de saldo, `PAYMENTS
 | `APPLICATION_STATUS_CHANGED` | En revisión (**solo portal**), Aprobada – confirma tu participación, Aprobada (convocatoria con costo), Inscrita, No seleccionada | Ver / Confirmar / Ir a mi aula |
 | `INTERVIEW_SCHEDULED` | Entrevista agendada o reprogramada (hora local + CDMX) | Ver mi entrevista |
 | `INTERVIEW_REMINDER` | 24 h antes de la entrevista | Ver mi entrevista |
-| `SCHOLARSHIP_APPROVED` | Beca aprobada: nivel y %, saldo, fecha límite | Pagar saldo → `/portal/postulaciones/{id}/pago` |
+| `SCHOLARSHIP_APPROVED` | Beca aprobada: tipo de beca y %, saldo, fecha límite | Pagar saldo → `/portal/postulaciones/{id}/pago` |
 | `BALANCE_DUE_REMINDER` | 48 h antes de vencer el saldo | Pagar saldo |
 | `APPLICATION_EXPIRED` | Venció sin pago/confirmación | Ver mi postulación |
 
@@ -362,15 +371,10 @@ Todas en la categoría `APPLICATIONS` (salvo el recordatorio de saldo, `PAYMENTS
 | `SCHOLARSHIP` | Beca |
 | `OPEN_CALL` | Convocatoria |
 
-### `ScholarshipLevel`
+### Tipos de beca (antes enum `ScholarshipLevel`)
 
-| Valor | Texto | % |
-|---|---|---|
-| `AGUA_VIVA` | Agua Viva | 10 |
-| `RIOS_VIVOS` | Ríos Vivos | 25 |
-| `AGUAS_LIBRES` | Aguas Libres | 50 |
-| `CENOTES_VIVOS` | Cenotes Vivos | 70 |
-| `SPECIAL` | Beca especial (entrevista por Zoom) | 71–80 |
+Ya no hay enum: muestra `scholarshipType.name` y los % que llegan en la respuesta. Ver
+[Fase 02 — Tipos de beca](fase-02-oferta.md#tipos-de-beca-antes-enum-scholarshiplevel).
 
 ### `InterviewStatus`
 

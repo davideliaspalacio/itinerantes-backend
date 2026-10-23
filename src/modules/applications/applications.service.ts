@@ -10,7 +10,6 @@ import type {
   ApplicationKind,
   ApplicationStatus,
   Prisma,
-  ScholarshipLevel,
   User,
 } from '../../generated/prisma/client';
 import { PrismaService } from '../../infra/prisma/prisma.service';
@@ -19,7 +18,17 @@ import { EnrollmentLookupService } from '../enrollments/enrollment-lookup.servic
 import type { AccessUrlDto } from '../enrollments/dto/portal-shared.dto';
 import { joinInfo } from '../live-sessions/policies/session.policy';
 import { LocationsService } from '../locations/locations.service';
-import { estimateScholarshipLevels } from '../offers/policies/scholarship.policy';
+import { estimateScholarshipTypes } from '../offers/policies/scholarship.policy';
+import {
+  assignedSummary,
+  type OfferScholarshipTypeLink,
+  scholarshipOptions,
+  summaryInOffer,
+} from '../scholarship-types/policies/scholarship-type.policy';
+import {
+  OFFER_SCHOLARSHIP_TYPES_RELATION,
+  SCHOLARSHIP_TYPE_SELECT,
+} from '../scholarship-types/scholarship-type.select';
 import { ApplicationWorkflowService } from './application-workflow.service';
 import type {
   ApplicationFormFieldsDto,
@@ -50,7 +59,6 @@ import {
   formatFolio,
   interviewRequired,
   isValidEvidenceFile,
-  levelMaxPercent,
   submissionIssues,
 } from './policies/application-rules.policy';
 import {
@@ -82,7 +90,7 @@ const OFFER_SELECT = {
   priceMxnCents: true,
   priceUsdCents: true,
   scholarshipEnabled: true,
-  scholarshipLevels: true,
+  scholarshipTypes: OFFER_SCHOLARSHIP_TYPES_RELATION,
   scholarshipOpensAt: true,
   scholarshipClosesAt: true,
   eligibilityText: true,
@@ -94,6 +102,8 @@ type OfferRow = Prisma.OfferGetPayload<{ select: typeof OFFER_SELECT }>;
 
 const APPLICATION_INCLUDE = {
   offer: { select: OFFER_SELECT },
+  requestedScholarshipType: { select: SCHOLARSHIP_TYPE_SELECT },
+  assignedScholarshipType: { select: SCHOLARSHIP_TYPE_SELECT },
   statusEvents: {
     orderBy: { createdAt: 'asc' },
     select: { toStatus: true, createdAt: true },
@@ -115,7 +125,7 @@ interface ApplicationFormData {
   partnerCode?: string | null;
   organization?: string | null;
   organizationRole?: string | null;
-  requestedLevel?: ScholarshipLevel | null;
+  requestedScholarshipTypeId?: string | null;
   intentLetter?: string | null;
   eligibilityConfirmed?: boolean;
   experience?: string | null;
@@ -126,7 +136,7 @@ interface ApplicationFormData {
 }
 
 /** Campos del formulario por tipo (los del otro tipo se rechazan con NOT_APPLICABLE). */
-const SCHOLARSHIP_ONLY = ['age', 'requestedLevel', 'intentLetter'] as const;
+const SCHOLARSHIP_ONLY = ['age', 'requestedScholarshipTypeId', 'intentLetter'] as const;
 const OPEN_CALL_ONLY = [
   'eligibilityConfirmed',
   'organization',
@@ -187,10 +197,10 @@ export class ApplicationsService {
           offer: await this.offerDto(offer),
           window: windowDto(window),
           price: priceOf(offer, currency),
-          levels:
+          scholarshipTypes:
             kind === 'SCHOLARSHIP'
-              ? estimateScholarshipLevels(
-                  offer.scholarshipLevels,
+              ? estimateScholarshipTypes(
+                  offer.scholarshipTypes,
                   priceOf(offer, currency)?.amountCents ?? null,
                   currency,
                 )
@@ -261,7 +271,7 @@ export class ApplicationsService {
       });
     }
     assertWindowOpen(applicationWindow(offer, kind, now));
-    const fields = await this.formData(dto, kind, offer.scholarshipLevels);
+    const fields = await this.formData(dto, kind, offer.scholarshipTypes);
 
     try {
       const created = await this.prisma.application.create({
@@ -305,7 +315,7 @@ export class ApplicationsService {
   ): Promise<ApplicationDetailDto> {
     const row = await this.requireEditable(userId, applicationId);
     const user = await this.requireUser(userId);
-    const fields = await this.formData(dto, row.kind, row.offer.scholarshipLevels);
+    const fields = await this.formData(dto, row.kind, row.offer.scholarshipTypes);
     const updated = await this.prisma.application.updateMany({
       where: { id: row.id, status: 'DRAFT' },
       data: { ...profileSnapshot(user), ...fields },
@@ -606,7 +616,7 @@ export class ApplicationsService {
   private async formData(
     dto: ApplicationFormFieldsDto,
     kind: ApplicationKind,
-    enabledLevels: readonly ScholarshipLevel[],
+    scholarshipTypes: readonly OfferScholarshipTypeLink[],
   ): Promise<ApplicationFormData> {
     const notApplicable = (kind === 'SCHOLARSHIP' ? OPEN_CALL_ONLY : SCHOLARSHIP_ONLY).filter(
       (field) => dto[field] !== undefined && dto[field] !== null && dto[field] !== false,
@@ -619,11 +629,15 @@ export class ApplicationsService {
           ? 'Este campo es solo para convocatorias.'
           : 'Este campo es solo para becas.',
     }));
-    if (dto.requestedLevel && !enabledLevels.includes(dto.requestedLevel)) {
+    // Solo tipos ACTIVOS habilitados en la oferta (desactivado = no se ofrece en postulaciones).
+    if (
+      dto.requestedScholarshipTypeId &&
+      !scholarshipOptions(scholarshipTypes).some((o) => o.id === dto.requestedScholarshipTypeId)
+    ) {
       details.push({
-        field: 'requestedLevel',
-        code: FIELD_ERROR_CODES.LEVEL_NOT_ENABLED,
-        message: 'Ese nivel de beca no está disponible para este diplomado.',
+        field: 'requestedScholarshipTypeId',
+        code: FIELD_ERROR_CODES.SCHOLARSHIP_TYPE_NOT_ENABLED,
+        message: 'Ese tipo de beca no está disponible para este diplomado.',
       });
     }
     if (details.length > 0) throw AppException.validation(details);
@@ -641,7 +655,9 @@ export class ApplicationsService {
     if (dto.organization !== undefined) data.organization = blankToNull(dto.organization);
     if (dto.organizationRole !== undefined)
       data.organizationRole = blankToNull(dto.organizationRole);
-    if (dto.requestedLevel !== undefined) data.requestedLevel = dto.requestedLevel;
+    if (dto.requestedScholarshipTypeId !== undefined) {
+      data.requestedScholarshipTypeId = dto.requestedScholarshipTypeId;
+    }
     if (dto.intentLetter !== undefined) data.intentLetter = blankToNull(dto.intentLetter);
     if (dto.eligibilityConfirmed !== undefined)
       data.eligibilityConfirmed = dto.eligibilityConfirmed;
@@ -761,7 +777,7 @@ export class ApplicationsService {
         history: row.statusEvents.map((e) => ({ toStatus: e.toStatus, at: e.createdAt })),
         interviewRequired: interviewRequired(
           row.kind,
-          row.assignedPercent ?? levelMaxPercent(row.requestedLevel),
+          (row.assignedScholarshipType ?? row.requestedScholarshipType)?.requiresInterview,
         ),
         responseKind,
       }).map((step) => ({ ...step, at: step.at?.toISOString() ?? null })),
@@ -781,14 +797,23 @@ export class ApplicationsService {
         : null,
       scholarshipResult:
         row.kind === 'SCHOLARSHIP' &&
-        row.assignedLevel &&
+        row.assignedScholarshipType &&
         row.assignedPercent !== null &&
         row.balanceCents !== null &&
         currency &&
         RESULT_STATUSES.includes(row.status)
           ? {
-              requestedLevel: row.requestedLevel,
-              assignedLevel: row.assignedLevel,
+              requestedScholarshipTypeId: row.requestedScholarshipTypeId,
+              requestedScholarshipType: summaryInOffer(
+                row.requestedScholarshipType,
+                row.offer.scholarshipTypes,
+              ),
+              assignedScholarshipTypeId: row.assignedScholarshipType.id,
+              assignedScholarshipType: assignedSummary(
+                row.assignedScholarshipType,
+                row.offer.scholarshipTypes,
+                row.assignedScholarshipTypeName,
+              )!,
               assignedPercent: row.assignedPercent,
               originalAmount: money(row.originalAmountCents),
               balance: { amountCents: row.balanceCents, currency },
@@ -844,7 +869,11 @@ export class ApplicationsService {
         partnerCode: row.partnerCode,
         organization: row.organization,
         organizationRole: row.organizationRole,
-        requestedLevel: row.requestedLevel,
+        requestedScholarshipTypeId: row.requestedScholarshipTypeId,
+        requestedScholarshipType: summaryInOffer(
+          row.requestedScholarshipType,
+          row.offer.scholarshipTypes,
+        ),
         intentLetter: row.intentLetter,
         eligibilityConfirmed: row.eligibilityConfirmed,
         experience: row.experience,
@@ -861,10 +890,10 @@ export class ApplicationsService {
       history: row.statusEvents.map((e) => ({ status: e.toStatus, at: e.createdAt.toISOString() })),
       form: {
         window: windowDto(window),
-        levels:
+        scholarshipTypes:
           row.kind === 'SCHOLARSHIP'
-            ? estimateScholarshipLevels(
-                row.offer.scholarshipLevels,
+            ? estimateScholarshipTypes(
+                row.offer.scholarshipTypes,
                 price?.amountCents ?? null,
                 currency,
               )
@@ -879,7 +908,7 @@ export class ApplicationsService {
         ),
         interviewNotice:
           row.kind === 'OPEN_CALL' ||
-          interviewRequired(row.kind, levelMaxPercent(row.requestedLevel)),
+          interviewRequired(row.kind, row.requestedScholarshipType?.requiresInterview),
         limits: {
           letterMinLength: BUSINESS_RULES.SCHOLARSHIP_LETTER_MIN_LENGTH,
           letterMaxLength: BUSINESS_RULES.SCHOLARSHIP_LETTER_MAX_LENGTH,
@@ -918,10 +947,10 @@ function profileSnapshot(user: User) {
 function submissionInput(row: ApplicationRow, documentCount: number) {
   return {
     kind: row.kind,
-    enabledLevels: row.offer.scholarshipLevels,
+    enabledScholarshipTypeIds: scholarshipOptions(row.offer.scholarshipTypes).map((o) => o.id),
     requiresTravel: row.offer.requiresTravel,
     age: row.age,
-    requestedLevel: row.requestedLevel,
+    requestedScholarshipTypeId: row.requestedScholarshipTypeId,
     intentLetter: row.intentLetter,
     eligibilityConfirmed: row.eligibilityConfirmed,
     organization: row.organization,

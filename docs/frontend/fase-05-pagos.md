@@ -59,7 +59,7 @@ Rutas sugeridas del frontend (las usan notificaciones y correos; ver
 | 22 | Stripe confirma → inscripción activa, comprobante por correo, aparece en Mi formación | Webhook → `PAID`, inscripción `ACTIVE` (`source = PAYMENT`), notificación `PAYMENT_CONFIRMED` (portal + correo con folio y monto) |
 | 22 | Cancelo o vuelvo sin confirmación → "Pago cancelado" / "Procesando pago…"; solo la confirmación activa | `result=cancel` → `POST …/cancel`; `result=success` → polling `GET /me/payments/{id}` |
 | 22 | Ya inscrito o cupo agotado → "Ya estás inscrito · Ir a mi aula" / "Cupo agotado", sin cobro | `quote.blocker` / `409 ENROLLMENT_ALREADY_EXISTS` / `409 OFFER_SOLD_OUT` |
-| 23 | Monto original, nivel y %, saldo en mi moneda y fecha límite | `quote.application` + `quote.amount` |
+| 23 | Monto original, tipo de beca y %, saldo en mi moneda y fecha límite | `quote.application` + `quote.amount` |
 | 23 | Tarjeta (única o cuotas) → "Inscrita" y acceso al Aula | `POST /checkout { applicationId }` → `markEnrolled` |
 | 23 | México → "Transferencia bancaria" con datos, MXN y referencia única; otros países no | `quote.methods[1]` (`NOT_MEXICO` → ocultar), `quote.bankTransfer` |
 | 23 | Comprobante antes de la fecha límite → "Pendiente de validación", no vence, se activa al validar | `POST /me/payments/transfers` → `PENDING_VALIDATION`; postulación con `transferPendingValidation` |
@@ -197,7 +197,10 @@ de la ficha → `/portal/postulaciones/{applicationId}/pago`.
 ```json
 {
   "application": { "id": "…", "folio": "BEC-000123", "kind": "SCHOLARSHIP", "status": "APPROVED_PENDING_PAYMENT",
-                   "assignedLevel": "AGUAS_LIBRES", "assignedPercent": 50,
+                   "assignedScholarshipTypeId": "…",
+                   "assignedScholarshipType": { "id": "…", "key": "AGUAS_LIBRES", "name": "Aguas Libres",
+                                                "minPercent": 50, "maxPercent": 50, "requiresInterview": false },
+                   "assignedPercent": 50,
                    "originalAmount": { "amountCents": 1020000, "currency": "MXN" }, "dueAt": "2026-11-14T05:59:00.000Z" },
   "amount": { "amountCents": 510000, "currency": "MXN" },
   "methods": [ { "method": "CARD", "available": true, "reason": null },
@@ -208,7 +211,8 @@ de la ficha → `/portal/postulaciones/{applicationId}/pago`.
 }
 ```
 
-- Indicadores: monto original, beca (nivel y %), **saldo** destacado y cuenta regresiva a
+- Indicadores: monto original, beca (`assignedScholarshipType.name` y `assignedPercent`; antes
+  `assignedLevel`), **saldo** destacado y cuenta regresiva a
   `application.dueAt`.
 - Tarjeta: mismo flujo de Stripe con `{ applicationId, termsAccepted: true }` (± cuotas si la oferta
   las tiene). Al confirmarse, la postulación pasa a **Inscrita** y aparece en Mi formación.

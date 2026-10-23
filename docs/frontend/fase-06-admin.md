@@ -24,6 +24,7 @@ recibe.
 2. [HU-27 / HU-28 — Ofertas, asistente de 7 pasos, docentes, imágenes, contenido del aula y Moodle](#hu-27--hu-28--ofertas-docentes-imágenes-contenido-del-aula-y-moodle)
 3. [HU-29 / HU-30 — Sesiones, calendario y asistencia](#hu-29--sesiones-y-calendario-del-panel--hu-30--asistencia)
 4. [HU-31 / HU-32 — Revisión de postulaciones y seguimiento](#hu-31--revisión-de-postulaciones-en-equipo)
+   - [Tipos de beca (parametrizables)](#tipos-de-beca-parametrizables)
 5. [HU-33 — Pagos, cuotas, transferencias y reembolsos](#hu-33--gestión-de-pagos-cuotas-y-transferencias-admin--pagos)
 6. [Datos demo](#datos-demo)
 
@@ -65,6 +66,7 @@ Fuente única: `src/config/permissions.ts` (`GET /admin/roles` la devuelve con t
 | `users.manage` | Roles y estado de las cuentas del equipo | ✔ | | | | | |
 | `audit.read` | Registro de auditoría | ✔ | | | | | |
 | `site.write` | Cifras de la landing (`/admin/site/metrics`) | ✔ | | | | | |
+| `scholarship_types.write` | Crear, editar, desactivar y borrar tipos de beca (`/admin/scholarship-types`). La lectura usa `offers.read` | ✔ | | | | | |
 
 Reglas de las HU que resuelve la matriz:
 - HU-31: "integrante sin permiso de decisión… puede evaluar y comentar, pero no ve Registrar decisión"
@@ -195,7 +197,7 @@ Grabaciones (sección "Grabación"): se leen aquí, pero el enlace se edita en `
 | 1 Datos e imágenes | `general` | `name`, `type`, `modality`, `cohortLabel`, `summary` (≤ 300), `coverImageKey`, `carouselImageKeys[]`, `publicTopic`, `teacherIds[]` (orden), `venueName/Address/City/MapsUrl`, `capacity` | Nombre ≥ 3; resumen y portada obligatorios; presencial → lugar y ciudad |
 | 2 Contenido | `content` | `description`, `learningOutcomes[]`, `requirements`, `eligibilityText`, `eligibleCountryCodes[]`, `requiresTravel`, `classroomWelcome`, `finalProjectSubmissionEnabled`, `finalProjectGuidelines` | Descripción obligatoria; convocatoria → elegibilidad; proyecto final por archivo solo diplomados |
 | 3 Horarios | `schedule` | `enrollmentOpensAt/ClosesAt`, `startsAt`, `endsAt`, `finalProjectDueAt`, `totalHours`, `scheduleRule`, `calendarCategory` | Inicio/fin obligatorios y fin > inicio; ventana coherente y ≤ fin; convocatoria → ventana obligatoria; diplomado → 60 h exactas + proyecto final; curso ≤ 9 h; diplomado/curso en línea → regla de horario |
-| 4 Origen y precio | `origin-pricing` | `origin`, `isFree`, `priceMxnCents`, `priceUsdCents`, `installmentsEnabled`, `installmentsMax` (2–4), `moodleCourseUrl`, `scholarshipEnabled`, `scholarshipLevels[]`, `scholarshipOpensAt/ClosesAt` | NAS de pago → MXN y USD > 0; cuotas 2–4; beca solo diplomados con ≥ 1 nivel. MOODLE limpia precio/cuotas/beca |
+| 4 Origen y precio | `origin-pricing` | `origin`, `isFree`, `priceMxnCents`, `priceUsdCents`, `installmentsEnabled`, `installmentsMax` (2–4), `moodleCourseUrl`, `scholarshipEnabled`, `scholarshipTypes[]` (antes `scholarshipLevels[]`: `[{ scholarshipTypeId, minPercent?, maxPercent?, sortOrder? }]`, ver [Tipos de beca](#tipos-de-beca-parametrizables)), `scholarshipOpensAt/ClosesAt` | NAS de pago → MXN y USD > 0; cuotas 2–4; beca solo diplomados con ≥ 1 tipo activo. Tipo inexistente/desactivado → `422 SCHOLARSHIP_TYPE_NOT_AVAILABLE`; rango propio inválido → `422 SCHOLARSHIP_TYPE_INVALID_RANGE`. MOODLE limpia precio/cuotas/beca |
 | 5 Recursos | — | (Contenido del aula) | Nunca bloquea; `resources` resume módulos/recursos |
 | 6 Asistencia | `attendance` | `attendanceWindowHours` (1–72) | — |
 | 7 WhatsApp | `whatsapp` | `whatsappGroupUrl` (https://chat.whatsapp.com/…), `whatsappVisibleFrom` | URL inválida → 400 |
@@ -297,7 +299,10 @@ para ofertas con historia.
 
 `OFFER_NAME_TAKEN` (409), `OFFER_INCOMPLETE` (422, `details[]`, `meta.steps`), `OFFER_HAS_ENROLLMENTS`
 (409, `meta.enrollments/applications`), `OFFER_INVALID_STATE` (409, `meta.publicationStatus`),
-`OFFER_NOT_MOODLE` (422), `TEACHER_IN_USE` (409, `meta.offers/modules`), `ADMIN_UPLOAD_INVALID_FILE`
+`OFFER_NOT_MOODLE` (422), `TEACHER_IN_USE` (409, `meta.offers/modules`),
+`SCHOLARSHIP_TYPE_NOT_AVAILABLE` (422, `details[].field = scholarshipTypes.N.scholarshipTypeId`,
+`code` `SCHOLARSHIP_TYPE_NOT_FOUND` / `SCHOLARSHIP_TYPE_INACTIVE`), `SCHOLARSHIP_TYPE_INVALID_RANGE` (422,
+`details[].field = scholarshipTypes.N.minPercent|maxPercent`), `ADMIN_UPLOAD_INVALID_FILE`
 (422, `meta.allowedTypes/maxBytes`), `ADMIN_UPLOAD_NOT_FOUND` (422), y genéricos `VALIDATION_ERROR`,
 `NOT_FOUND`, `FORBIDDEN`, `CONFLICT`.
 
@@ -540,8 +545,8 @@ borrador o id mal formado → `404 NOT_FOUND`. Los borradores nunca aparecen en 
 
 | Criterio HU-31 | API |
 |---|---|
-| Ver datos, evidencias, resumen de evaluaciones y comentarios | `GET /admin/applications/{id}` → `contact`, `answers`, `documents[]` (URL firmada ~10 min), `evaluations[]`, `evaluationSummary.label` ("2 aprobar · 1 con dudas · nivel más sugerido: Aguas Libres 50%") |
-| Beca especial (> 70%) o convocatoria sin entrevista "Realizada" → botón deshabilitado | `decision.blockedReason = "APPLICATION_INTERVIEW_REQUIRED"` (detalle y vista previa); el POST responde `422 APPLICATION_INTERVIEW_REQUIRED` |
+| Ver datos, evidencias, resumen de evaluaciones y comentarios | `GET /admin/applications/{id}` → `contact`, `answers`, `documents[]` (URL firmada ~10 min), `evaluations[]`, `evaluationSummary.label` ("2 aprobar · 1 con dudas · tipo más sugerido: Aguas Libres 50%") |
+| Tipo de beca con `requiresInterview` (p. ej. Beca especial) o convocatoria sin entrevista "Realizada" → botón deshabilitado | `decision.blockedReason = "APPLICATION_INTERVIEW_REQUIRED"` (detalle y vista previa); el POST responde `422 APPLICATION_INTERVIEW_REQUIRED` |
 | Aguas Libres 50% sobre 10,200 MXN → saldo 5,100 MXN con link a 7 días; "Aprobada – pendiente de pago" | `decision-preview` → `balance {510000, MXN}`, `responseDueAt`; `approve` → `status = APPROVED_PENDING_PAYMENT` (la persona recibe correo + aviso con [Pagar saldo]) |
 | Integrante sin permiso de decisión: evalúa pero no ve "Registrar decisión" | `decision.canDecide = false` (y `GET /admin/me` → permisos); los POST de decisión dan 403 |
 | Decisión guardada pero correo fallido → "Correo no enviado" + "Reintentar envío" | `decision.emailStatus = FAILED` / `emails[].emailStatus`; `POST …/retry-email` |
@@ -549,12 +554,17 @@ borrador o id mal formado → `404 NOT_FOUND`. Los borradores nunca aparecen en 
 ### Bandeja (`GET /admin/applications`)
 
 Query: `kind` (`SCHOLARSHIP` = pestaña Becas, `OPEN_CALL` = Convocatorias), `offerId`, `status`
-(separados por coma; por defecto todos menos `DRAFT`), `level` (nivel solicitado), `countryCode`,
+(separados por coma; por defecto todos menos `DRAFT`), `scholarshipTypeId` (tipo de beca solicitado;
+antes `level`), `countryCode`,
 `requiresInterview=true|false`, `withoutMyEvaluation=true`, `q` (nombre, correo o folio
 `BEC-000123`/`CONV-000123`), `sort` = `SUBMITTED_ASC` (por defecto) | `SUBMITTED_DESC` | `DUE_ASC`.
 
+Columnas de beca: `requestedScholarshipTypeId` + `requestedScholarshipType`, `assignedScholarshipTypeId`
++ `assignedScholarshipType` (resumen `{ id, key, name, minPercent, maxPercent, requiresInterview }` con el
+rango de la oferta; antes `requestedLevel` / `assignedLevel`) y `assignedPercent`.
+
 Insignias de cada fila: `requiresInterview` ("Requiere entrevista": convocatorias siempre; becas cuyo
-nivel asignado —o, si aún no hay decisión, el solicitado— supera 70%), `evaluationCount`,
+tipo asignado —o, si aún no hay decisión, el solicitado— tiene `requiresInterview`), `evaluationCount`,
 `myEvaluation` (`null` = "Sin mi evaluación"), `interview` (vigente).
 
 ### Detalle y "En revisión"
@@ -566,15 +576,21 @@ cambiarla. `prevId` / `nextId` → [Anterior] / [Siguiente] (misma pestaña, ord
 
 Bloque `decision`: `canDecide` (permiso + estado Enviada / En revisión / Entrevista agendada),
 `interviewRequired`, `hasCompletedInterview`, `blockedReason`, `price` (moneda del postulante: MXN
-México, USD resto), `levels[]` (niveles habilitados con `requiresInterview` y `balanceAtMaxPercent`),
-y, ya decidida: `assignedLevel`, `assignedPercent`, `balance`, `responseDueAt`, `decidedBy`,
+México, USD resto), `scholarshipTypes[]` (antes `levels[]`: tipos habilitados en la oferta, incluidos
+los desactivados con `active: false`, cada uno con `scholarshipTypeId`, `scholarshipType` —rango efectivo
+de la oferta y `requiresInterview`— y `balanceAtMaxPercent`), y, ya decidida:
+`assignedScholarshipTypeId` + `assignedScholarshipType` (antes `assignedLevel`; `name` es el nombre
+guardado al aprobar), `assignedPercent`, `balance`, `responseDueAt`, `decidedBy`,
 `decisionNote` (interna) y `emailStatus` del correo de la decisión.
 
 ### Evaluación (`PUT …/evaluations/me`)
 
-`{ recommendation: APPROVE | NOT_SELECT | UNSURE, suggestedLevel?, comment? (≤ 2000) }`. Una por
-integrante, editable; nunca visible al postulante. `suggestedLevel` solo en becas y habilitado en la
-oferta (`400`, `details[].code` = `NOT_APPLICABLE` / `LEVEL_NOT_ENABLED`). Solo mientras está en
+`{ recommendation: APPROVE | NOT_SELECT | UNSURE, suggestedScholarshipTypeId?, comment? (≤ 2000) }`
+(antes `suggestedLevel`). Una por integrante, editable; nunca visible al postulante.
+`suggestedScholarshipTypeId` solo en becas y habilitado en la oferta (`400`, `details[].code` =
+`NOT_APPLICABLE` / `SCHOLARSHIP_TYPE_NOT_ENABLED`). Cada evaluación devuelve
+`suggestedScholarshipTypeId` + `suggestedScholarshipType`; `evaluationSummary` trae
+`mostSuggestedScholarshipTypeId` + `mostSuggestedScholarshipType` (antes `mostSuggestedLevel`). Solo mientras está en
 revisión → si no, `409 APPLICATION_INVALID_STATE`. Responde el detalle actualizado.
 
 ### Entrevista
@@ -586,11 +602,16 @@ postulante + CDMX; si ya estaba agendada, reprograma. Luego `…/interview/compl
 
 ### Decisión (flujo con vista previa)
 
-1. `GET …/decision-preview?decision=APPROVE&assignedLevel=AGUAS_LIBRES[&assignedPercent=75][&message=…]`
-   → `{ status, assignedPercent, balance, responseDueAt, interviewRequired, blockedReason, email: {
-   subject, body } }`. No guarda nada. Beca especial: `assignedPercent` entero 71–80 (`400` si no).
+1. `GET …/decision-preview?decision=APPROVE&assignedScholarshipTypeId={id}[&assignedPercent=75][&message=…]`
+   → `{ status, assignedScholarshipTypeId, assignedScholarshipType, assignedPercent, balance,
+   responseDueAt, interviewRequired, blockedReason, email: { subject, body } }`. No guarda nada.
+   `assignedPercent` es el % FINAL: entero dentro del rango efectivo del tipo en la oferta
+   (`decision.scholarshipTypes[].scholarshipType.minPercent–maxPercent`; fuera → `400 INVALID`). Si el
+   rango es fijo (min = max) puedes omitirlo y se toma solo. El tipo debe estar habilitado en la oferta
+   (`400 SCHOLARSHIP_TYPE_NOT_ENABLED`); un tipo ya desactivado pero habilitado en la oferta sí se puede
+   asignar.
 2. La persona revisa el correo (el `message` opcional es el párrafo editable que se agrega al final).
-3. `POST …/approve { assignedLevel?, assignedPercent?, note? (interna), message?, emailPreviewConfirmed:
+3. `POST …/approve { assignedScholarshipTypeId?, assignedPercent?, note? (interna), message?, emailPreviewConfirmed:
    true }` o `POST …/reject { note?, message?, emailPreviewConfirmed: true }`. Sin
    `emailPreviewConfirmed: true` → `400` (`details[].code = EQUALS`).
 4. Resultado: con saldo → `APPROVED_PENDING_PAYMENT` (+ inscripción reservada `PENDING_PAYMENT`); sin
@@ -606,15 +627,68 @@ postulante + CDMX; si ya estaba agendada, reprograma. Luego `…/interview/compl
 | "Decisión registrada y correo enviado a [postulante]" | `200`, `decision.emailStatus = SENT` |
 | "Decisión guardada pero correo no enviado" | `200`, `decision.emailStatus = FAILED` |
 | Botón deshabilitado "Esta postulación requiere entrevista por Zoom" | `decision.blockedReason` / `422 APPLICATION_INTERVIEW_REQUIRED` |
-| Nivel inválido | `400 VALIDATION_ERROR` (`assignedLevel` / `assignedPercent`) |
+| Tipo o % inválido | `400 VALIDATION_ERROR` (`assignedScholarshipTypeId` / `assignedPercent`) |
 
 ### Exportar
 
 `GET /admin/applications/export?…filtros` → `text/csv` (UTF-8 con BOM, abre bien en Excel).
 Columnas: Folio, Tipo, Estado (texto HU-21), Nombre, Correo, Teléfono, País, Estado/Provincia,
-Municipio/Ciudad, Oferta, Nivel solicitado, Nivel asignado, % asignado, Saldo (centavos), Moneda,
+Municipio/Ciudad, Oferta, Beca solicitada, Beca asignada, % asignado, Saldo (centavos), Moneda,
 Enviada (CDMX), Plazo (CDMX), Evaluaciones, Requiere entrevista, Entrevista. Descarga con `fetch`
 (Bearer) → `blob`.
+
+## Tipos de beca (parametrizables)
+
+Los tipos de beca ya **no son una lista fija** (antes enum `ScholarshipLevel`): un SUPER_ADMIN los crea,
+edita, desactiva o borra; cada oferta habilita los suyos en el paso 4 y puede ajustar el rango de % solo
+para esa oferta; el comité asigna el % final al aprobar.
+
+| Método y ruta | Permiso | Uso |
+|---|---|---|
+| `GET /scholarship-types` | público | Tipos **activos** ordenados (`{ data: [{ id, key, name, description, minPercent, maxPercent, requiresInterview, sortOrder }] }`; caché 5 min) |
+| `GET /admin/scholarship-types` | `offers.read` | Todos (incluye inactivos) con `active`, `usage { offers, applications, evaluations }`, `createdAt`, `updatedAt` |
+| `POST /admin/scholarship-types` | `scholarship_types.write` | Crear `{ key, name, description?, minPercent, maxPercent, requiresInterview?, active?, sortOrder? }` → `201` |
+| `PATCH /admin/scholarship-types/{id}` | `scholarship_types.write` | Editar `{ name?, description?, minPercent?, maxPercent?, requiresInterview?, active?, sortOrder? }` |
+| `DELETE /admin/scholarship-types/{id}` | `scholarship_types.write` | Borrar (solo si nada lo usa) → `204` |
+
+Reglas:
+- `key`: MAYÚSCULAS_CON_GUION_BAJO (p. ej. `AGUAS_LIBRES`), única (`409 SCHOLARSHIP_TYPE_KEY_TAKEN`) e
+  **inmutable**: enviarla en el `PATCH` → `400` (`UNKNOWN_FIELD`). Sugiérela a partir del nombre.
+- Rango: enteros `1 ≤ minPercent ≤ maxPercent ≤ 100`; `min = max` = porcentaje fijo. Fuera de 1–100 →
+  `400`; `min > max` (también combinando con lo guardado en un `PATCH`) → `422
+  SCHOLARSHIP_TYPE_INVALID_RANGE` (`details[].field`).
+- `requiresInterview: true` → toda postulación con ese tipo (solicitado o asignado) exige entrevista por
+  Zoom "Realizada" antes de aprobar (reemplaza la regla fija "> 70%").
+- **Desactivar** (`active: false`): deja de aparecer en `GET /scholarship-types`, en la ficha y en el
+  formulario de postulación, y no se puede agregar a otras ofertas (`422 SCHOLARSHIP_TYPE_NOT_AVAILABLE`
+  con `SCHOLARSHIP_TYPE_INACTIVE`). Lo ya asignado se conserva; una oferta que ya lo tenía puede
+  conservarlo al guardar el paso 4, y el comité aún puede asignarlo. Una oferta sin tipos activos deja de
+  ofrecer beca.
+- **Borrar**: solo si `usage` está en 0; si alguna oferta, postulación o evaluación lo usa → `409
+  SCHOLARSHIP_TYPE_IN_USE` (`meta.usage`): desactívalo en su lugar.
+- Editar el rango del tipo afecta a las ofertas que no lo sobrescriben (y a las postulaciones aún no
+  decididas). Renombrar no cambia lo ya aprobado: la postulación guarda el nombre al aprobar
+  (`assignedScholarshipType.name`).
+- Auditoría: `scholarship_type.create`, `scholarship_type.update`, `scholarship_type.delete`.
+
+En la oferta (paso 4, `PATCH /admin/offers/{id}/steps/origin-pricing`):
+
+```json
+{ "scholarshipEnabled": true,
+  "scholarshipTypes": [
+    { "scholarshipTypeId": "…AGUAS_LIBRES…" },
+    { "scholarshipTypeId": "…SPECIAL…", "minPercent": 75, "maxPercent": 80 } ] }
+```
+
+- La lista **reemplaza** la anterior. `minPercent`/`maxPercent` opcionales sobrescriben el rango del tipo
+  SOLO en esa oferta (null = el del tipo); el rango efectivo debe cumplir 1 ≤ min ≤ max ≤ 100.
+  `sortOrder` opcional ordena dentro de la oferta.
+- Respuesta: `originPricing.scholarshipTypes[]` = `{ scholarshipTypeId, minPercent, maxPercent (overrides),
+  sortOrder, active, scholarshipType (rango efectivo) }`. Duplicar la oferta copia los tipos y overrides.
+
+Pantalla sugerida "Tipos de beca" (solo SUPER_ADMIN; los demás roles la ven en solo lectura): tabla con
+nombre, clave, rango, entrevista, estado (Activo/Inactivo) y uso; acciones Editar, Desactivar/Activar y
+Borrar (deshabilitado si `usage` > 0).
 
 ## HU-32 — Seguimiento de postulación a inscripción (embudo)
 
@@ -655,7 +729,8 @@ embudo). Clic en una etapa: usa `tab` y `paymentStarted=true|false` para filtrar
 ### Tabla de seguimiento (`FollowUpItemDto`)
 
 `folio`, `name`, `email`, `phone { countryCode, number, whatsappUrl }`, `countryCode`,
-`assignedLevel/Percent`, `balance`, `responseDueAt`, `remainingDays` (negativo = vencida), `dueSoon`
+`assignedScholarshipTypeId` + `assignedScholarshipType` (antes `assignedLevel`), `assignedPercent`,
+`balance`, `responseDueAt`, `remainingDays` (negativo = vencida), `dueSoon`
 (destacar arriba), `pendingTransfer` (comprobante en validación: no vence), `paymentStarted`,
 `lastContactAt`, `lastOutcome`, `canRemind`, `remindAvailableAt`.
 
@@ -735,15 +810,16 @@ vencidas); otras → `409 APPLICATION_INVALID_STATE`.
 | `code` | HTTP | Cuándo |
 |---|---|---|
 | `APPLICATION_INVALID_STATE` | 409 | Evaluar fuera de revisión, decidir una ya decidida, cancelar entrevista sin agendar, seguimiento de una no aprobada. `meta.status`. |
-| `APPLICATION_INTERVIEW_REQUIRED` | 422 | (Fase 04) Aprobar convocatoria o beca > 70% sin entrevista "Realizada". |
+| `APPLICATION_INTERVIEW_REQUIRED` | 422 | (Fase 04) Aprobar convocatoria o beca cuyo tipo tiene `requiresInterview` sin entrevista "Realizada". |
 | `NOTIFICATION_EMAIL_NOT_FAILED` | 409 | [Reintentar envío] sin correos fallidos. |
 | `FOLLOW_UP_REMINDER_TOO_SOON` | 409 | Recordatorio antes de 24 h del anterior. `meta.availableAt`. |
 | `FOLLOW_UP_PHONE_INVALID` | 422 | WhatsApp sin teléfono válido con indicativo. |
 | `OFFER_INVALID_STATE` | 409 | Cerrar inscripciones ya cerradas o de una oferta no publicada. |
 
 Validación (`400`): `joinUrl` no Zoom (`INVALID`), `emailPreviewConfirmed` ≠ true (`EQUALS`),
-`assignedLevel` faltante (`REQUIRED`), `assignedPercent` fuera de rango (`INVALID`), `suggestedLevel`
-(`NOT_APPLICABLE` / `LEVEL_NOT_ENABLED`), nota > 1000 (`MAX_LENGTH`), `responseDueAt` inválida
+`assignedScholarshipTypeId` faltante (`REQUIRED`) o no habilitado (`SCHOLARSHIP_TYPE_NOT_ENABLED`),
+`assignedPercent` fuera del rango efectivo (`INVALID`), `suggestedScholarshipTypeId` (`NOT_APPLICABLE` /
+`SCHOLARSHIP_TYPE_NOT_ENABLED`), nota > 1000 (`MAX_LENGTH`), `responseDueAt` inválida
 (`INVALID`).
 
 ### Decisiones y puntos para el cliente (HU-31/32)
@@ -753,7 +829,7 @@ Validación (`400`): `joinUrl` no Zoom (`INVALID`), `emailPreviewConfirmed` ≠ 
 - La decisión la registra cualquier rol con `applications.decide` (REVIEW_DECIDER, ACADEMIC_COORDINATOR,
   SUPER_ADMIN), sin mínimo de evaluaciones (Anexo A HU-31: confirmar si se requieren al menos dos).
 - "Plantilla editable" del correo = párrafo libre (`message`) que se agrega al texto estándar de HU-21;
-  el resto del texto (estado, nivel, saldo, plazo) lo genera el sistema para no contradecir los datos.
+  el resto del texto (estado, tipo de beca y %, saldo, plazo) lo genera el sistema para no contradecir los datos.
 - "Con pago iniciado" = `paymentStartedAt` (Anexo A HU-32, por confirmar); las inscritas cuentan como
   iniciadas para que el embudo sea monótono (convocatorias sin costo solo confirman).
 - El embudo solo cuenta postulaciones; las inscripciones directas se muestran aparte

@@ -17,8 +17,8 @@ import {
   FollowUpOutcome,
   NotificationEmailStatus,
   OfferType,
-  ScholarshipLevel,
 } from '../../../../generated/prisma/client';
+import { ScholarshipTypeSummaryDto } from '../../../scholarship-types/dto/scholarship-types.dto';
 import { FUNNEL_STAGE_LABELS, type FunnelStageKey } from '../policies/admin-applications.policy';
 import { AdminPersonRefDto, MoneyAmountDto } from './admin-applications.dto';
 
@@ -177,8 +177,16 @@ export class FollowUpItemDto {
   @ApiProperty({ example: 'MX' })
   countryCode!: string;
 
-  @ApiProperty({ enum: ScholarshipLevel, nullable: true })
-  assignedLevel!: ScholarshipLevel | null;
+  @ApiProperty({
+    type: String,
+    format: 'uuid',
+    nullable: true,
+    description: 'Tipo de beca asignado (antes `assignedLevel`).',
+  })
+  assignedScholarshipTypeId!: string | null;
+
+  @ApiProperty({ type: ScholarshipTypeSummaryDto, nullable: true })
+  assignedScholarshipType!: ScholarshipTypeSummaryDto | null;
 
   @ApiProperty({ type: Number, nullable: true, example: 50 })
   assignedPercent!: number | null;

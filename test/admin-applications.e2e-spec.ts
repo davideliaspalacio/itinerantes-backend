@@ -2,12 +2,7 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { addDaysInZone, addHours } from '../src/common/utils/time';
-import type {
-  ApplicationKind,
-  ApplicationStatus,
-  Prisma,
-  ScholarshipLevel,
-} from '../src/generated/prisma/client';
+import type { ApplicationKind, ApplicationStatus, Prisma } from '../src/generated/prisma/client';
 import { MAIL_DRIVER, type MailMessage, type MailSendResult } from '../src/infra/mail/mail.types';
 import { PrismaService } from '../src/infra/prisma/prisma.service';
 import { StorageService } from '../src/infra/storage/storage.service';
@@ -15,6 +10,7 @@ import { createStaffUser, createParticipant, type TestUser } from './utils/admin
 import { createTestApp } from './utils/create-test-app';
 import { FakeStorage } from './utils/fake-storage';
 import { MailCapture } from './utils/mail-capture';
+import { scholarshipTypeIds, withScholarshipTypes } from './utils/scholarship-types';
 
 /** MailCapture que puede fallar a propósito (HU-31: "decisión guardada pero correo no enviado"). */
 class FlakyMail extends MailCapture {
@@ -53,6 +49,8 @@ describe('Admin — Postulaciones y seguimiento (e2e) — Fase 06', () => {
   let finance: TestUser;
   let coordinator: TestUser;
   const applicants: TestUser[] = [];
+  /** key → id de los tipos de beca. */
+  let T: Record<string, string>;
 
   const api = () => request(app.getHttpServer());
   const auth = (u: TestUser) => ({ Authorization: `Bearer ${u.token}` });
@@ -83,7 +81,7 @@ describe('Admin — Postulaciones y seguimiento (e2e) — Fase 06', () => {
     priceMxnCents: 1_020_000,
     priceUsdCents: 58_500,
     scholarshipEnabled: true,
-    scholarshipLevels: ['AGUA_VIVA', 'AGUAS_LIBRES', 'SPECIAL'],
+    scholarshipTypes: withScholarshipTypes(['AGUA_VIVA', 'AGUAS_LIBRES', 'SPECIAL']),
     ...overrides,
   });
 
@@ -109,7 +107,7 @@ describe('Admin — Postulaciones y seguimiento (e2e) — Fase 06', () => {
         countryCode: profile.countryCode,
         divisionName: profile.divisionName,
         municipalityName: profile.municipalityName,
-        requestedLevel: kind === 'SCHOLARSHIP' ? 'AGUAS_LIBRES' : null,
+        requestedScholarshipTypeId: kind === 'SCHOLARSHIP' ? T.AGUAS_LIBRES : null,
         intentLetter: kind === 'SCHOLARSHIP' ? 'Carta '.repeat(200) : null,
         currency: 'MXN',
         originalAmountCents: kind === 'SCHOLARSHIP' ? 1_020_000 : 0,
@@ -134,6 +132,7 @@ describe('Admin — Postulaciones y seguimiento (e2e) — Fase 06', () => {
           .useValue(storage),
     });
     prisma = app.get(PrismaService);
+    T = await scholarshipTypeIds(prisma);
     participant = await createParticipant(app, mail);
     committee = await createStaffUser(app, mail, ['REVIEW_COMMITTEE']);
     committee2 = await createStaffUser(app, mail, ['REVIEW_COMMITTEE']);
@@ -153,7 +152,7 @@ describe('Admin — Postulaciones y seguimiento (e2e) — Fase 06', () => {
           priceMxnCents: null,
           priceUsdCents: null,
           scholarshipEnabled: false,
-          scholarshipLevels: [],
+          scholarshipTypes: {},
           venueName: 'Sede',
           venueCity: 'Oaxaca',
         }),
@@ -163,7 +162,7 @@ describe('Admin — Postulaciones y seguimiento (e2e) — Fase 06', () => {
 
     ids.a1 = await application(applicants[0], ids.diploma, 'SCHOLARSHIP', 'SUBMITTED');
     ids.a2 = await application(applicants[1], ids.diploma, 'SCHOLARSHIP', 'SUBMITTED', {
-      requestedLevel: 'SPECIAL' as ScholarshipLevel,
+      requestedScholarshipTypeId: T.SPECIAL,
     });
     ids.c1 = await application(applicants[2], ids.call, 'OPEN_CALL', 'SUBMITTED');
     // Embudo: 4 enviadas → 3 aprobadas → 2 con pago iniciado → 1 inscrita.
@@ -180,7 +179,8 @@ describe('Admin — Postulaciones y seguimiento (e2e) — Fase 06', () => {
       {
         decidedAt: days(-3),
         paymentStartedAt: days(-2),
-        assignedLevel: 'AGUAS_LIBRES',
+        assignedScholarshipTypeId: T.AGUAS_LIBRES,
+        assignedScholarshipTypeName: 'Aguas Libres',
         assignedPercent: 50,
         balanceCents: 510_000,
         responseDueAt: addHours(now, 30),
@@ -188,7 +188,8 @@ describe('Admin — Postulaciones y seguimiento (e2e) — Fase 06', () => {
     );
     ids.f3 = await application(applicants[5], ids.funnel, 'SCHOLARSHIP', 'EXPIRED', {
       decidedAt: days(-10),
-      assignedLevel: 'AGUAS_LIBRES',
+      assignedScholarshipTypeId: T.AGUAS_LIBRES,
+      assignedScholarshipTypeName: 'Aguas Libres',
       assignedPercent: 50,
       balanceCents: 510_000,
       responseDueAt: days(-3),
@@ -217,7 +218,7 @@ describe('Admin — Postulaciones y seguimiento (e2e) — Fase 06', () => {
         recommendation: 'APPROVE',
       }).expect(403);
       await post(`/admin/applications/${ids.a1}/approve`, committee, {
-        assignedLevel: 'AGUAS_LIBRES',
+        assignedScholarshipTypeId: T.AGUAS_LIBRES,
         emailPreviewConfirmed: true,
       }).expect(403);
       await get(`/admin/funnel/offers/${ids.funnel}`, committee).expect(403);
@@ -276,32 +277,38 @@ describe('Admin — Postulaciones y seguimiento (e2e) — Fase 06', () => {
     it('evaluaciones por integrante con resumen', async () => {
       await put(`/admin/applications/${ids.a1}/evaluations/me`, committee, {
         recommendation: 'APPROVE',
-        suggestedLevel: 'AGUAS_LIBRES',
+        suggestedScholarshipTypeId: T.AGUAS_LIBRES,
         comment: 'Sólida experiencia territorial.',
       }).expect(200);
       // Editable: la misma integrante cambia su evaluación (sigue siendo una).
       await put(`/admin/applications/${ids.a1}/evaluations/me`, committee, {
         recommendation: 'APPROVE',
-        suggestedLevel: 'AGUAS_LIBRES',
+        suggestedScholarshipTypeId: T.AGUAS_LIBRES,
       }).expect(200);
       await put(`/admin/applications/${ids.a1}/evaluations/me`, decider, {
         recommendation: 'APPROVE',
-        suggestedLevel: 'AGUAS_LIBRES',
+        suggestedScholarshipTypeId: T.AGUAS_LIBRES,
       }).expect(200);
       const res = await put(`/admin/applications/${ids.a1}/evaluations/me`, committee2, {
         recommendation: 'UNSURE',
-        suggestedLevel: 'AGUA_VIVA',
+        suggestedScholarshipTypeId: T.AGUA_VIVA,
       }).expect(200);
       expect(res.body.evaluations).toHaveLength(3);
-      expect(res.body.evaluationSummary.label).toBe(
-        '2 aprobar · 1 con dudas · nivel más sugerido: Aguas Libres 50%',
-      );
+      expect(res.body.evaluationSummary).toMatchObject({
+        label: '2 aprobar · 1 con dudas · tipo más sugerido: Aguas Libres 50%',
+        mostSuggestedScholarshipTypeId: T.AGUAS_LIBRES,
+        mostSuggestedScholarshipType: { key: 'AGUAS_LIBRES', minPercent: 50 },
+      });
+      expect(res.body.evaluations[0]).toMatchObject({
+        suggestedScholarshipTypeId: T.AGUAS_LIBRES,
+        suggestedScholarshipType: { name: 'Aguas Libres' },
+      });
       await put(`/admin/applications/${ids.a1}/evaluations/me`, committee, {
         recommendation: 'APPROVE',
-        suggestedLevel: 'CENOTES_VIVOS',
+        suggestedScholarshipTypeId: T.CENOTES_VIVOS,
       })
         .expect(400)
-        .expect((r) => expect(r.body.details[0].code).toBe('LEVEL_NOT_ENABLED'));
+        .expect((r) => expect(r.body.details[0].code).toBe('SCHOLARSHIP_TYPE_NOT_ENABLED'));
       const mine = await get(
         `/admin/applications?offerId=${ids.diploma}&withoutMyEvaluation=true`,
         committee,
@@ -312,11 +319,13 @@ describe('Admin — Postulaciones y seguimiento (e2e) — Fase 06', () => {
 
     it('vista previa: Aguas Libres 50% sobre 10,200 MXN → saldo 5,100 MXN a 7 días', async () => {
       const res = await get(
-        `/admin/applications/${ids.a1}/decision-preview?decision=APPROVE&assignedLevel=AGUAS_LIBRES&message=Bienvenida`,
+        `/admin/applications/${ids.a1}/decision-preview?decision=APPROVE&assignedScholarshipTypeId=${T.AGUAS_LIBRES}&message=Bienvenida`,
         decider,
       ).expect(200);
       expect(res.body).toMatchObject({
         status: 'APPROVED_PENDING_PAYMENT',
+        assignedScholarshipTypeId: T.AGUAS_LIBRES,
+        assignedScholarshipType: { key: 'AGUAS_LIBRES', name: 'Aguas Libres' },
         assignedPercent: 50,
         balance: { amountCents: 510_000, currency: 'MXN' },
         blockedReason: null,
@@ -328,16 +337,18 @@ describe('Admin — Postulaciones y seguimiento (e2e) — Fase 06', () => {
 
     it('aprobar exige confirmar la vista previa; la beca queda pendiente de pago', async () => {
       await post(`/admin/applications/${ids.a1}/approve`, decider, {
-        assignedLevel: 'AGUAS_LIBRES',
+        assignedScholarshipTypeId: T.AGUAS_LIBRES,
       }).expect(400);
       const res = await post(`/admin/applications/${ids.a1}/approve`, decider, {
-        assignedLevel: 'AGUAS_LIBRES',
+        assignedScholarshipTypeId: T.AGUAS_LIBRES,
         note: 'Comité 12/11',
         message: 'Te esperamos el día de inicio.',
         emailPreviewConfirmed: true,
       }).expect(200);
       expect(res.body.status).toBe('APPROVED_PENDING_PAYMENT');
       expect(res.body.decision).toMatchObject({
+        assignedScholarshipTypeId: T.AGUAS_LIBRES,
+        assignedScholarshipType: { name: 'Aguas Libres' },
         assignedPercent: 50,
         balance: { amountCents: 510_000, currency: 'MXN' },
         emailStatus: 'SENT',
@@ -358,7 +369,7 @@ describe('Admin — Postulaciones y seguimiento (e2e) — Fase 06', () => {
 
     it('beca especial: sin entrevista "Realizada" no se aprueba; con Zoom sí', async () => {
       const blocked = await post(`/admin/applications/${ids.a2}/approve`, decider, {
-        assignedLevel: 'SPECIAL',
+        assignedScholarshipTypeId: T.SPECIAL,
         assignedPercent: 75,
         emailPreviewConfirmed: true,
       }).expect(422);
@@ -385,7 +396,7 @@ describe('Admin — Postulaciones y seguimiento (e2e) — Fase 06', () => {
       expect(done.body.interviews[0].status).toBe('COMPLETED');
       expect(done.body.decision.blockedReason).toBeNull();
       const approved = await post(`/admin/applications/${ids.a2}/approve`, coordinator, {
-        assignedLevel: 'SPECIAL',
+        assignedScholarshipTypeId: T.SPECIAL,
         assignedPercent: 75,
         emailPreviewConfirmed: true,
       }).expect(200);

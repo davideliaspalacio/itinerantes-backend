@@ -148,24 +148,45 @@ el Aula (Fase 03) solo para inscritos.
 
 ### Bloque de beca (`scholarshipDetails`)
 
+> **Becas parametrizables** (cambio incompatible, ver [README](README.md#cambio-incompatible-becas-parametrizables)):
+> los tipos de beca ya no son una lista fija. Se administran desde el panel (`/admin/scholarship-types`)
+> y cada oferta habilita los suyos, pudiendo ajustar el rango de % solo para esa oferta. Usa SIEMPRE
+> `name`, `minPercent`, `maxPercent` y `requiresInterview` que llegan en la respuesta (nunca textos ni
+> porcentajes fijos en el frontend). `levels[]` → `scholarshipTypes[]`; se eliminó
+> `interviewRequiredAbovePercent` (cada tipo trae `requiresInterview`).
+
 ```json
 {
-  "minPercent": 10, "maxPercent": 80, "interviewRequiredAbovePercent": 70,
+  "minPercent": 10, "maxPercent": 80,
   "windowStatus": "OPEN", "opensAt": "2026-09-01T06:00:00.000Z", "closesAt": "2026-11-01T05:59:00.000Z",
-  "levels": [
-    { "level": "AGUA_VIVA", "label": "Agua Viva", "minPercent": 10, "maxPercent": 10, "requiresInterview": false,
+  "scholarshipTypes": [
+    { "scholarshipTypeId": "0b9a3c52-…",
+      "scholarshipType": { "id": "0b9a3c52-…", "key": "AGUA_VIVA", "name": "Agua Viva",
+                           "minPercent": 10, "maxPercent": 10, "requiresInterview": false },
+      "description": null,
       "estimatedScholarship": { "minAmountCents": 102000, "maxAmountCents": 102000, "currency": "MXN" },
       "estimatedBalance": { "minAmountCents": 918000, "maxAmountCents": 918000, "currency": "MXN" } },
-    { "level": "SPECIAL", "label": "Beca especial", "minPercent": 71, "maxPercent": 80, "requiresInterview": true,
+    { "scholarshipTypeId": "5e1f…",
+      "scholarshipType": { "id": "5e1f…", "key": "SPECIAL", "name": "Beca especial",
+                           "minPercent": 71, "maxPercent": 80, "requiresInterview": true },
+      "description": null,
       "estimatedScholarship": { "minAmountCents": 724200, "maxAmountCents": 816000, "currency": "MXN" },
       "estimatedBalance": { "minAmountCents": 204000, "maxAmountCents": 295800, "currency": "MXN" } }
   ]
 }
 ```
 
-- Muestra cada nivel con su porcentaje (`minPercent`; si `min ≠ max`, "hasta {maxPercent}%") y el
-  monto estimado. Si `min ≠ max`, muestra un rango. Leyenda: "el nivel final lo asigna el equipo".
+- `scholarshipTypes[]` trae solo los tipos **activos** de la oferta, ya ordenados. `minPercent` /
+  `maxPercent` son el rango **efectivo en esta oferta** (puede diferir del rango general del tipo).
+- Muestra cada tipo con su porcentaje (`minPercent`; si `min ≠ max`, rango "71–80%") y el monto
+  estimado (rango si `min ≠ max`). Leyenda: "el tipo de beca final lo asigna el equipo".
 - `requiresInterview: true` → aviso "Requiere entrevista por Zoom".
+- El badge de la tarjeta (`scholarship` en el catálogo y `minPercent`/`maxPercent` aquí) es el rango
+  global de los tipos activos de la oferta. Una oferta sin tipos activos no ofrece beca
+  (`scholarship: null`, `scholarshipDetails: null`).
+- Catálogo general de tipos vigentes (para filtros o textos informativos):
+  `GET /api/v1/scholarship-types` (público, caché 5 min) →
+  `{ data: [{ id, key, name, description, minPercent, maxPercent, requiresInterview, sortOrder }] }`.
 
 ### Acciones (`actions[]`) — CTA calculados por el backend
 
@@ -303,17 +324,19 @@ convocatorias, la ventana de inscripción es la de **postulación**.
 | `FREE` | Gratuito |
 | `EXTERNAL_ENROLLMENT` | Inscripción externa |
 
-### `level` (ScholarshipLevel)
+### Tipos de beca (antes enum `ScholarshipLevel`)
 
-| Valor | Texto | % |
-|---|---|---|
-| `AGUA_VIVA` | Agua Viva | 10% |
-| `RIOS_VIVOS` | Ríos Vivos | 25% |
-| `AGUAS_LIBRES` | Aguas Libres | 50% |
-| `CENOTES_VIVOS` | Cenotes Vivos | 70% |
-| `SPECIAL` | Beca especial | 71–80% (entrevista Zoom) |
+Ya no hay enum: los tipos viven en la BD y el texto a mostrar es `scholarshipType.name`. `key` es una
+clave estable (MAYÚSCULAS_CON_GUION_BAJO) por si necesitas un ícono o estilo por tipo. Tipos
+iniciales (editables desde el panel):
 
-(`label` también llega en la respuesta.)
+| `key` | `name` | % inicial | Entrevista |
+|---|---|---|---|
+| `AGUA_VIVA` | Agua Viva | 10% | No |
+| `RIOS_VIVOS` | Ríos Vivos | 25% | No |
+| `AGUAS_LIBRES` | Aguas Libres | 50% | No |
+| `CENOTES_VIVOS` | Cenotes Vivos | 70% | No |
+| `SPECIAL` | Beca especial | 71–80% | Sí (Zoom) |
 
 ### `calendarCategory` (se usa desde Fase 03)
 

@@ -41,11 +41,12 @@ import {
   type OfferAvailability,
 } from './policies/offer-status.policy';
 import { PUBLIC_TOPICS, resolveTopic } from './policies/public-topics';
+import { estimateScholarshipTypes, offersScholarship } from './policies/scholarship.policy';
 import {
-  estimateScholarshipLevels,
-  offersScholarship,
+  scholarshipOptions,
   scholarshipPercentRange,
-} from './policies/scholarship.policy';
+} from '../scholarship-types/policies/scholarship-type.policy';
+import { OFFER_SCHOLARSHIP_TYPES_RELATION } from '../scholarship-types/scholarship-type.select';
 import { cdmxDate, firstOccurrence, safeParseScheduleRule } from './policies/schedule-rule';
 import { resolveViewerCurrency, type ViewerCurrency } from './policies/viewer-currency.policy';
 
@@ -79,7 +80,7 @@ const PUBLIC_OFFER_SELECT = {
   installmentsEnabled: true,
   installmentsMax: true,
   scholarshipEnabled: true,
-  scholarshipLevels: true,
+  scholarshipTypes: OFFER_SCHOLARSHIP_TYPES_RELATION,
   teachers: {
     orderBy: { position: 'asc' },
     select: { teacher: { select: { id: true, fullName: true } } },
@@ -250,7 +251,7 @@ export class OffersService {
       },
     });
 
-    const scholarshipRange = scholarshipPercentRange(offer.scholarshipLevels);
+    const scholarshipRange = scholarshipPercentRange(scholarshipOptions(offer.scholarshipTypes));
     const hasEligibility =
       offer.type === 'OPEN_CALL' ||
       !!offer.eligibilityText ||
@@ -295,12 +296,14 @@ export class OffersService {
         scholarshipOffered && scholarshipRange
           ? {
               ...scholarshipRange,
-              interviewRequiredAbovePercent:
-                BUSINESS_RULES.SCHOLARSHIP_INTERVIEW_REQUIRED_ABOVE_PERCENT,
               windowStatus: scholarshipWindow,
               opensAt: iso(scholarshipOpensAt),
               closesAt: iso(scholarshipClosesAt),
-              levels: estimateScholarshipLevels(offer.scholarshipLevels, priceCents, currency),
+              scholarshipTypes: estimateScholarshipTypes(
+                offer.scholarshipTypes,
+                priceCents,
+                currency,
+              ),
             }
           : null,
       eligibility: hasEligibility
@@ -390,7 +393,7 @@ export class OffersService {
     enrolled: boolean,
   ): Promise<OfferSummaryDto> {
     const scholarshipRange = offersScholarship(row)
-      ? scholarshipPercentRange(row.scholarshipLevels)
+      ? scholarshipPercentRange(scholarshipOptions(row.scholarshipTypes))
       : null;
     return {
       id: row.id,

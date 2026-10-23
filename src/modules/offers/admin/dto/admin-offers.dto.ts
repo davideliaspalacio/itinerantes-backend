@@ -21,6 +21,7 @@ import {
   MaxLength,
   Min,
   ValidateIf,
+  ValidateNested,
 } from 'class-validator';
 import { PaginationQueryDto } from '../../../../common/dto/pagination.dto';
 import { BUSINESS_RULES } from '../../../../config/business-rules';
@@ -31,8 +32,8 @@ import {
   OfferPublicationStatus,
   OfferType,
   PublicTopic,
-  ScholarshipLevel,
 } from '../../../../generated/prisma/client';
+import { ScholarshipTypeSummaryDto } from '../../../scholarship-types/dto/scholarship-types.dto';
 import {
   OFFER_AVAILABILITY_VALUES,
   type OfferAvailability,
@@ -411,6 +412,52 @@ export class UpdateScheduleStepDto {
 }
 
 /** Paso 4 — Origen y precio. */
+/** Tipo de beca habilitado en la oferta (paso 4), con rango propio opcional. */
+export class OfferScholarshipTypeInputDto {
+  @ApiProperty({ format: 'uuid', example: '0b9a3c52-5f3e-4c1b-9d8e-1c2f3a4b5c6d' })
+  @IsUUID()
+  scholarshipTypeId!: string;
+
+  @ApiPropertyOptional({
+    type: Number,
+    nullable: true,
+    example: null,
+    minimum: R.SCHOLARSHIP_TYPE_PERCENT_FLOOR,
+    maximum: R.SCHOLARSHIP_TYPE_PERCENT_CEILING,
+    description: 'Sobrescribe el % mínimo del tipo SOLO en esta oferta (null = el del tipo).',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(R.SCHOLARSHIP_TYPE_PERCENT_FLOOR)
+  @Max(R.SCHOLARSHIP_TYPE_PERCENT_CEILING)
+  minPercent?: number | null;
+
+  @ApiPropertyOptional({
+    type: Number,
+    nullable: true,
+    example: null,
+    minimum: R.SCHOLARSHIP_TYPE_PERCENT_FLOOR,
+    maximum: R.SCHOLARSHIP_TYPE_PERCENT_CEILING,
+    description: 'Sobrescribe el % máximo del tipo SOLO en esta oferta (null = el del tipo).',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(R.SCHOLARSHIP_TYPE_PERCENT_FLOOR)
+  @Max(R.SCHOLARSHIP_TYPE_PERCENT_CEILING)
+  maxPercent?: number | null;
+
+  @ApiPropertyOptional({
+    type: Number,
+    nullable: true,
+    example: null,
+    description: 'Orden en esta oferta (null = el del tipo).',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  sortOrder?: number | null;
+}
+
 export class UpdateOriginPricingStepDto {
   @ApiPropertyOptional({
     enum: OfferOrigin,
@@ -481,15 +528,20 @@ export class UpdateOriginPricingStepDto {
   scholarshipEnabled?: boolean;
 
   @ApiPropertyOptional({
-    enum: ScholarshipLevel,
-    isArray: true,
-    example: ['AGUA_VIVA', 'AGUAS_LIBRES', 'SPECIAL'],
+    type: () => [OfferScholarshipTypeInputDto],
+    description:
+      'Tipos de beca habilitados (REEMPLAZA la lista; antes `scholarshipLevels`). Ids de ' +
+      '`GET /admin/scholarship-types`. Un tipo inexistente o desactivado → 422 ' +
+      '`SCHOLARSHIP_TYPE_NOT_AVAILABLE` (los desactivados que la oferta ya tenía se pueden conservar). ' +
+      '`minPercent`/`maxPercent` opcionales ajustan el rango SOLO en esta oferta (rango inválido → 422 ' +
+      '`SCHOLARSHIP_TYPE_INVALID_RANGE`).',
   })
   @Defined()
   @IsArray()
-  @ArrayUnique()
-  @IsEnum(ScholarshipLevel, { each: true })
-  scholarshipLevels?: ScholarshipLevel[];
+  @ArrayMaxSize(R.SCHOLARSHIP_TYPES_PER_OFFER_MAX)
+  @ValidateNested({ each: true })
+  @Type(() => OfferScholarshipTypeInputDto)
+  scholarshipTypes?: OfferScholarshipTypeInputDto[];
 
   @ApiPropertyOptional({
     example: '2026-09-01T06:00:00.000Z',
@@ -813,6 +865,32 @@ export class AdminOfferScheduleDto {
   timezone!: string;
 }
 
+export class AdminOfferScholarshipTypeDto {
+  @ApiProperty({ format: 'uuid' }) scholarshipTypeId!: string;
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    example: null,
+    description: 'Override de la oferta.',
+  })
+  minPercent!: number | null;
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    example: null,
+    description: 'Override de la oferta.',
+  })
+  maxPercent!: number | null;
+  @ApiProperty({ nullable: true, type: Number, example: null }) sortOrder!: number | null;
+  @ApiProperty({ example: true, description: 'false = tipo desactivado: no se ofrece.' })
+  active!: boolean;
+  @ApiProperty({
+    type: ScholarshipTypeSummaryDto,
+    description: 'Tipo con el rango EFECTIVO en esta oferta.',
+  })
+  scholarshipType!: ScholarshipTypeSummaryDto;
+}
+
 export class AdminOfferOriginPricingDto {
   @ApiProperty({ enum: OfferOrigin }) origin!: OfferOrigin;
   @ApiProperty() isFree!: boolean;
@@ -822,7 +900,11 @@ export class AdminOfferOriginPricingDto {
   @ApiProperty({ nullable: true, type: Number, example: 3 }) installmentsMax!: number | null;
   @ApiProperty({ nullable: true, type: String }) moodleCourseUrl!: string | null;
   @ApiProperty() scholarshipEnabled!: boolean;
-  @ApiProperty({ enum: ScholarshipLevel, isArray: true }) scholarshipLevels!: ScholarshipLevel[];
+  @ApiProperty({
+    type: () => [AdminOfferScholarshipTypeDto],
+    description: 'Tipos de beca habilitados (antes `scholarshipLevels`), incluye desactivados.',
+  })
+  scholarshipTypes!: AdminOfferScholarshipTypeDto[];
   @ApiProperty({ nullable: true, type: String }) scholarshipOpensAt!: string | null;
   @ApiProperty({ nullable: true, type: String }) scholarshipClosesAt!: string | null;
 }

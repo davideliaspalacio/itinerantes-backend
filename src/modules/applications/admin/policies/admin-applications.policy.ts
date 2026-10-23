@@ -3,10 +3,9 @@ import type {
   ApplicationKind,
   ApplicationStatus,
   EvaluationRecommendation,
-  ScholarshipLevel,
 } from '../../../../generated/prisma/client';
-import { SCHOLARSHIP_LEVEL_ORDER } from '../../../offers/policies/scholarship.policy';
-import { interviewRequired, levelMaxPercent } from '../../policies/application-rules.policy';
+import type { ScholarshipTypeSummary } from '../../../scholarship-types/policies/scholarship-type.policy';
+import { interviewRequired } from '../../policies/application-rules.policy';
 
 /**
  * Reglas puras del panel de postulaciones (Fase 06, HU-31 revisión y HU-32 seguimiento).
@@ -21,16 +20,26 @@ export interface EvaluationSummary {
   notSelect: number;
   unsure: number;
   total: number;
-  /** Nivel más sugerido (empate → el de menor porcentaje); null si nadie sugirió nivel. */
-  mostSuggestedLevel: ScholarshipLevel | null;
-  /** "2 aprobar · 1 con dudas · nivel más sugerido: Aguas Libres 50%". */
+  /**
+   * Tipo de beca más sugerido (empate → el de menor porcentaje); null si nadie sugirió tipo. Con el
+   * rango efectivo de la oferta.
+   */
+  mostSuggestedScholarshipType: ScholarshipTypeSummary | null;
+  /** "2 aprobar · 1 con dudas · tipo más sugerido: Aguas Libres 50%". */
   label: string;
+}
+
+export function percentRangeLabel(range: { minPercent: number; maxPercent: number }): string {
+  return range.minPercent === range.maxPercent
+    ? `${range.minPercent}%`
+    : `${range.minPercent}–${range.maxPercent}%`;
 }
 
 export function summarizeEvaluations(
   evaluations: ReadonlyArray<{
     recommendation: EvaluationRecommendation;
-    suggestedLevel: ScholarshipLevel | null;
+    /** Tipo sugerido (resumen con el rango de la oferta). */
+    suggestedScholarshipType: ScholarshipTypeSummary | null;
   }>,
 ): EvaluationSummary {
   const count = (r: EvaluationRecommendation) =>
@@ -38,50 +47,51 @@ export function summarizeEvaluations(
   const approve = count('APPROVE');
   const notSelect = count('NOT_SELECT');
   const unsure = count('UNSURE');
-  const votes = new Map<ScholarshipLevel, number>();
-  for (const e of evaluations) {
-    if (e.suggestedLevel) votes.set(e.suggestedLevel, (votes.get(e.suggestedLevel) ?? 0) + 1);
+  const votes = new Map<string, { type: ScholarshipTypeSummary; n: number }>();
+  for (const { suggestedScholarshipType: type } of evaluations) {
+    if (!type) continue;
+    const entry = votes.get(type.id) ?? { type, n: 0 };
+    entry.n++;
+    votes.set(type.id, entry);
   }
-  let mostSuggestedLevel: ScholarshipLevel | null = null;
-  for (const level of SCHOLARSHIP_LEVEL_ORDER) {
-    const n = votes.get(level) ?? 0;
-    if (n > 0 && (mostSuggestedLevel === null || n > (votes.get(mostSuggestedLevel) ?? 0))) {
-      mostSuggestedLevel = level;
-    }
-  }
+  const [top] = [...votes.values()].sort(
+    (a, b) =>
+      b.n - a.n ||
+      a.type.minPercent - b.type.minPercent ||
+      a.type.maxPercent - b.type.maxPercent ||
+      a.type.name.localeCompare(b.type.name, 'es'),
+  );
+  const mostSuggestedScholarshipType = top?.type ?? null;
   const parts: string[] = [];
   if (approve) parts.push(`${approve} aprobar`);
   if (notSelect) parts.push(`${notSelect} no seleccionar`);
   if (unsure) parts.push(`${unsure} con dudas`);
-  if (mostSuggestedLevel) {
-    const def = BUSINESS_RULES.SCHOLARSHIP_LEVELS[mostSuggestedLevel];
-    const pct =
-      def.minPercent === def.maxPercent
-        ? `${def.minPercent}%`
-        : `${def.minPercent}–${def.maxPercent}%`;
-    parts.push(`nivel más sugerido: ${def.label} ${pct}`);
+  if (mostSuggestedScholarshipType) {
+    parts.push(
+      `tipo más sugerido: ${mostSuggestedScholarshipType.name} ${percentRangeLabel(mostSuggestedScholarshipType)}`,
+    );
   }
   return {
     approve,
     notSelect,
     unsure,
     total: evaluations.length,
-    mostSuggestedLevel,
+    mostSuggestedScholarshipType,
     label: parts.length ? parts.join(' · ') : 'Sin evaluaciones',
   };
 }
 
 /**
- * ¿La postulación requiere entrevista por Zoom? (HU-31): convocatorias siempre; becas de más de 70%
- * según el nivel asignado o, si aún no hay decisión, el solicitado.
+ * ¿La postulación requiere entrevista por Zoom? (HU-31): convocatorias siempre; becas si el tipo
+ * asignado o, si aún no hay decisión, el solicitado tiene `requiresInterview`.
  */
 export function applicationRequiresInterview(app: {
   kind: ApplicationKind;
-  requestedLevel: ScholarshipLevel | null;
-  assignedPercent: number | null;
+  requestedScholarshipType: { requiresInterview: boolean } | null;
+  assignedScholarshipType: { requiresInterview: boolean } | null;
 }): boolean {
-  const percent = app.assignedPercent ?? levelMaxPercent(app.requestedLevel);
-  return interviewRequired(app.kind, percent);
+  const type = app.assignedScholarshipType ?? app.requestedScholarshipType;
+  return interviewRequired(app.kind, type?.requiresInterview);
 }
 
 // -------------------------------------------------------------------------------------------------

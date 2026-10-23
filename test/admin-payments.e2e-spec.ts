@@ -12,6 +12,7 @@ import { createTestApp } from './utils/create-test-app';
 import { FakePaymentGateway } from './utils/fake-payment-gateway';
 import { FakeStorage } from './utils/fake-storage';
 import { MailCapture } from './utils/mail-capture';
+import { scholarshipTypeIds, withScholarshipTypes } from './utils/scholarship-types';
 
 /**
  * Panel de pagos (Fase 06, HU-33): permisos (todo el staff consulta; solo finanzas actúa),
@@ -21,6 +22,8 @@ import { MailCapture } from './utils/mail-capture';
 describe('Admin – Pagos (e2e) — Fase 06', () => {
   let app: NestExpressApplication;
   let prisma: PrismaService;
+  /** key → id de los tipos de beca. */
+  let T: Record<string, string>;
   const mail = new MailCapture();
   const storage = new FakeStorage();
   const gateway = new FakePaymentGateway();
@@ -71,7 +74,7 @@ describe('Admin – Pagos (e2e) — Fase 06', () => {
     priceMxnCents: 1_020_000,
     priceUsdCents: 58_500,
     scholarshipEnabled: true,
-    scholarshipLevels: ['AGUAS_LIBRES'],
+    scholarshipTypes: withScholarshipTypes(['AGUAS_LIBRES']),
   });
 
   /** Postulación aprobada con comprobante "Pendiente de validación" (como lo deja la Fase 05). */
@@ -90,8 +93,9 @@ describe('Admin – Pagos (e2e) — Fase 06', () => {
         countryCode: profile.countryCode,
         divisionName: profile.divisionName,
         municipalityName: profile.municipalityName,
-        requestedLevel: 'AGUAS_LIBRES',
-        assignedLevel: 'AGUAS_LIBRES',
+        requestedScholarshipTypeId: T.AGUAS_LIBRES,
+        assignedScholarshipTypeId: T.AGUAS_LIBRES,
+        assignedScholarshipTypeName: 'Aguas Libres',
         assignedPercent: 50,
         currency: 'MXN',
         originalAmountCents: 1_020_000,
@@ -152,6 +156,7 @@ describe('Admin – Pagos (e2e) — Fase 06', () => {
           .useValue(gateway),
     });
     prisma = app.get(PrismaService);
+    T = await scholarshipTypeIds(prisma);
     finance = await createStaffUser(app, mail, ['FINANCE']);
     coord = await createStaffUser(app, mail, ['ACADEMIC_COORDINATOR']);
     ana = await createParticipant(app, mail);

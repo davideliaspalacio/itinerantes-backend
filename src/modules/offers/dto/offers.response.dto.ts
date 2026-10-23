@@ -8,8 +8,8 @@ import {
   OfferOrigin,
   OfferType,
   PublicTopic,
-  ScholarshipLevel,
 } from '../../../generated/prisma/client';
+import { ScholarshipTypeSummaryDto } from '../../scholarship-types/dto/scholarship-types.dto';
 import { OfferActionReason, OfferActionType } from '../policies/offer-actions.policy';
 import { OFFER_AVAILABILITY_VALUES, OpenCallStatus } from '../policies/offer-status.policy';
 import { PublicTopicGroup, TopicAvailability, TopicLinkKind } from '../policies/public-topics';
@@ -317,24 +317,20 @@ export class OfferModuleDto {
   description!: string | null;
 }
 
-export class ScholarshipLevelDto {
-  @ApiProperty({ enum: ScholarshipLevel, example: 'AGUAS_LIBRES' })
-  level!: ScholarshipLevel;
-
-  @ApiProperty({ example: 'Aguas Libres' })
-  label!: string;
-
-  @ApiProperty({ example: 50 })
-  minPercent!: number;
-
-  @ApiProperty({ example: 50, description: 'Igual a minPercent salvo en Beca especial (71–80).' })
-  maxPercent!: number;
+export class OfferScholarshipTypeDto {
+  @ApiProperty({ format: 'uuid', example: '0b9a3c52-5f3e-4c1b-9d8e-1c2f3a4b5c6d' })
+  scholarshipTypeId!: string;
 
   @ApiProperty({
-    example: false,
-    description: `Más de ${BUSINESS_RULES.SCHOLARSHIP_INTERVIEW_REQUIRED_ABOVE_PERCENT}%: entrevista por Zoom.`,
+    type: ScholarshipTypeSummaryDto,
+    description:
+      'Tipo de beca con el rango EFECTIVO en esta oferta (la oferta puede ajustar el rango del ' +
+      'tipo). `requiresInterview` = la postulación pasa por entrevista por Zoom.',
   })
-  requiresInterview!: boolean;
+  scholarshipType!: ScholarshipTypeSummaryDto;
+
+  @ApiProperty({ type: String, nullable: true, example: null })
+  description!: string | null;
 
   @ApiProperty({
     type: AmountRangeDto,
@@ -346,15 +342,12 @@ export class ScholarshipLevelDto {
   @ApiProperty({
     type: AmountRangeDto,
     nullable: true,
-    description: 'Saldo estimado a pagar ("el nivel final lo asigna el equipo").',
+    description: 'Saldo estimado a pagar ("el tipo final lo asigna el equipo").',
   })
   estimatedBalance!: AmountRangeDto | null;
 }
 
 export class OfferScholarshipDto extends ScholarshipBadgeDto {
-  @ApiProperty({ example: BUSINESS_RULES.SCHOLARSHIP_INTERVIEW_REQUIRED_ABOVE_PERCENT })
-  interviewRequiredAbovePercent!: number;
-
   @ApiProperty({
     enum: ['OPEN', 'UPCOMING', 'CLOSED'],
     example: 'OPEN',
@@ -368,8 +361,11 @@ export class OfferScholarshipDto extends ScholarshipBadgeDto {
   @ApiProperty({ ...OPTIONAL_DATE, example: '2026-10-25T05:59:59.000Z' })
   closesAt!: string | null;
 
-  @ApiProperty({ type: [ScholarshipLevelDto] })
-  levels!: ScholarshipLevelDto[];
+  @ApiProperty({
+    type: [OfferScholarshipTypeDto],
+    description: 'Tipos de beca activos de esta oferta, ordenados (antes `levels`).',
+  })
+  scholarshipTypes!: OfferScholarshipTypeDto[];
 }
 
 export class EligibleCountryDto {

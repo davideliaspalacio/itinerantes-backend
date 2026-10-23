@@ -30,7 +30,7 @@ Fuera de alcance (Anexo A del documento): CMS del sitio público, bandeja de men
 
 ## Supuestos del Anexo A
 
-Los supuestos pendientes de confirmar con el cliente (plazos de 7 días, mora a los 15 días, 2–4 cuotas, ventana de asistencia de 24 h, niveles de beca, etc.) se implementan como **valores configurables** (constantes en `src/config/business-rules.ts` o campos por oferta), nunca con números mágicos repartidos en el código.
+Los supuestos pendientes de confirmar con el cliente (plazos de 7 días, mora a los 15 días, 2–4 cuotas, ventana de asistencia de 24 h, etc.) se implementan como **valores configurables** (constantes en `src/config/business-rules.ts` o campos por oferta), nunca con números mágicos repartidos en el código. Los **tipos de beca** (nombre, %, entrevista) son datos administrables desde el panel (`/admin/scholarship-types`, ver ARCHITECTURE.md "Tipos de beca parametrizables"), no constantes.
 
 ## Estado
 

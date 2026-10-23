@@ -109,22 +109,22 @@ export const BUSINESS_RULES = {
   /** HU-19 (Anexo A): carta de intención como texto de 800 a 4000 caracteres. */
   SCHOLARSHIP_LETTER_MIN_LENGTH: 800,
   SCHOLARSHIP_LETTER_MAX_LENGTH: 4000,
-  /** Reglas del cliente: becas del 10% al 80%; > 70% requiere entrevista por Zoom. */
-  SCHOLARSHIP_MIN_PERCENT: 10,
-  SCHOLARSHIP_MAX_PERCENT: 80,
-  SCHOLARSHIP_INTERVIEW_REQUIRED_ABOVE_PERCENT: 70,
   /**
-   * Niveles de beca (pregunta abierta al cliente; enum Prisma `ScholarshipLevel`). Los niveles fijos
-   * tienen min = max. "Beca especial": el comité asigna 71–80% tras la entrevista (Anexo A, HU-19).
-   * Cada oferta habilita un subconjunto (`Offer.scholarshipLevels`, HU-27).
+   * Becas parametrizables: los tipos de beca (nombre, rango de %, si requiere entrevista, activo)
+   * viven en la tabla `scholarship_types` y los administra un SUPER_ADMIN
+   * (`/admin/scholarship-types`); cada oferta habilita los suyos y puede ajustar el rango
+   * (`offer_scholarship_types`). Aquí solo quedan los límites absolutos de cualquier porcentaje y
+   * de los textos del tipo. Los 5 tipos iniciales están en `scholarship-types.defaults.ts`.
    */
-  SCHOLARSHIP_LEVELS: {
-    AGUA_VIVA: { label: 'Agua Viva', minPercent: 10, maxPercent: 10 },
-    RIOS_VIVOS: { label: 'Ríos Vivos', minPercent: 25, maxPercent: 25 },
-    AGUAS_LIBRES: { label: 'Aguas Libres', minPercent: 50, maxPercent: 50 },
-    CENOTES_VIVOS: { label: 'Cenotes Vivos', minPercent: 70, maxPercent: 70 },
-    SPECIAL: { label: 'Beca especial', minPercent: 71, maxPercent: 80 },
-  },
+  SCHOLARSHIP_TYPE_PERCENT_FLOOR: 1,
+  SCHOLARSHIP_TYPE_PERCENT_CEILING: 100,
+  SCHOLARSHIP_TYPE_KEY_MAX_LENGTH: 40,
+  SCHOLARSHIP_TYPE_NAME_MAX_LENGTH: 80,
+  SCHOLARSHIP_TYPE_DESCRIPTION_MAX_LENGTH: 500,
+  /** Máximo de tipos de beca habilitados en una oferta (límite de la petición del asistente). */
+  SCHOLARSHIP_TYPES_PER_OFFER_MAX: 20,
+  /** Caché HTTP del catálogo público de tipos de beca (igual que las cifras del sitio). */
+  SCHOLARSHIP_TYPES_CACHE_SECONDS: 300,
   /** HU-20: respuestas abiertas de convocatoria, 300 a 2000 caracteres. */
   OPEN_CALL_ANSWER_MIN_LENGTH: 300,
   OPEN_CALL_ANSWER_MAX_LENGTH: 2000,

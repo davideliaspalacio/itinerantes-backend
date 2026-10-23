@@ -4,7 +4,6 @@ import {
   ApplicationKind,
   ApplicationStatus,
   InterviewStatus,
-  ScholarshipLevel,
 } from '../../../generated/prisma/client';
 import { PortalOfferRefDto } from '../../enrollments/dto/portal-shared.dto';
 import { SessionJoinDto } from '../../live-sessions/dto/sessions.dto';
@@ -12,8 +11,9 @@ import { OfferActionReason } from '../../offers/policies/offer-actions.policy';
 import {
   EligibleCountryDto,
   MoneyDto,
-  ScholarshipLevelDto,
+  OfferScholarshipTypeDto,
 } from '../../offers/dto/offers.response.dto';
+import { ScholarshipTypeSummaryDto } from '../../scholarship-types/dto/scholarship-types.dto';
 import { PhoneDto } from '../../users/dto/user-fields';
 import {
   ApplicationActionReason,
@@ -212,13 +212,23 @@ export class InterviewDto {
 }
 
 export class ScholarshipResultDto {
-  @ApiProperty({ enum: ScholarshipLevel, nullable: true, example: 'AGUAS_LIBRES' })
-  requestedLevel!: ScholarshipLevel | null;
+  @ApiProperty({ type: String, format: 'uuid', nullable: true })
+  requestedScholarshipTypeId!: string | null;
 
-  @ApiProperty({ enum: ScholarshipLevel, example: 'AGUAS_LIBRES' })
-  assignedLevel!: ScholarshipLevel;
+  @ApiProperty({ type: ScholarshipTypeSummaryDto, nullable: true })
+  requestedScholarshipType!: ScholarshipTypeSummaryDto | null;
 
-  @ApiProperty({ example: 50, description: '% asignado (Beca especial: 71–80).' })
+  @ApiProperty({ type: String, format: 'uuid' })
+  assignedScholarshipTypeId!: string;
+
+  @ApiProperty({
+    type: ScholarshipTypeSummaryDto,
+    description:
+      'Tipo asignado. `name` es el nombre que tenía al aprobar (no cambia si luego se renombra).',
+  })
+  assignedScholarshipType!: ScholarshipTypeSummaryDto;
+
+  @ApiProperty({ example: 50, description: '% asignado (dentro del rango del tipo en la oferta).' })
   assignedPercent!: number;
 
   @ApiProperty({ type: MoneyDto, nullable: true, description: 'Monto original de la oferta.' })
@@ -335,7 +345,7 @@ export class ApplicationCardDto {
   @ApiProperty({
     type: ScholarshipResultDto,
     nullable: true,
-    description: 'Solo becas aprobadas: nivel solicitado y asignado, saldo y fecha límite.',
+    description: 'Solo becas aprobadas: tipo solicitado y asignado, saldo y fecha límite.',
   })
   scholarshipResult!: ScholarshipResultDto | null;
 
@@ -390,8 +400,16 @@ export class ApplicationAnswersDto {
   @ApiProperty({ type: String, nullable: true, example: 'Coordinadora' })
   organizationRole!: string | null;
 
-  @ApiProperty({ enum: ScholarshipLevel, nullable: true, example: 'AGUAS_LIBRES' })
-  requestedLevel!: ScholarshipLevel | null;
+  @ApiProperty({
+    type: String,
+    format: 'uuid',
+    nullable: true,
+    description: 'Tipo de beca solicitado (antes `requestedLevel`).',
+  })
+  requestedScholarshipTypeId!: string | null;
+
+  @ApiProperty({ type: ScholarshipTypeSummaryDto, nullable: true })
+  requestedScholarshipType!: ScholarshipTypeSummaryDto | null;
 
   @ApiProperty({ type: String, nullable: true, example: 'Necesito la beca porque…' })
   intentLetter!: string | null;
@@ -508,12 +526,12 @@ export class ApplicationFormDto {
   window!: ApplicationWindowDto;
 
   @ApiProperty({
-    type: [ScholarshipLevelDto],
+    type: [OfferScholarshipTypeDto],
     description:
-      'Beca: niveles habilitados con monto estimado en tu moneda ("el nivel final lo asigna el ' +
-      'equipo"). Vacío en convocatorias.',
+      'Beca: tipos de beca activos del diplomado con monto estimado en tu moneda ("el tipo final ' +
+      'lo asigna el equipo"; antes `levels`). Vacío en convocatorias.',
   })
-  levels!: ScholarshipLevelDto[];
+  scholarshipTypes!: OfferScholarshipTypeDto[];
 
   @ApiProperty({ type: MoneyDto, nullable: true, description: 'Costo de la oferta en tu moneda.' })
   price!: MoneyDto | null;
@@ -524,7 +542,7 @@ export class ApplicationFormDto {
   @ApiProperty({
     example: false,
     description:
-      'Mostrar aviso de entrevista por Zoom: siempre en convocatorias; en becas al elegir Beca especial.',
+      'Mostrar aviso de entrevista por Zoom: siempre en convocatorias; en becas si el tipo solicitado tiene `requiresInterview`.',
   })
   interviewNotice!: boolean;
 
@@ -597,10 +615,10 @@ export class ApplicationOpportunityDto {
   price!: MoneyDto | null;
 
   @ApiProperty({
-    type: [ScholarshipLevelDto],
-    description: 'Beca: niveles y monto estimado. Vacío en convocatorias.',
+    type: [OfferScholarshipTypeDto],
+    description: 'Beca: tipos de beca y monto estimado (antes `levels`). Vacío en convocatorias.',
   })
-  levels!: ScholarshipLevelDto[];
+  scholarshipTypes!: OfferScholarshipTypeDto[];
 
   @ApiProperty({ type: ApplicationEligibilityDto, nullable: true })
   eligibility!: ApplicationEligibilityDto | null;

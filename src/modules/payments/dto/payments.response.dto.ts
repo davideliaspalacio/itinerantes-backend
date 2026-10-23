@@ -8,10 +8,10 @@ import {
   PaymentConcept,
   PaymentMethod,
   PaymentStatus,
-  ScholarshipLevel,
   TransferRejectionReason,
 } from '../../../generated/prisma/client';
 import { MoneyDto } from '../../offers/dto/offers.response.dto';
+import { ScholarshipTypeSummaryDto } from '../../scholarship-types/dto/scholarship-types.dto';
 import { OfferActionReason } from '../../offers/policies/offer-actions.policy';
 import { InstallmentOptionReason } from '../policies/payment-amounts.policy';
 import { PaymentNotAllowedReason } from '../policies/checkout.policy';
@@ -466,8 +466,20 @@ export class QuoteApplicationDto {
   @ApiProperty({ enum: ApplicationStatus, example: 'APPROVED_PENDING_PAYMENT' })
   status!: ApplicationStatus;
 
-  @ApiProperty({ enum: ScholarshipLevel, nullable: true, example: 'AGUAS_LIBRES' })
-  assignedLevel!: ScholarshipLevel | null;
+  @ApiProperty({
+    type: String,
+    format: 'uuid',
+    nullable: true,
+    description: 'Tipo de beca asignado (antes `assignedLevel`).',
+  })
+  assignedScholarshipTypeId!: string | null;
+
+  @ApiProperty({
+    type: ScholarshipTypeSummaryDto,
+    nullable: true,
+    description: '`name` = nombre del tipo al aprobar.',
+  })
+  assignedScholarshipType!: ScholarshipTypeSummaryDto | null;
 
   @ApiProperty({ type: Number, nullable: true, example: 50 })
   assignedPercent!: number | null;

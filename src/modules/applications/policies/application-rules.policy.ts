@@ -1,12 +1,7 @@
 import { applyPercentDiscount } from '../../../common/utils/money';
 import { addDaysInZone } from '../../../common/utils/time';
 import { BUSINESS_RULES } from '../../../config/business-rules';
-import type {
-  ApplicationKind,
-  OfferOrigin,
-  OfferType,
-  ScholarshipLevel,
-} from '../../../generated/prisma/client';
+import type { ApplicationKind, OfferOrigin, OfferType } from '../../../generated/prisma/client';
 import {
   OfferActionReason,
   windowState,
@@ -19,6 +14,12 @@ import {
   type OfferDates,
 } from '../../offers/policies/offer-status.policy';
 import { offersScholarship } from '../../offers/policies/scholarship.policy';
+import {
+  type OfferScholarshipTypeLink,
+  resolveAssignedPercent,
+  type ScholarshipOption,
+  scholarshipOptions,
+} from '../../scholarship-types/policies/scholarship-type.policy';
 
 /**
  * Reglas puras de las postulaciones (HU-19, 20, 21): a qué ofertas se postula, ventana, elegibilidad,
@@ -33,7 +34,7 @@ export interface ApplicableOffer extends OfferDates {
   type: OfferType;
   origin: OfferOrigin;
   scholarshipEnabled: boolean;
-  scholarshipLevels: readonly ScholarshipLevel[];
+  scholarshipTypes: readonly OfferScholarshipTypeLink[];
   scholarshipOpensAt: Date | null;
   scholarshipClosesAt: Date | null;
 }
@@ -143,8 +144,8 @@ export const ApplicationFieldCode = {
   MIN_FILES: 'MIN_FILES',
   /** Casilla obligatoria sin marcar (términos, elegibilidad). */
   MUST_ACCEPT: 'MUST_ACCEPT',
-  /** Nivel de beca no habilitado en la oferta. */
-  LEVEL_NOT_ENABLED: 'LEVEL_NOT_ENABLED',
+  /** Tipo de beca no habilitado (o desactivado) en la oferta. Antes `LEVEL_NOT_ENABLED`. */
+  SCHOLARSHIP_TYPE_NOT_ENABLED: 'SCHOLARSHIP_TYPE_NOT_ENABLED',
   /** Campo que no corresponde al tipo de postulación (beca / convocatoria). */
   NOT_APPLICABLE: 'NOT_APPLICABLE',
 } as const;
@@ -158,10 +159,11 @@ export interface FieldIssue {
 
 export interface SubmissionInput {
   kind: ApplicationKind;
-  enabledLevels: readonly ScholarshipLevel[];
+  /** Ids de los tipos de beca ACTIVOS de la oferta (`scholarshipOptions`). */
+  enabledScholarshipTypeIds: readonly string[];
   requiresTravel: boolean;
   age: number | null;
-  requestedLevel: ScholarshipLevel | null;
+  requestedScholarshipTypeId: string | null;
   intentLetter: string | null;
   eligibilityConfirmed: boolean;
   organization: string | null;
@@ -210,13 +212,17 @@ export function submissionIssues(input: SubmissionInput): FieldIssue[] {
   if (input.kind === 'SCHOLARSHIP') {
     issues.push(
       input.age === null ? { field: 'age', code: 'REQUIRED', message: 'Indica tu edad.' } : null,
-      input.requestedLevel === null
-        ? { field: 'requestedLevel', code: 'REQUIRED', message: 'Elige un nivel de beca.' }
-        : !input.enabledLevels.includes(input.requestedLevel)
+      input.requestedScholarshipTypeId === null
+        ? {
+            field: 'requestedScholarshipTypeId',
+            code: 'REQUIRED',
+            message: 'Elige un tipo de beca.',
+          }
+        : !input.enabledScholarshipTypeIds.includes(input.requestedScholarshipTypeId)
           ? {
-              field: 'requestedLevel',
-              code: 'LEVEL_NOT_ENABLED',
-              message: 'Ese nivel de beca no está disponible para este diplomado.',
+              field: 'requestedScholarshipTypeId',
+              code: 'SCHOLARSHIP_TYPE_NOT_ENABLED',
+              message: 'Ese tipo de beca no está disponible para este diplomado.',
             }
           : null,
       lengthIssue(
@@ -316,46 +322,63 @@ export function formatFolio(kind: ApplicationKind, number: number): string {
 // Decisión, saldo y plazos (HU-21, 23, 31, 32) — los usa la Fase 06 al aprobar
 // -------------------------------------------------------------------------------------------------
 
-/** Entrevista por Zoom obligatoria: convocatorias y becas de más de 70% (HU-19 / HU-31). */
-export function interviewRequired(kind: ApplicationKind, percent: number | null): boolean {
+/**
+ * Entrevista por Zoom obligatoria (HU-19 / HU-31): siempre en convocatorias; en becas, si el tipo de
+ * beca (asignado o, antes de la decisión, solicitado) tiene `requiresInterview`.
+ */
+export function interviewRequired(
+  kind: ApplicationKind,
+  scholarshipTypeRequiresInterview: boolean | null | undefined,
+): boolean {
   if (kind === 'OPEN_CALL') return true;
-  return percent !== null && percent > BUSINESS_RULES.SCHOLARSHIP_INTERVIEW_REQUIRED_ABOVE_PERCENT;
+  return scholarshipTypeRequiresInterview === true;
 }
 
-/** Porcentaje "esperado" de un nivel (para avisos: Beca especial → su máximo). */
-export function levelMaxPercent(level: ScholarshipLevel | null): number | null {
-  return level ? BUSINESS_RULES.SCHOLARSHIP_LEVELS[level].maxPercent : null;
-}
-
-export type AssignedPercentResult = { ok: true; percent: number } | { ok: false; message: string };
+export type ScholarshipAssignment =
+  | { ok: true; option: ScholarshipOption; percent: number }
+  | { ok: false; issue: { field: string; code: string; message: string } };
 
 /**
- * Porcentaje asignado (HU-31): niveles fijos → su %; Beca especial → 71–80% (lo elige el comité).
- * El nivel debe estar habilitado en la oferta.
+ * Tipo y % que asigna el comité (HU-31). El tipo debe estar habilitado en la oferta (aunque se haya
+ * desactivado después: la persona lo pudo solicitar cuando estaba vigente) y el % caer en su rango
+ * efectivo (fijo → se toma solo).
  */
-export function resolveAssignedPercent(
-  level: ScholarshipLevel,
-  enabledLevels: readonly ScholarshipLevel[],
-  percent?: number | null,
-): AssignedPercentResult {
-  if (!enabledLevels.includes(level)) {
-    return { ok: false, message: 'El nivel no está habilitado en esta oferta.' };
-  }
-  const def = BUSINESS_RULES.SCHOLARSHIP_LEVELS[level];
-  if (def.minPercent === def.maxPercent) return { ok: true, percent: def.minPercent };
-  if (
-    percent === undefined ||
-    percent === null ||
-    !Number.isInteger(percent) ||
-    percent < def.minPercent ||
-    percent > def.maxPercent
-  ) {
+export function resolveScholarshipAssignment(
+  links: readonly OfferScholarshipTypeLink[],
+  scholarshipTypeId: string | null | undefined,
+  percent: number | null | undefined,
+): ScholarshipAssignment {
+  if (!scholarshipTypeId) {
     return {
       ok: false,
-      message: `${def.label}: indica un porcentaje entero entre ${def.minPercent}% y ${def.maxPercent}%.`,
+      issue: {
+        field: 'assignedScholarshipTypeId',
+        code: 'REQUIRED',
+        message: 'Elige el tipo de beca asignado.',
+      },
     };
   }
-  return { ok: true, percent };
+  const option =
+    scholarshipOptions(links, { activeOnly: false }).find((o) => o.id === scholarshipTypeId) ??
+    null;
+  if (!option) {
+    return {
+      ok: false,
+      issue: {
+        field: 'assignedScholarshipTypeId',
+        code: ApplicationFieldCode.SCHOLARSHIP_TYPE_NOT_ENABLED,
+        message: 'El tipo de beca no está habilitado en esta oferta.',
+      },
+    };
+  }
+  const resolved = resolveAssignedPercent(option, percent);
+  if (!resolved.ok) {
+    return {
+      ok: false,
+      issue: { field: 'assignedPercent', code: 'INVALID', message: resolved.message },
+    };
+  }
+  return { ok: true, option, percent: resolved.percent };
 }
 
 /** Saldo tras la beca (HU-23): 10,200 MXN con 50% → 5,100 MXN. Sin precio → 0. */

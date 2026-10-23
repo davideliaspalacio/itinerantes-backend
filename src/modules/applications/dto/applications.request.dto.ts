@@ -18,11 +18,7 @@ import {
 } from 'class-validator';
 import { PaginationQueryDto } from '../../../common/dto/pagination.dto';
 import { BUSINESS_RULES } from '../../../config/business-rules';
-import {
-  ApplicationKind,
-  ApplicationStatus,
-  ScholarshipLevel,
-} from '../../../generated/prisma/client';
+import { ApplicationKind, ApplicationStatus } from '../../../generated/prisma/client';
 import { PhoneDto } from '../../users/dto/user-fields';
 
 const trim = Transform(({ value }: { value: unknown }) =>
@@ -111,16 +107,18 @@ export class ApplicationFormFieldsDto {
   organizationRole?: string | null;
 
   @ApiPropertyOptional({
-    enum: ScholarshipLevel,
+    type: String,
+    format: 'uuid',
     nullable: true,
-    example: 'AGUAS_LIBRES',
+    example: '0b9a3c52-5f3e-4c1b-9d8e-1c2f3a4b5c6d',
     description:
-      'Beca: nivel solicitado (solo niveles habilitados en el diplomado: `form.levels`). ' +
-      '`SPECIAL` (Beca especial, > 70%) requiere entrevista por Zoom.',
+      'Beca: tipo de beca solicitado (antes `requestedLevel`). Solo los tipos activos del ' +
+      'diplomado (`form.scholarshipTypes[].scholarshipTypeId`); otro → 400 ' +
+      '`SCHOLARSHIP_TYPE_NOT_ENABLED`. Si el tipo tiene `requiresInterview`, habrá entrevista por Zoom.',
   })
   @IsOptional()
-  @IsEnum(ScholarshipLevel)
-  requestedLevel?: ScholarshipLevel | null;
+  @IsUUID()
+  requestedScholarshipTypeId?: string | null;
 
   @ApiPropertyOptional({
     type: String,

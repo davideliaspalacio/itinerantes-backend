@@ -8,7 +8,6 @@ import type {
   ApplicationStatus,
   ApplicationStatusEvent,
   Prisma,
-  ScholarshipLevel,
 } from '../../generated/prisma/client';
 import { PrismaService } from '../../infra/prisma/prisma.service';
 import { EnrollmentsService } from '../enrollments/enrollments.service';
@@ -22,9 +21,10 @@ import {
   balanceAfterScholarship,
   formatFolio,
   interviewRequired,
-  resolveAssignedPercent,
+  resolveScholarshipAssignment,
   responseDeadline,
 } from './policies/application-rules.policy';
+import { OFFER_SCHOLARSHIP_TYPES_RELATION } from '../scholarship-types/scholarship-type.select';
 import { canTransition, isAwaitingResponse } from './policies/application-status.policy';
 
 /** Quién provoca el cambio: participante (su id), integrante del equipo (su id) o el sistema. */
@@ -66,9 +66,11 @@ export interface ScheduleInterviewInput {
 }
 
 export interface ApproveInput {
-  /** Beca: nivel asignado (puede diferir del solicitado; HU-31). */
-  assignedLevel?: ScholarshipLevel | null;
-  /** Beca especial: 71–80 (los niveles fijos ignoran este valor). */
+  /** Beca: tipo asignado (puede diferir del solicitado; HU-31). Debe estar habilitado en la oferta. */
+  assignedScholarshipTypeId?: string | null;
+  /**
+   * % final dentro del rango efectivo del tipo en la oferta. Rango fijo → opcional (se toma solo).
+   */
   assignedPercent?: number | null;
   note?: string | null;
   /** Fase 06: párrafo editable que se agrega al aviso/correo de la decisión. */
@@ -258,41 +260,39 @@ export class ApplicationWorkflowService {
    * Decisión "Aprobada" (HU-31): calcula % y saldo, plazo de 7 días (sin superar el inicio) y:
    * - saldo > 0 → APPROVED_PENDING_PAYMENT + inscripción PENDING_PAYMENT (la Fase 05 cobra);
    * - sin saldo (convocatoria gratuita) → APPROVED_PENDING_CONFIRMATION (la persona confirma).
-   * Beca especial (> 70%) y convocatorias exigen entrevista "Realizada".
+   * Convocatorias y tipos de beca con `requiresInterview` exigen entrevista "Realizada".
    */
   async approve(applicationId: string, input: ApproveInput, staffId: string): Promise<Application> {
     const application = await this.prisma.application.findUnique({
       where: { id: applicationId },
       include: {
-        offer: { select: { startsAt: true, scholarshipLevels: true } },
+        offer: {
+          select: { startsAt: true, scholarshipTypes: OFFER_SCHOLARSHIP_TYPES_RELATION },
+        },
         interviews: { where: { status: 'COMPLETED' }, select: { id: true } },
       },
     });
     if (!application) throw AppException.notFound('La postulación no existe.');
 
-    let assignedLevel: ScholarshipLevel | null = null;
+    let assignedScholarshipTypeId: string | null = null;
+    let assignedScholarshipTypeName: string | null = null;
     let assignedPercent: number | null = null;
+    let typeRequiresInterview = false;
     if (application.kind === 'SCHOLARSHIP') {
-      if (!input.assignedLevel) {
-        throw AppException.validation([
-          { field: 'assignedLevel', code: 'REQUIRED', message: 'Elige el nivel asignado.' },
-        ]);
-      }
-      const resolved = resolveAssignedPercent(
-        input.assignedLevel,
-        application.offer.scholarshipLevels,
+      const assignment = resolveScholarshipAssignment(
+        application.offer.scholarshipTypes,
+        input.assignedScholarshipTypeId,
         input.assignedPercent,
       );
-      if (!resolved.ok) {
-        throw AppException.validation([
-          { field: 'assignedPercent', code: 'INVALID', message: resolved.message },
-        ]);
-      }
-      assignedLevel = input.assignedLevel;
-      assignedPercent = resolved.percent;
+      if (!assignment.ok) throw AppException.validation([assignment.issue]);
+      const { option } = assignment;
+      assignedScholarshipTypeId = option.id;
+      assignedScholarshipTypeName = option.name;
+      assignedPercent = assignment.percent;
+      typeRequiresInterview = option.requiresInterview;
     }
     if (
-      interviewRequired(application.kind, assignedPercent) &&
+      interviewRequired(application.kind, typeRequiresInterview) &&
       application.interviews.length === 0
     ) {
       throw new AppException('APPLICATION_INTERVIEW_REQUIRED');
@@ -312,7 +312,8 @@ export class ApplicationWorkflowService {
         note: input.note,
         participantMessage: input.participantMessage,
         data: {
-          assignedLevel,
+          assignedScholarshipTypeId,
+          assignedScholarshipTypeName,
           assignedPercent,
           balanceCents,
           decidedAt: now,
@@ -513,7 +514,7 @@ export class ApplicationWorkflowService {
 
   /** Contexto de los mensajes (oferta, folio, zona del perfil, entrevista vigente, saldo). */
   async messageContext(application: Application): Promise<ApplicationMessageContext> {
-    const [offer, user, interview] = await Promise.all([
+    const [offer, user, interview, requestedScholarshipType] = await Promise.all([
       this.prisma.offer.findUniqueOrThrow({
         where: { id: application.offerId },
         select: { id: true, name: true },
@@ -527,6 +528,12 @@ export class ApplicationWorkflowService {
         orderBy: { createdAt: 'desc' },
         select: { startsAt: true },
       }),
+      application.requestedScholarshipTypeId
+        ? this.prisma.scholarshipType.findUnique({
+            where: { id: application.requestedScholarshipTypeId },
+            select: { name: true, requiresInterview: true },
+          })
+        : Promise.resolve(null),
     ]);
     const currency = application.currency;
     return {
@@ -535,8 +542,8 @@ export class ApplicationWorkflowService {
       folio: formatFolio(application.kind, application.number),
       offer,
       userTimezone: user.timezone,
-      requestedLevel: application.requestedLevel,
-      assignedLevel: application.assignedLevel,
+      requestedScholarshipType,
+      assignedScholarshipTypeName: application.assignedScholarshipTypeName,
       assignedPercent: application.assignedPercent,
       balance:
         application.balanceCents !== null && currency && isCurrency(currency)

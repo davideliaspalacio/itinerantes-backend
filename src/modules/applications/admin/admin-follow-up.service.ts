@@ -57,11 +57,18 @@ import {
   whatsappNumber,
   whatsappUrl,
 } from './policies/admin-applications.policy';
+import {
+  OFFER_SCHOLARSHIP_TYPES_RELATION,
+  SCHOLARSHIP_TYPE_SELECT,
+} from '../..//scholarship-types/scholarship-type.select';
+import { assignedSummary } from '../..//scholarship-types/policies/scholarship-type.policy';
 
 const PERSON = { select: { id: true, fullName: true } } as const;
 
 const FOLLOW_UP_INCLUDE = {
   followUpNotes: { orderBy: { createdAt: 'desc' }, take: 20 },
+  assignedScholarshipType: { select: SCHOLARSHIP_TYPE_SELECT },
+  offer: { select: { scholarshipTypes: OFFER_SCHOLARSHIP_TYPES_RELATION } },
 } as const satisfies Prisma.ApplicationInclude;
 
 type FollowUpRow = Prisma.ApplicationGetPayload<{ include: typeof FOLLOW_UP_INCLUDE }>;
@@ -518,7 +525,12 @@ export class AdminFollowUpService {
         whatsappUrl: number ? whatsappUrl(number) : null,
       },
       countryCode: row.countryCode,
-      assignedLevel: row.assignedLevel,
+      assignedScholarshipTypeId: row.assignedScholarshipTypeId,
+      assignedScholarshipType: assignedSummary(
+        row.assignedScholarshipType,
+        row.offer.scholarshipTypes,
+        row.assignedScholarshipTypeName,
+      ),
       assignedPercent: row.assignedPercent,
       balance: money(row.balanceCents, row.currency),
       responseDueAt: iso(row.responseDueAt),

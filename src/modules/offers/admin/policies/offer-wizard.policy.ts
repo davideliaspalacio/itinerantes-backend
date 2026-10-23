@@ -5,7 +5,6 @@ import type {
   OfferOrigin,
   OfferPublicationStatus,
   OfferType,
-  ScholarshipLevel,
 } from '../../../../generated/prisma/client';
 import { OfferAvailability } from '../../policies/offer-status.policy';
 import { safeParseScheduleRule } from '../../policies/schedule-rule';
@@ -100,7 +99,8 @@ export interface WizardOffer {
   installmentsEnabled: boolean;
   installmentsMax: number | null;
   scholarshipEnabled: boolean;
-  scholarshipLevels: readonly ScholarshipLevel[];
+  /** Tipos de beca habilitados (solo importa si hay alguno activo). */
+  scholarshipTypes: readonly { scholarshipType: { active: boolean } }[];
   scholarshipOpensAt: Date | null;
   scholarshipClosesAt: Date | null;
   attendanceWindowHours: number;
@@ -313,11 +313,11 @@ function originPricingIssues(o: WizardOffer): WizardIssue[] {
         code: 'NOT_APPLICABLE',
         message: 'La beca solo aplica a diplomados.',
       });
-    } else if (o.scholarshipLevels.length === 0) {
+    } else if (!o.scholarshipTypes.some((link) => link.scholarshipType.active)) {
       issues.push({
-        field: 'scholarshipLevels',
+        field: 'scholarshipTypes',
         code: 'REQUIRED',
-        message: 'Habilita al menos un nivel de beca.',
+        message: 'Habilita al menos un tipo de beca activo.',
       });
     }
     if (o.isFree) {

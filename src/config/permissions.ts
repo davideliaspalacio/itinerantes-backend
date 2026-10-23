@@ -51,6 +51,12 @@ export const Permission = {
 
   /** Editar contenido del sitio público (cifras de impacto de la landing). Solo SUPER_ADMIN. */
   SITE_WRITE: 'site.write',
+
+  /**
+   * Crear, editar, desactivar y borrar tipos de beca (nombre, %, entrevista). Solo SUPER_ADMIN.
+   * La lectura (`GET /admin/scholarship-types`) usa `offers.read`.
+   */
+  SCHOLARSHIP_TYPES_WRITE: 'scholarship_types.write',
 } as const;
 export type Permission = (typeof Permission)[keyof typeof Permission];
 

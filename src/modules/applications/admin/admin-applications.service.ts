@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { AppException } from '../../../common/errors/app.exception';
+import { FIELD_ERROR_CODES } from '../../../common/errors/error-codes';
 import type { AdminUser } from '../../../common/guards/permissions.guard';
 import { paginate, type PaginatedResponseDto } from '../../../common/dto/pagination.dto';
 import { toCsv } from '../../../common/utils/csv';
@@ -8,24 +9,28 @@ import { formatInZone, nowUtc, OFFICIAL_TIMEZONE } from '../../../common/utils/t
 import { isZoomUrl } from '../../../common/utils/urls';
 import { BUSINESS_RULES } from '../../../config/business-rules';
 import { Permission } from '../../../config/permissions';
-import type {
-  Application,
-  ApplicationStatus,
-  Prisma,
-  ScholarshipLevel,
-} from '../../../generated/prisma/client';
+import type { Application, ApplicationStatus, Prisma } from '../../../generated/prisma/client';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
 import { StorageService } from '../../../infra/storage/storage.service';
 import { AuditService } from '../../audit/audit.service';
 import { NotificationsService } from '../../notifications/notifications.service';
-import { SCHOLARSHIP_LEVEL_ORDER } from '../../offers/policies/scholarship.policy';
+import {
+  assignedSummary,
+  scholarshipOptions,
+  summaryInOffer,
+  toScholarshipTypeSummary,
+} from '../../scholarship-types/policies/scholarship-type.policy';
+import {
+  OFFER_SCHOLARSHIP_TYPES_RELATION,
+  SCHOLARSHIP_TYPE_SELECT,
+} from '../../scholarship-types/scholarship-type.select';
 import { ApplicationWorkflowService } from '../application-workflow.service';
 import { statusChangeMessage } from '../policies/application-messages.policy';
 import {
   balanceAfterScholarship,
   formatFolio,
   interviewRequired,
-  resolveAssignedPercent,
+  resolveScholarshipAssignment,
   responseDeadline,
 } from '../policies/application-rules.policy';
 import {
@@ -52,8 +57,19 @@ import {
   summarizeEvaluations,
 } from './policies/admin-applications.policy';
 
+const SCHOLARSHIP_TYPE = { select: SCHOLARSHIP_TYPE_SELECT } as const;
+
 const LIST_INCLUDE = {
-  offer: { select: { id: true, name: true, slug: true } },
+  offer: {
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      scholarshipTypes: OFFER_SCHOLARSHIP_TYPES_RELATION,
+    },
+  },
+  requestedScholarshipType: SCHOLARSHIP_TYPE,
+  assignedScholarshipType: SCHOLARSHIP_TYPE,
   interviews: {
     where: { status: { not: 'CANCELLED' } },
     orderBy: { createdAt: 'desc' },
@@ -130,8 +146,11 @@ export class AdminApplicationsService {
       { header: 'Estado/Provincia', value: (r) => r.divisionName },
       { header: 'Municipio/Ciudad', value: (r) => r.municipalityName },
       { header: 'Oferta', value: (r) => r.offer.name },
-      { header: 'Nivel solicitado', value: (r) => levelLabel(r.requestedLevel) },
-      { header: 'Nivel asignado', value: (r) => levelLabel(r.assignedLevel) },
+      { header: 'Beca solicitada', value: (r) => r.requestedScholarshipType?.name ?? '' },
+      {
+        header: 'Beca asignada',
+        value: (r) => r.assignedScholarshipTypeName ?? r.assignedScholarshipType?.name ?? '',
+      },
       { header: '% asignado', value: (r) => r.assignedPercent },
       { header: 'Saldo (centavos)', value: (r) => r.balanceCents },
       { header: 'Moneda', value: (r) => r.currency },
@@ -182,25 +201,30 @@ export class AdminApplicationsService {
     if (!(UNDER_REVIEW_STATUSES as readonly string[]).includes(app.status)) {
       throw new AppException('APPLICATION_INVALID_STATE', { meta: { status: app.status } });
     }
-    if (dto.suggestedLevel) {
+    if (dto.suggestedScholarshipTypeId) {
       if (app.kind !== 'SCHOLARSHIP') {
         throw AppException.validation([
-          { field: 'suggestedLevel', code: 'NOT_APPLICABLE', message: 'Solo aplica a becas.' },
+          {
+            field: 'suggestedScholarshipTypeId',
+            code: 'NOT_APPLICABLE',
+            message: 'Solo aplica a becas.',
+          },
         ]);
       }
-      if (!app.offer.scholarshipLevels.includes(dto.suggestedLevel)) {
+      const enabled = scholarshipOptions(app.offer.scholarshipTypes, { activeOnly: false });
+      if (!enabled.some((o) => o.id === dto.suggestedScholarshipTypeId)) {
         throw AppException.validation([
           {
-            field: 'suggestedLevel',
-            code: 'LEVEL_NOT_ENABLED',
-            message: 'El nivel no está habilitado en esta oferta.',
+            field: 'suggestedScholarshipTypeId',
+            code: FIELD_ERROR_CODES.SCHOLARSHIP_TYPE_NOT_ENABLED,
+            message: 'El tipo de beca no está habilitado en esta oferta.',
           },
         ]);
       }
     }
     const data = {
       recommendation: dto.recommendation,
-      suggestedLevel: dto.suggestedLevel ?? null,
+      suggestedScholarshipTypeId: dto.suggestedScholarshipTypeId ?? null,
       comment: dto.comment?.trim() || null,
     };
     const previous = await this.prisma.applicationEvaluation.findUnique({
@@ -220,7 +244,7 @@ export class AdminApplicationsService {
       before: previous
         ? {
             recommendation: previous.recommendation,
-            suggestedLevel: previous.suggestedLevel,
+            suggestedScholarshipTypeId: previous.suggestedScholarshipTypeId,
             comment: previous.comment,
           }
         : null,
@@ -314,7 +338,8 @@ export class AdminApplicationsService {
       return {
         decision: 'REJECT',
         status: 'NOT_SELECTED',
-        assignedLevel: null,
+        assignedScholarshipTypeId: null,
+        assignedScholarshipType: null,
         assignedPercent: null,
         balance: null,
         responseDueAt: null,
@@ -324,25 +349,16 @@ export class AdminApplicationsService {
       };
     }
     let assignedPercent: number | null = null;
-    let assignedLevel: ScholarshipLevel | null = null;
+    let assigned: ReturnType<typeof toScholarshipTypeSummary> | null = null;
     if (app.kind === 'SCHOLARSHIP') {
-      if (!query.assignedLevel) {
-        throw AppException.validation([
-          { field: 'assignedLevel', code: 'REQUIRED', message: 'Elige el nivel asignado.' },
-        ]);
-      }
-      const resolved = resolveAssignedPercent(
-        query.assignedLevel,
-        app.offer.scholarshipLevels,
+      const assignment = resolveScholarshipAssignment(
+        app.offer.scholarshipTypes,
+        query.assignedScholarshipTypeId,
         query.assignedPercent,
       );
-      if (!resolved.ok) {
-        throw AppException.validation([
-          { field: 'assignedPercent', code: 'INVALID', message: resolved.message },
-        ]);
-      }
-      assignedLevel = query.assignedLevel;
-      assignedPercent = resolved.percent;
+      if (!assignment.ok) throw AppException.validation([assignment.issue]);
+      assigned = toScholarshipTypeSummary(assignment.option);
+      assignedPercent = assignment.percent;
     }
     const balanceCents =
       app.kind === 'SCHOLARSHIP'
@@ -355,16 +371,17 @@ export class AdminApplicationsService {
     const balance = money(balanceCents, app.currency);
     const message = statusChangeMessage(status, {
       ...ctx,
-      assignedLevel,
+      assignedScholarshipTypeName: assigned?.name ?? null,
       assignedPercent,
       balance,
       responseDueAt,
     })!;
-    const required = interviewRequired(app.kind, assignedPercent);
+    const required = interviewRequired(app.kind, assigned?.requiresInterview);
     return {
       decision: 'APPROVE',
       status,
-      assignedLevel,
+      assignedScholarshipTypeId: assigned?.id ?? null,
+      assignedScholarshipType: assigned,
       assignedPercent,
       balance,
       responseDueAt: responseDueAt.toISOString(),
@@ -384,7 +401,7 @@ export class AdminApplicationsService {
       this.workflow.approve(
         applicationId,
         {
-          assignedLevel: dto.assignedLevel ?? null,
+          assignedScholarshipTypeId: dto.assignedScholarshipTypeId ?? null,
           assignedPercent: dto.assignedPercent ?? null,
           note: dto.note ?? null,
           participantMessage: dto.message ?? null,
@@ -401,7 +418,8 @@ export class AdminApplicationsService {
       before: { status: app.status },
       after: {
         status: updated.status,
-        assignedLevel: updated.assignedLevel,
+        assignedScholarshipTypeId: updated.assignedScholarshipTypeId,
+        assignedScholarshipTypeName: updated.assignedScholarshipTypeName,
         assignedPercent: updated.assignedPercent,
         balanceCents: updated.balanceCents,
         responseDueAt: updated.responseDueAt,
@@ -476,14 +494,19 @@ export class AdminApplicationsService {
     ];
     if (q.kind) and.push({ kind: q.kind });
     if (q.offerId) and.push({ offerId: q.offerId });
-    if (q.level) and.push({ requestedLevel: q.level });
+    if (q.scholarshipTypeId) and.push({ requestedScholarshipTypeId: q.scholarshipTypeId });
     if (q.countryCode) and.push({ countryCode: q.countryCode.toUpperCase() });
     if (q.withoutMyEvaluation) and.push({ evaluations: { none: { evaluatorId: user.id } } });
     const interview: Prisma.ApplicationWhereInput = {
       OR: [
         { kind: 'OPEN_CALL' },
-        { assignedPercent: { gt: BUSINESS_RULES.SCHOLARSHIP_INTERVIEW_REQUIRED_ABOVE_PERCENT } },
-        { assignedPercent: null, requestedLevel: { in: levelsRequiringInterview() } },
+        // Mismo criterio que `applicationRequiresInterview`: el tipo asignado o, sin decisión, el
+        // solicitado.
+        { assignedScholarshipType: { requiresInterview: true } },
+        {
+          assignedScholarshipTypeId: null,
+          requestedScholarshipType: { requiresInterview: true },
+        },
       ],
     };
     if (q.requiresInterview === true) and.push(interview);
@@ -506,7 +529,9 @@ export class AdminApplicationsService {
     const app = await this.prisma.application.findUnique({
       where: { id: applicationId },
       include: {
-        offer: { select: { startsAt: true, scholarshipLevels: true } },
+        offer: {
+          select: { startsAt: true, scholarshipTypes: OFFER_SCHOLARSHIP_TYPES_RELATION },
+        },
         interviews: { select: { status: true } },
       },
     });
@@ -532,7 +557,7 @@ export class AdminApplicationsService {
             id: true,
             name: true,
             slug: true,
-            scholarshipLevels: true,
+            scholarshipTypes: OFFER_SCHOLARSHIP_TYPES_RELATION,
             priceMxnCents: true,
             priceUsdCents: true,
           },
@@ -551,7 +576,7 @@ export class AdminApplicationsService {
       this.prisma.applicationEvaluation.findMany({
         where: { applicationId },
         orderBy: { updatedAt: 'asc' },
-        include: { evaluator: PERSON },
+        include: { evaluator: PERSON, suggestedScholarshipType: SCHOLARSHIP_TYPE },
       }),
       this.prisma.notification.findMany({
         where: this.notificationsWhere(row),
@@ -579,11 +604,13 @@ export class AdminApplicationsService {
         };
       }),
     );
+    const links = row.offer.scholarshipTypes;
     const evaluationDtos: AdminEvaluationDto[] = evaluations.map((e) => ({
       id: e.id,
       evaluator: e.evaluator,
       recommendation: e.recommendation,
-      suggestedLevel: e.suggestedLevel,
+      suggestedScholarshipTypeId: e.suggestedScholarshipTypeId,
+      suggestedScholarshipType: summaryInOffer(e.suggestedScholarshipType, links),
       comment: e.comment,
       updatedAt: e.updatedAt.toISOString(),
     }));
@@ -603,22 +630,24 @@ export class AdminApplicationsService {
     const priceCents =
       row.originalAmountCents ??
       (row.currency === 'USD' ? row.offer.priceUsdCents : row.offer.priceMxnCents);
-    const levels = SCHOLARSHIP_LEVEL_ORDER.filter(
-      (l) => row.kind === 'SCHOLARSHIP' && row.offer.scholarshipLevels.includes(l),
-    ).map((level) => {
-      const def = BUSINESS_RULES.SCHOLARSHIP_LEVELS[level];
-      return {
-        level,
-        label: def.label,
-        minPercent: def.minPercent,
-        maxPercent: def.maxPercent,
-        requiresInterview: interviewRequired('SCHOLARSHIP', def.maxPercent),
-        balanceAtMaxPercent: money(
-          balanceAfterScholarship(priceCents, def.maxPercent),
-          row.currency,
-        ),
-      };
-    });
+    const scholarshipTypes =
+      row.kind === 'SCHOLARSHIP'
+        ? scholarshipOptions(links, { activeOnly: false }).map((option) => ({
+            scholarshipTypeId: option.id,
+            scholarshipType: toScholarshipTypeSummary(option),
+            active: option.active,
+            balanceAtMaxPercent: money(
+              balanceAfterScholarship(priceCents, option.maxPercent),
+              row.currency,
+            ),
+          }))
+        : [];
+    const summary = summarizeEvaluations(
+      evaluationDtos.map((e) => ({
+        recommendation: e.recommendation,
+        suggestedScholarshipType: e.suggestedScholarshipType,
+      })),
+    );
     const canDecide =
       user.permissions.includes(Permission.APPLICATIONS_DECIDE) &&
       (UNDER_REVIEW_STATUSES as readonly string[]).includes(row.status);
@@ -666,7 +695,10 @@ export class AdminApplicationsService {
         scheduledBy: i.scheduledBy,
       })),
       evaluations: evaluationDtos,
-      evaluationSummary: summarizeEvaluations(evaluations),
+      evaluationSummary: {
+        ...summary,
+        mostSuggestedScholarshipTypeId: summary.mostSuggestedScholarshipType?.id ?? null,
+      },
       myEvaluationDetail: mine,
       decision: {
         canDecide,
@@ -674,8 +706,13 @@ export class AdminApplicationsService {
         hasCompletedInterview,
         blockedReason: required && !hasCompletedInterview ? 'APPLICATION_INTERVIEW_REQUIRED' : null,
         price: money(priceCents, row.currency),
-        levels,
-        assignedLevel: row.assignedLevel,
+        scholarshipTypes,
+        assignedScholarshipTypeId: row.assignedScholarshipTypeId,
+        assignedScholarshipType: assignedSummary(
+          row.assignedScholarshipType,
+          links,
+          row.assignedScholarshipTypeName,
+        ),
         assignedPercent: row.assignedPercent,
         balance: money(row.balanceCents, row.currency),
         responseDueAt: iso(row.responseDueAt),
@@ -706,8 +743,17 @@ function toListItem(row: ListRow, userId: string): AdminApplicationListItemDto {
       countryCode: row.countryCode,
     },
     offer: { id: row.offer.id, name: row.offer.name, slug: row.offer.slug },
-    requestedLevel: row.requestedLevel,
-    assignedLevel: row.assignedLevel,
+    requestedScholarshipTypeId: row.requestedScholarshipTypeId,
+    requestedScholarshipType: summaryInOffer(
+      row.requestedScholarshipType,
+      row.offer.scholarshipTypes,
+    ),
+    assignedScholarshipTypeId: row.assignedScholarshipTypeId,
+    assignedScholarshipType: assignedSummary(
+      row.assignedScholarshipType,
+      row.offer.scholarshipTypes,
+      row.assignedScholarshipTypeName,
+    ),
     assignedPercent: row.assignedPercent,
     submittedAt: iso(row.submittedAt),
     requiresInterview: applicationRequiresInterview(row),
@@ -731,18 +777,6 @@ function orderBy(
     default:
       return [{ submittedAt: 'asc' }, { number: 'asc' }];
   }
-}
-
-function levelsRequiringInterview(): ScholarshipLevel[] {
-  return SCHOLARSHIP_LEVEL_ORDER.filter(
-    (l) =>
-      BUSINESS_RULES.SCHOLARSHIP_LEVELS[l].maxPercent >
-      BUSINESS_RULES.SCHOLARSHIP_INTERVIEW_REQUIRED_ABOVE_PERCENT,
-  );
-}
-
-function levelLabel(level: ScholarshipLevel | null): string {
-  return level ? BUSINESS_RULES.SCHOLARSHIP_LEVELS[level].label : '';
 }
 
 function money(cents: number | null | undefined, currency: string | null): Money | null {

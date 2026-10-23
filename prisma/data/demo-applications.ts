@@ -26,6 +26,9 @@ export interface DemoApplication {
     | 'divisionName'
     | 'municipalityName'
   >;
+  /** Keys de `scholarship_types` (se resuelven a ids al sembrar). */
+  requestedScholarshipTypeKey?: string;
+  assignedScholarshipTypeKey?: string;
   /** Historial de estados (en orden). */
   history: Array<{ status: ApplicationStatus; at: Date; actor: 'PARTICIPANT' | 'STAFF' }>;
   interview?: { startsAt: Date; endsAt: Date; joinUrl: string };
@@ -43,7 +46,6 @@ export const DEMO_APPLICATIONS: DemoApplication[] = [
       status: 'APPROVED_PENDING_PAYMENT',
       statusChangedAt: cdmxToUtc('2026-10-18', '12:00'),
       age: 34,
-      requestedLevel: 'AGUAS_LIBRES',
       intentLetter: repeat(
         'Coordino el comité de agua de mi comunidad y no puedo cubrir el costo completo del diplomado. ' +
           'Con lo aprendido quiero ordenar la gestión del sistema, definir tarifas justas y formar a ' +
@@ -54,7 +56,6 @@ export const DEMO_APPLICATIONS: DemoApplication[] = [
       termsAcceptedAt: cdmxToUtc('2026-10-05', '11:00'),
       currency: 'MXN',
       originalAmountCents: 1_020_000,
-      assignedLevel: 'AGUAS_LIBRES',
       assignedPercent: 50,
       balanceCents: 510_000,
       responseDueAt: cdmxToUtc('2027-01-29', '23:59'),
@@ -62,6 +63,8 @@ export const DEMO_APPLICATIONS: DemoApplication[] = [
       reviewStartedAt: cdmxToUtc('2026-10-06', '09:00'),
       decidedAt: cdmxToUtc('2026-10-18', '12:00'),
     },
+    requestedScholarshipTypeKey: 'AGUAS_LIBRES',
+    assignedScholarshipTypeKey: 'AGUAS_LIBRES',
     history: [
       { status: 'DRAFT', at: cdmxToUtc('2026-10-04', '18:00'), actor: 'PARTICIPANT' },
       { status: 'SUBMITTED', at: cdmxToUtc('2026-10-05', '11:00'), actor: 'PARTICIPANT' },

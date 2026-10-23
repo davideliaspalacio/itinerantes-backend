@@ -15,48 +15,72 @@ const now = new Date('2026-11-10T12:00:00.000Z');
 const hours = (h: number) => new Date(now.getTime() + h * 3600_000);
 
 describe('admin-applications.policy', () => {
-  it('summarizeEvaluations: conteos, nivel más sugerido y texto', () => {
+  const type = (key: string, name: string, minPercent: number, maxPercent = minPercent) => ({
+    id: `st-${key}`,
+    key,
+    name,
+    minPercent,
+    maxPercent,
+    requiresInterview: maxPercent > 70,
+  });
+  const aguasLibres = type('AGUAS_LIBRES', 'Aguas Libres', 50);
+  const rios = type('RIOS_VIVOS', 'Ríos Vivos', 25);
+  const cenotes = type('CENOTES_VIVOS', 'Cenotes Vivos', 70);
+  const special = type('SPECIAL', 'Beca especial', 71, 80);
+
+  it('summarizeEvaluations: conteos, tipo más sugerido y texto', () => {
     const s = summarizeEvaluations([
-      { recommendation: 'APPROVE', suggestedLevel: 'AGUAS_LIBRES' },
-      { recommendation: 'APPROVE', suggestedLevel: 'AGUAS_LIBRES' },
-      { recommendation: 'UNSURE', suggestedLevel: 'RIOS_VIVOS' },
+      { recommendation: 'APPROVE', suggestedScholarshipType: aguasLibres },
+      { recommendation: 'APPROVE', suggestedScholarshipType: aguasLibres },
+      { recommendation: 'UNSURE', suggestedScholarshipType: rios },
     ]);
     expect(s).toMatchObject({ approve: 2, notSelect: 0, unsure: 1, total: 3 });
-    expect(s.mostSuggestedLevel).toBe('AGUAS_LIBRES');
-    expect(s.label).toBe('2 aprobar · 1 con dudas · nivel más sugerido: Aguas Libres 50%');
+    expect(s.mostSuggestedScholarshipType).toEqual(aguasLibres);
+    expect(s.label).toBe('2 aprobar · 1 con dudas · tipo más sugerido: Aguas Libres 50%');
     expect(summarizeEvaluations([]).label).toBe('Sin evaluaciones');
+    expect(
+      summarizeEvaluations([{ recommendation: 'APPROVE', suggestedScholarshipType: null }])
+        .mostSuggestedScholarshipType,
+    ).toBeNull();
   });
 
   it('summarizeEvaluations: empate → menor porcentaje; beca especial con rango', () => {
     expect(
       summarizeEvaluations([
-        { recommendation: 'APPROVE', suggestedLevel: 'SPECIAL' },
-        { recommendation: 'APPROVE', suggestedLevel: 'CENOTES_VIVOS' },
-      ]).mostSuggestedLevel,
+        { recommendation: 'APPROVE', suggestedScholarshipType: special },
+        { recommendation: 'APPROVE', suggestedScholarshipType: cenotes },
+      ]).mostSuggestedScholarshipType?.key,
     ).toBe('CENOTES_VIVOS');
     expect(
-      summarizeEvaluations([{ recommendation: 'NOT_SELECT', suggestedLevel: 'SPECIAL' }]).label,
-    ).toBe('1 no seleccionar · nivel más sugerido: Beca especial 71–80%');
+      summarizeEvaluations([{ recommendation: 'NOT_SELECT', suggestedScholarshipType: special }])
+        .label,
+    ).toBe('1 no seleccionar · tipo más sugerido: Beca especial 71–80%');
   });
 
-  it('applicationRequiresInterview: convocatoria siempre; beca > 70%', () => {
-    const base = { requestedLevel: null, assignedPercent: null };
+  it('applicationRequiresInterview: convocatoria siempre; beca según requiresInterview del tipo', () => {
+    const base = { requestedScholarshipType: null, assignedScholarshipType: null };
     expect(applicationRequiresInterview({ ...base, kind: 'OPEN_CALL' })).toBe(true);
+    expect(applicationRequiresInterview({ ...base, kind: 'SCHOLARSHIP' })).toBe(false);
     expect(
-      applicationRequiresInterview({ ...base, kind: 'SCHOLARSHIP', requestedLevel: 'SPECIAL' }),
+      applicationRequiresInterview({
+        ...base,
+        kind: 'SCHOLARSHIP',
+        requestedScholarshipType: special,
+      }),
     ).toBe(true);
     expect(
       applicationRequiresInterview({
         ...base,
         kind: 'SCHOLARSHIP',
-        requestedLevel: 'CENOTES_VIVOS',
+        requestedScholarshipType: cenotes,
       }),
     ).toBe(false);
+    // El asignado manda sobre el solicitado.
     expect(
       applicationRequiresInterview({
         kind: 'SCHOLARSHIP',
-        requestedLevel: 'SPECIAL',
-        assignedPercent: 50,
+        requestedScholarshipType: special,
+        assignedScholarshipType: aguasLibres,
       }),
     ).toBe(false);
   });
