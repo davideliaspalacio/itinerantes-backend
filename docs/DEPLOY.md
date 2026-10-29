@@ -9,6 +9,7 @@ Arquitectura de producción recomendada:
 | Archivos (S3) | **Supabase Storage** (API S3) | Cloudflare R2, AWS S3 |
 | Correo | **Resend** | Cualquier SMTP (`MAIL_DRIVER=smtp`) |
 | Pagos | **Stripe** (Checkout + webhooks; ver sección 7) | — |
+| Reuniones (opcional) | **Zoom** Server-to-Server OAuth y/o **Google Meet** (Calendar API; ver sección 9) | Pegar enlaces a mano |
 
 ## 1. Base de datos en Supabase
 
@@ -110,6 +111,15 @@ STRIPE_PUBLISHABLE_KEY=pk_live_...                  # informativa (Checkout es h
 BANK_TRANSFER_ACCOUNT_HOLDER=<titular>              # transferencia México (HU-23); si falta un dato no se ofrece
 BANK_TRANSFER_BANK_NAME=<banco>
 BANK_TRANSFER_CLABE=<18 dígitos>
+# Opcionales: reuniones generadas desde el panel (sección 9). Cada proveedor: todas sus variables o ninguna
+ZOOM_ACCOUNT_ID=...                                 # Zoom Server-to-Server OAuth
+ZOOM_CLIENT_ID=...
+ZOOM_CLIENT_SECRET=...
+ZOOM_HOST_USER=<correo del anfitrión>               # vacío = "me" (dueño de la app)
+GOOGLE_MEET_SERVICE_ACCOUNT_EMAIL=...@....iam.gserviceaccount.com
+GOOGLE_MEET_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+GOOGLE_MEET_IMPERSONATE_USER=<usuario de Workspace organizador>
+GOOGLE_MEET_CALENDAR_ID=                            # vacío = primary
 ```
 
    `PORT` lo inyecta Railway (la app lo lee). Los catálogos (países, estados y municipios) se cargan
@@ -285,3 +295,58 @@ Con el primer SUPER_ADMIN, el resto del equipo **se registra en el portal** (HU-
 SUPER_ADMIN le asigna roles en el panel (`PUT /api/v1/admin/users/{id}/roles`; ver
 `docs/frontend/fase-06-admin.md`). Los cambios de rol y las cuentas deshabilitadas aplican de
 inmediato (la API lee los roles de la BD en cada petición del panel).
+
+## 9. Reuniones de Zoom / Google Meet (opcional)
+
+El botón "Generar enlace" del panel (sesiones HU-29 y entrevistas HU-31; `POST /api/v1/admin/meetings`)
+necesita credenciales de al menos un proveedor. Son **opcionales**: sin ellas la app arranca, `GET
+/admin/meetings/providers` responde `enabled: false` y el equipo sigue pegando los enlaces a mano. Cada
+proveedor exige **todas** sus variables o ninguna (si falta una, la app no arranca y el error dice
+cuál). Al arrancar, el log indica `Proveedores de reuniones habilitados: …`.
+
+### Zoom (Server-to-Server OAuth)
+
+1. Con una cuenta de Zoom **con licencia** (las reuniones de cuentas básicas duran 40 min) y rol de
+   administrador, entra a <https://marketplace.zoom.us> → **Develop → Build App → Server-to-Server
+   OAuth App**. Nombre: "EIA Panel".
+2. En **App Credentials** copia **Account ID**, **Client ID** y **Client Secret** →
+   `ZOOM_ACCOUNT_ID`, `ZOOM_CLIENT_ID`, `ZOOM_CLIENT_SECRET`.
+3. **Information**: completa nombre de la empresa y contacto (obligatorio para activar).
+4. **Scopes → Add Scopes**: `meeting:write:admin` y `meeting:read:admin` (apps clásicas). En apps con
+   scopes granulares: `meeting:write:meeting:admin`, `meeting:read:meeting:admin` y
+   `meeting:delete:meeting:admin` (crear, consultar el `start_url` nuevo y borrar).
+5. **Activation → Activate your app**.
+6. `ZOOM_HOST_USER`: correo (o id) del usuario de la cuenta que será anfitrión de las reuniones (p. ej.
+   la cuenta institucional con licencia). Vacío = `me` (el usuario que creó la app).
+
+Notas: el `start_url` (enlace de anfitrión) caduca a las ≈2 h; el panel pide uno nuevo con `GET
+/admin/meetings/ZOOM/{id}/host-url`. Las reuniones se crean con sala de espera y sin entrar antes que
+el anfitrión. Rotar el Client Secret: cámbialo en Zoom y en Railway y reinicia (el token en caché se
+descarta solo ante un 401).
+
+### Google Meet (cuenta de servicio + delegación de todo el dominio)
+
+Requiere **Google Workspace** (con cuentas personales de Gmail la delegación no existe y la cuenta de
+servicio no puede crear salas de Meet).
+
+1. En <https://console.cloud.google.com> crea (o elige) un proyecto y habilita **Google Calendar
+   API** (APIs y servicios → Biblioteca).
+2. **IAM y administración → Cuentas de servicio → Crear**. No necesita roles de IAM. En la cuenta
+   creada: **Claves → Agregar clave → JSON**. Del JSON:
+   - `client_email` → `GOOGLE_MEET_SERVICE_ACCOUNT_EMAIL`
+   - `private_key` → `GOOGLE_MEET_PRIVATE_KEY` (tal cual, con los `\n` literales y entre comillas; la
+     API los convierte en saltos de línea).
+   - Anota el `client_id` (numérico) de la cuenta de servicio.
+3. En la **Consola de administración de Google Workspace** (admin.google.com, superadministrador):
+   **Seguridad → Acceso y control de datos → Controles de API → Delegación de todo el dominio →
+   Agregar nuevo**: Client ID = el `client_id` numérico; scope
+   `https://www.googleapis.com/auth/calendar.events`. (Puede tardar unos minutos en aplicar.)
+4. `GOOGLE_MEET_IMPERSONATE_USER`: usuario de Workspace que será el **organizador** de los eventos
+   (p. ej. `agenda@escuelaitinerante.org`); debe tener Google Meet habilitado. Es quien administra la
+   sala (anfitrión).
+5. `GOOGLE_MEET_CALENDAR_ID`: vacío = calendario principal de ese usuario; o el id de un calendario
+   compartido donde el usuario tenga permiso de edición.
+
+Notas: el enlace de Meet es el mismo para anfitrión y participantes (`hostUrl` = `joinUrl`). Las
+entrevistas (HU-31) solo aceptan enlaces de zoom.us: para ellas usa Zoom. Guarda la llave solo en las
+variables de Railway; si se filtra, elimínala en la cuenta de servicio y crea otra.

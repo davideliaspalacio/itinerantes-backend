@@ -36,6 +36,7 @@ renombran una vez publicados.
 | `INVALID_LOCATION` | País / estado / municipio inexistente o que no corresponde al nivel superior (Fase 01). |
 | `INVALID_PHONE` | Longitud del teléfono no válida para el indicativo (Fase 01). |
 | `COURSE_MAX_HOURS_EXCEEDED`, `DIPLOMA_HOURS_MISMATCH` | Panel (Fase 06): curso de más de 9 h / diplomado que no suma 60 h (asistente de ofertas y vista previa de sesiones). |
+| `MUST_BE_FUTURE` | Reuniones generadas (`POST /admin/meetings`): `startAt` en el pasado. |
 | `INVALID_MEETING_URL` | Panel (Fase 06): enlace de sesión que no es `https://…zoom.us` ni `https://meet.google.com`. |
 | `NOT_APPLICABLE`, `SCHOLARSHIP_TYPE_NOT_ENABLED`, `MIN_FILES`, `MUST_ACCEPT` | Formulario de postulación (Fase 04): campo de otro tipo, tipo de beca no habilitado o desactivado en la oferta (antes `LEVEL_NOT_ENABLED`; también al asignar/sugerir en el panel), faltan evidencias, casilla obligatoria sin marcar. |
 | `SCHOLARSHIP_TYPE_FULL` | Tipo de beca sin cupo: al solicitarlo en el formulario (`422 BUSINESS_RULE_VIOLATION` al guardar, o pendiente de `422 APPLICATION_INCOMPLETE` al enviar) → elegir otro tipo. |
@@ -209,3 +210,16 @@ Se reutilizan de fases anteriores: `APPLICATION_INTERVIEW_REQUIRED` (422, decidi
 `PAYMENT_INVALID_STATE` (409), `PAYMENT_CHARGE_FAILED` (422), `PAYMENTS_NOT_CONFIGURED` (503),
 `PAYMENT_PROVIDER_ERROR` (502), `SESSION_CANCELLED` (422, cancelar o marcar asistencia en una sesión ya
 cancelada) y `CONFLICT` (409 genérico: evento ya cancelado, correo Moodle ya vinculado).
+
+### Reuniones generadas — Zoom / Google Meet (apoyo a HU-29 y HU-31)
+
+Guía: [`fase-07-reuniones.md`](./fase-07-reuniones.md).
+
+| `code` | HTTP | Mensaje por defecto | `meta` | Cuándo ocurre / qué hacer en la UI |
+|---|---|---|---|---|
+| `MEETING_PROVIDER_NOT_CONFIGURED` | 503 | La generación de reuniones con este proveedor no está configurada. | `provider` | El proveedor elegido no tiene credenciales en el servidor. Oculta el botón "Generar enlace" para los proveedores que no aparecen en `GET /admin/meetings/providers`; el usuario puede seguir pegando el enlace a mano. |
+| `MEETING_PROVIDER_ERROR` | 502 | No pudimos comunicarnos con el proveedor de videollamadas. Intenta de nuevo. | `provider` | Zoom / Google respondió con error, tardó demasiado o rechazó las credenciales → "Reintentar" o pegar el enlace a mano. |
+
+Además: `VALIDATION_ERROR` (400; `details[]` por `provider`, `topic`, `startAt` —p. ej. fecha en el
+pasado—, `durationMinutes`, `timezone`) y `NOT_FOUND` (404; la reunión ya no existe en el proveedor al
+pedir un enlace de anfitrión nuevo).

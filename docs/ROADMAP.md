@@ -25,8 +25,9 @@ Así el frontend puede integrarse fase por fase.
 | 04 | Postulaciones: becas y convocatorias, seguimiento, vencimientos | HU-19, 20, 21 | Fase 2 |
 | 05 | Pagos: Stripe Checkout, saldo tras beca, transferencias MX, cuotas automáticas, acceso Moodle, Mis pagos y comprobantes | HU-22, 23, 24, 25, 26 | Fase 2 |
 | 06 | Panel administrativo: roles/permisos, CRUD de ofertas (asistente 7 pasos), módulos y recursos, generación de sesiones, asistencia, revisión de postulaciones, embudo, gestión de pagos | HU-27 a HU-33 | Fase 3 |
+| 07 | Reuniones generadas desde el panel: Zoom (Server-to-Server OAuth) y Google Meet (Calendar API) para sesiones y entrevistas ("Generar enlace") | Apoyo a HU-29 y HU-31 | Ampliación pedida por el cliente |
 
-Fuera de alcance (Anexo A del documento): CMS del sitio público, bandeja de mensajes de contacto en el panel, cursos grabados, CFDI, PayPal, integración por API con Zoom y Moodle, WhatsApp/SMS automáticos. Las páginas HU-34 a HU-37 son contenido estático del frontend; el backend solo aporta datos dinámicos (disponibilidad de ofertas, y opcionalmente equipo/premios si se decide).
+Fuera de alcance (Anexo A del documento): CMS del sitio público, bandeja de mensajes de contacto en el panel, cursos grabados, CFDI, PayPal, integración por API con Moodle (la de Zoom/Google Meet se agregó en la fase 07, solo para generar enlaces), WhatsApp/SMS automáticos. Las páginas HU-34 a HU-37 son contenido estático del frontend; el backend solo aporta datos dinámicos (disponibilidad de ofertas, y opcionalmente equipo/premios si se decide).
 
 ## Supuestos del Anexo A
 
@@ -43,3 +44,4 @@ Los supuestos pendientes de confirmar con el cliente (plazos de 7 días, mora a 
 | 04 | hecho |
 | 05 | hecho |
 | 06 | hecho |
+| 07 | hecho |

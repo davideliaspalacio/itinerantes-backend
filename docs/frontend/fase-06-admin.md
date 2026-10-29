@@ -70,6 +70,7 @@ Fuente única: `src/config/permissions.ts` (`GET /admin/roles` la devuelve con t
 | `scholarship_types.write` | Crear, editar, desactivar y borrar tipos de beca (`/admin/scholarship-types`). La lectura usa `offers.read` | ✔ | | | | | |
 | `contact.read` | Bandeja de mensajes de Contacto y contadores (38) | ✔ | ✔ | | | ✔ | |
 | `contact.manage` | Cambiar estado / nota interna de un mensaje (38) | ✔ | ✔ | | | ✔ | |
+| `meetings.create` | "Generar enlace" de Zoom / Google Meet para sesiones y entrevistas (`/admin/meetings`, ver [fase-07-reuniones.md](./fase-07-reuniones.md)) (29, 31) | ✔ | ✔ | ✔ | ✔ | | |
 
 Reglas de las HU que resuelve la matriz:
 - HU-31: "integrante sin permiso de decisión… puede evaluar y comentar, pero no ve Registrar decisión"

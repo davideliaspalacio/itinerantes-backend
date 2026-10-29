@@ -62,6 +62,12 @@ export const Permission = {
    * La lectura (`GET /admin/scholarship-types`) usa `offers.read`.
    */
   SCHOLARSHIP_TYPES_WRITE: 'scholarship_types.write',
+
+  /**
+   * Generar, consultar el enlace de anfitrión y cancelar reuniones de Zoom / Google Meet
+   * (`/admin/meetings`): botón "Generar enlace" de sesiones (HU-29) y entrevistas (HU-31).
+   */
+  MEETINGS_CREATE: 'meetings.create',
 } as const;
 export type Permission = (typeof Permission)[keyof typeof Permission];
 
@@ -79,9 +85,9 @@ const STAFF_BASE: readonly Permission[] = [P.ADMIN_ACCESS, P.OFFERS_READ, P.PAYM
  * | Rol                    | Para qué (HU)                                                                  |
  * |------------------------|---------------------------------------------------------------------------------|
  * | SUPER_ADMIN            | Todo, incluida la gestión de roles y la auditoría                                |
- * | ACADEMIC_COORDINATOR   | Ofertas, contenido, sesiones, asistencia (27–30); revisión y decisión (31); seguimiento (32); bandeja de Contacto (38) |
- * | REVIEW_COMMITTEE       | Revisión: evaluar y entrevistas, SIN registrar decisión (31)                      |
- * | REVIEW_DECIDER         | Revisión con permiso de decisión (31)                                             |
+ * | ACADEMIC_COORDINATOR   | Ofertas, contenido, sesiones, asistencia (27–30); revisión y decisión (31); seguimiento (32); bandeja de Contacto (38); generar reuniones Zoom/Meet |
+ * | REVIEW_COMMITTEE       | Revisión: evaluar y entrevistas, SIN registrar decisión (31); generar reuniones Zoom/Meet |
+ * | REVIEW_DECIDER         | Revisión con permiso de decisión (31); generar reuniones Zoom/Meet                |
  * | FOLLOW_UP              | Seguimiento de postulación a inscripción (32); bandeja de Contacto (38)            |
  * | FINANCE                | Administración y finanzas: acciones sobre pagos (33)                              |
  */
@@ -102,12 +108,14 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     P.FOLLOW_UP_MANAGE,
     P.CONTACT_READ,
     P.CONTACT_MANAGE,
+    P.MEETINGS_CREATE,
   ],
   REVIEW_COMMITTEE: [
     ...STAFF_BASE,
     P.APPLICATIONS_READ,
     P.APPLICATIONS_EVALUATE,
     P.APPLICATIONS_INTERVIEW,
+    P.MEETINGS_CREATE,
   ],
   REVIEW_DECIDER: [
     ...STAFF_BASE,
@@ -115,6 +123,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     P.APPLICATIONS_EVALUATE,
     P.APPLICATIONS_INTERVIEW,
     P.APPLICATIONS_DECIDE,
+    P.MEETINGS_CREATE,
   ],
   FOLLOW_UP: [
     ...STAFF_BASE,
