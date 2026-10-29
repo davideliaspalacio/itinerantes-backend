@@ -708,6 +708,55 @@ async function seedBootstrapAdmin(prisma: PrismaClient): Promise<void> {
   console.log(`  ${bootstrapMessage(result, email)}`);
 }
 
+/**
+ * Verificación manual del correo para cuentas que no pueden recibir el OTP (p. ej. el equipo, antes
+ * de que alguien pueda entrar al panel). Solo los correos EXPLÍCITOS de BOOTSTRAP_VERIFY_EMAILS
+ * (separados por coma); sin la variable no hace nada. Idempotente: ignora las ya verificadas.
+ * PENDING_VERIFICATION → ACTIVE (DISABLED se respeta), invalida OTP pendientes y deja auditoría.
+ * Quita la variable cuando termine (docs/DEPLOY.md, sección 8).
+ */
+async function seedVerifyEmails(prisma: PrismaClient): Promise<void> {
+  const emails = (process.env.BOOTSTRAP_VERIFY_EMAILS ?? '')
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+  if (emails.length === 0) {
+    console.log('  BOOTSTRAP_VERIFY_EMAILS vacío: nada que verificar.');
+    return;
+  }
+  const users = await prisma.user.findMany({
+    where: { email: { in: emails }, emailVerifiedAt: null },
+    select: { id: true, email: true, status: true },
+  });
+  const now = new Date();
+  for (const u of users) {
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: u.id },
+        data: { emailVerifiedAt: now, status: u.status === 'DISABLED' ? 'DISABLED' : 'ACTIVE' },
+      }),
+      prisma.otpCode.updateMany({
+        where: { userId: u.id, purpose: 'EMAIL_VERIFICATION', consumedAt: null },
+        data: { consumedAt: now },
+      }),
+      prisma.adminAuditLog.create({
+        data: {
+          actorId: null,
+          actorEmail: 'bootstrap',
+          action: 'user.verify-email',
+          entityType: 'User',
+          entityId: u.id,
+          summary: `Verificó manualmente el correo de ${u.email} (BOOTSTRAP_VERIFY_EMAILS).`,
+        },
+      }),
+    ]);
+    console.log(`  Verificado: ${u.email}`);
+  }
+  console.log(
+    `  ${users.length} de ${emails.length} correo(s) verificados (el resto ya lo estaba o no existe).`,
+  );
+}
+
 /** Cifras de la landing: crea las que falten, nunca pisa lo editado en el panel (seguro en producción). */
 async function seedSiteMetrics(prisma: PrismaClient): Promise<void> {
   const { count } = await prisma.siteMetric.createMany({
@@ -744,6 +793,7 @@ const seeders: Array<[name: string, run: Seeder]> = [
   ['Becas — tipos de beca por defecto', seedScholarshipTypes],
   ['Fase 01 — usuarios demo', seedDemoUsers],
   ['Fase 06 — primer SUPER_ADMIN (BOOTSTRAP_ADMIN_*)', seedBootstrapAdmin],
+  ['Equipo — verificar correos (BOOTSTRAP_VERIFY_EMAILS)', seedVerifyEmails],
   ['Fase 02 — ofertas demo', seedDemoOffers],
   ['Fase 03 — portal demo', seedDemoPortal],
   ['Fase 04 — postulaciones demo', seedDemoApplications],
