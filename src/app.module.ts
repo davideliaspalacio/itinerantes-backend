@@ -14,6 +14,7 @@ import { CaptchaModule } from './infra/captcha/captcha.module';
 import { MailModule } from './infra/mail/mail.module';
 import { PrismaModule } from './infra/prisma/prisma.module';
 import { StorageModule } from './infra/storage/storage.module';
+import { MeetingsInfraModule } from './infra/meetings/meetings-infra.module';
 import { StripeModule } from './infra/stripe/stripe.module';
 import { ApplicationsModule } from './modules/applications/applications.module';
 import { AuditModule } from './modules/audit/audit.module';
@@ -28,6 +29,7 @@ import { HealthModule } from './modules/health/health.module';
 import { LibraryModule } from './modules/library/library.module';
 import { LiveSessionsModule } from './modules/live-sessions/live-sessions.module';
 import { LocationsModule } from './modules/locations/locations.module';
+import { MeetingsModule } from './modules/meetings/meetings.module';
 import { MoodleModule } from './modules/moodle/moodle.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { OffersModule } from './modules/offers/offers.module';
@@ -83,6 +85,7 @@ import { UsersModule } from './modules/users/users.module';
     StorageModule,
     CaptchaModule,
     StripeModule,
+    MeetingsInfraModule,
 
     // Dominio
     HealthModule,
@@ -108,6 +111,8 @@ import { UsersModule } from './modules/users/users.module';
     MoodleModule,
     // Fase 06 — Panel administrativo (los controladores admin-* viven en cada dominio)
     AuditModule,
+    // Reuniones de Zoom / Google Meet generadas desde el panel (apoyo a HU-29 y HU-31)
+    MeetingsModule,
   ],
   providers: [
     // Orden: rate limit → autenticación (respeta @Public()) → roles (@Roles()) → permisos del panel

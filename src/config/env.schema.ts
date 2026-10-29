@@ -32,6 +32,19 @@ const optionalString = z
   .optional()
   .transform((value) => (value && value.trim() !== '' ? value : undefined));
 
+/** Variables obligatorias de cada proveedor de reuniones: todas o ninguna. */
+const MEETING_PROVIDER_ENV_GROUPS = [
+  { name: 'Zoom', keys: ['ZOOM_ACCOUNT_ID', 'ZOOM_CLIENT_ID', 'ZOOM_CLIENT_SECRET'] },
+  {
+    name: 'Google Meet',
+    keys: [
+      'GOOGLE_MEET_SERVICE_ACCOUNT_EMAIL',
+      'GOOGLE_MEET_PRIVATE_KEY',
+      'GOOGLE_MEET_IMPERSONATE_USER',
+    ],
+  },
+] as const;
+
 export const envSchema = z
   .object({
     // --- App ---
@@ -149,6 +162,26 @@ export const envSchema = z
     BOOTSTRAP_ADMIN_EMAIL: optionalString,
     BOOTSTRAP_ADMIN_PASSWORD: optionalString,
     BOOTSTRAP_ADMIN_NAME: optionalString,
+
+    // --- Reuniones generadas desde el panel (Zoom / Google Meet; apoyo a HU-29 y HU-31) ---
+    // Cada proveedor se habilita solo si TODAS sus variables obligatorias están presentes (o ninguna:
+    // proveedor deshabilitado). Ver docs/DEPLOY.md → "Reuniones".
+    /** Zoom Server-to-Server OAuth: Account ID de la app. */
+    ZOOM_ACCOUNT_ID: optionalString,
+    /** Zoom Server-to-Server OAuth: Client ID. */
+    ZOOM_CLIENT_ID: optionalString,
+    /** Zoom Server-to-Server OAuth: Client Secret. */
+    ZOOM_CLIENT_SECRET: optionalString,
+    /** Usuario de Zoom que será anfitrión (correo o id). Por defecto `me` (el dueño de la app). */
+    ZOOM_HOST_USER: optionalString,
+    /** Google Meet: correo de la cuenta de servicio (…@….iam.gserviceaccount.com). */
+    GOOGLE_MEET_SERVICE_ACCOUNT_EMAIL: optionalString,
+    /** Google Meet: llave privada PEM de la cuenta de servicio (se aceptan saltos de línea como `\n`). */
+    GOOGLE_MEET_PRIVATE_KEY: optionalString,
+    /** Google Meet: usuario de Workspace al que la cuenta de servicio suplanta (delegación de dominio). */
+    GOOGLE_MEET_IMPERSONATE_USER: optionalString,
+    /** Google Meet: calendario donde se crean los eventos. Por defecto `primary`. */
+    GOOGLE_MEET_CALENDAR_ID: optionalString,
   })
   .superRefine((env, ctx) => {
     if (env.MAIL_DRIVER === 'resend' && !env.RESEND_API_KEY) {
@@ -156,6 +189,25 @@ export const envSchema = z
         code: 'custom',
         path: ['RESEND_API_KEY'],
         message: 'Obligatoria cuando MAIL_DRIVER=resend',
+      });
+    }
+    for (const group of MEETING_PROVIDER_ENV_GROUPS) {
+      const missing = group.keys.filter((key) => !env[key]);
+      if (missing.length > 0 && missing.length < group.keys.length) {
+        for (const key of missing) {
+          ctx.addIssue({
+            code: 'custom',
+            path: [key],
+            message: `Configura todas las variables de ${group.name} (${group.keys.join(', ')}) o ninguna`,
+          });
+        }
+      }
+    }
+    if (env.GOOGLE_MEET_PRIVATE_KEY && !env.GOOGLE_MEET_PRIVATE_KEY.includes('PRIVATE KEY')) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['GOOGLE_MEET_PRIVATE_KEY'],
+        message: 'Debe ser una llave PEM (-----BEGIN PRIVATE KEY----- …)',
       });
     }
   });

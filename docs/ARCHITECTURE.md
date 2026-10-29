@@ -44,6 +44,7 @@ src/
     utils/                # time (CDMX <-> UTC), money, slug, etc.
   infra/                  # adaptadores a servicios externos
     prisma/  mail/  storage/  captcha/ (Turnstile)  stripe/ (puerto PaymentGateway + Stripe)
+    meetings/ (puerto MeetingGateway + Zoom S2S OAuth + Google Meet vía Calendar API)
   modules/                # un módulo por dominio
     <dominio>/
       <dominio>.module.ts
@@ -427,6 +428,43 @@ que creó los 5 tipos iniciales con las mismas keys y migró ofertas, postulacio
   porque la FK de la postulación ya tomó KEY SHARE y `FOR UPDATE` provocaría deadlock) → 409
   `SCHOLARSHIP_TYPE_FULL`. `EXPIRED → ENROLLED` por pago tardío (SISTEMA) no se bloquea.
 - El seed crea los tipos por defecto solo si el catálogo está vacío (`seedScholarshipTypes`; un tipo borrado desde el panel no reaparece).
+
+## Reuniones generadas: Zoom / Google Meet
+
+Apoyo a HU-29 (sesiones en vivo) y HU-31 (entrevistas): el panel puede **generar** la reunión con el
+botón "Generar enlace" en lugar de pegar el enlace a mano. Endpoints `/admin/meetings` (módulo
+`src/modules/meetings/`, permiso `meetings.create`: SUPER_ADMIN, ACADEMIC_COORDINATOR, REVIEW_COMMITTEE,
+REVIEW_DECIDER). Guía frontend: `docs/frontend/fase-07-reuniones.md`.
+
+- **Sin estado propio**: no hay tabla nueva. `POST /admin/meetings` crea la reunión en el proveedor y
+  devuelve `{ provider, externalId, joinUrl, hostUrl, password, startAt, durationMinutes }`; el panel
+  copia los enlaces al formulario y los envía con los endpoints de siempre (sesiones / entrevistas, sin
+  cambios). Si el usuario descarta, `DELETE /admin/meetings/{provider}/{externalId}` (idempotente).
+  Alta y cancelación quedan en la auditoría (`meeting.create` / `meeting.cancel`, `entityType =
+  Meeting`, `entityId = PROVIDER:externalId`; `hostUrl` nunca se audita).
+- **Puerto `MeetingGateway`** (`infra/meetings/meeting-gateway.ts`, token `MEETING_GATEWAY`,
+  `MeetingsInfraModule` global): `ProviderMeetingGateway` compone `ZoomMeetingProvider` y
+  `GoogleMeetProvider`; cada uno se habilita solo si TODAS sus variables están presentes (`env.schema`
+  rechaza un proveedor a medias). Sin variables la app arranca igual: `GET /admin/meetings/providers`
+  los marca `enabled: false` y las llamadas responden 503 `MEETING_PROVIDER_NOT_CONFIGURED`. Las e2e
+  usan `test/utils/fake-meeting-gateway.ts`.
+- **Sin SDKs**: `fetch` nativo con `AbortSignal.timeout` (`MEETING_PROVIDER_TIMEOUT_SECONDS`); los
+  tokens OAuth se cachean en memoria (`OAuthTokenCache`, renovación `MEETING_TOKEN_REFRESH_MARGIN_SECONDS`
+  antes de vencer; un 401 invalida el token y reintenta una vez). Fallos de red, timeouts y respuestas
+  inesperadas → 502 `MEETING_PROVIDER_ERROR` (`meta.provider`). Los logs solo llevan método/ruta,
+  status y el mensaje del proveedor: nunca tokens, secretos, cuerpos ni la llave.
+- **Zoom** (Server-to-Server OAuth): token `POST https://zoom.us/oauth/token?grant_type=account_credentials`
+  (Basic auth); `POST /v2/users/{ZOOM_HOST_USER|me}/meetings` (tipo 2, sala de espera, sin entrar antes
+  que el anfitrión). `start_url` (`hostUrl`) **caduca** (≈2 h): `GET
+  /admin/meetings/ZOOM/{id}/host-url` hace `GET /v2/meetings/{id}` y devuelve uno nuevo. Cancelar =
+  `DELETE /v2/meetings/{id}` (404 = ya no existe).
+- **Google Meet** (Calendar API + cuenta de servicio con delegación de dominio): aserción JWT RS256
+  firmada con `node:crypto` (`google-jwt.ts`), intercambio en `https://oauth2.googleapis.com/token`
+  con scope `calendar.events`; evento con `conferenceDataVersion=1` y `conferenceData.createRequest`
+  (`hangoutsMeet`). `joinUrl` = `hostUrl` = `hangoutLink` (si la sala queda "pending" se relee el
+  evento; si falla, se borra el evento y 502). Cancelar = borrar el evento (404/410 = OK).
+- Los enlaces generados se validan con `isZoomUrl` / `isMeetingUrl` (`common/utils/urls.ts`). Las
+  entrevistas (HU-31) solo aceptan zoom.us: `providers[].usableForInterviews` lo indica a la UI.
 
 ## Reglas de negocio configurables
 

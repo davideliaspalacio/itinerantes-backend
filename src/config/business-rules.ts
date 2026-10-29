@@ -215,6 +215,26 @@ export const BUSINESS_RULES = {
   MOODLE_ACCESS_CODE_THROTTLE: { limit: 10, ttlSeconds: 600 },
 
   // ---------------------------------------------------------------------------
+  // Reuniones generadas desde el panel (Zoom / Google Meet; apoyo a HU-29 y HU-31)
+  // ---------------------------------------------------------------------------
+  /** Título de la reunión ("topic" en Zoom, "summary" del evento en Google Calendar). */
+  MEETING_TOPIC_MIN_LENGTH: 3,
+  MEETING_TOPIC_MAX_LENGTH: 200,
+  /** Duración permitida al generar la reunión: de 15 min a 8 h (una sesión o una entrevista). */
+  MEETING_DURATION_MIN_MINUTES: 15,
+  MEETING_DURATION_MAX_MINUTES: 480,
+  /** Tiempo máximo de espera por cada llamada HTTP a Zoom / Google. */
+  MEETING_PROVIDER_TIMEOUT_SECONDS: 15,
+  /** El token OAuth en caché se renueva cuando le quedan menos de N segundos de vida. */
+  MEETING_TOKEN_REFRESH_MARGIN_SECONDS: 60,
+  /**
+   * Google crea la sala de Meet de forma asíncrona (a veces `createRequest.status = pending`): se
+   * vuelve a leer el evento hasta N veces, esperando el intervalo indicado entre intentos.
+   */
+  MEETING_GOOGLE_CONFERENCE_POLL_ATTEMPTS: 3,
+  MEETING_GOOGLE_CONFERENCE_POLL_INTERVAL_MS: 1000,
+
+  // ---------------------------------------------------------------------------
   // Archivos (límites de carga)
   // ---------------------------------------------------------------------------
   FILE_LIMITS: {

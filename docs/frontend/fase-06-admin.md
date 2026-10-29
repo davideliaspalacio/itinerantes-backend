@@ -67,6 +67,7 @@ Fuente única: `src/config/permissions.ts` (`GET /admin/roles` la devuelve con t
 | `audit.read` | Registro de auditoría | ✔ | | | | | |
 | `site.write` | Cifras de la landing (`/admin/site/metrics`) | ✔ | | | | | |
 | `scholarship_types.write` | Crear, editar, desactivar y borrar tipos de beca (`/admin/scholarship-types`). La lectura usa `offers.read` | ✔ | | | | | |
+| `meetings.create` | "Generar enlace" de Zoom / Google Meet para sesiones y entrevistas (`/admin/meetings`, ver [fase-07-reuniones.md](./fase-07-reuniones.md)) (29, 31) | ✔ | ✔ | ✔ | ✔ | | |
 
 Reglas de las HU que resuelve la matriz:
 - HU-31: "integrante sin permiso de decisión… puede evaluar y comentar, pero no ve Registrar decisión"

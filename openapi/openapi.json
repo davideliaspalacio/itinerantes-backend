@@ -26130,6 +26130,543 @@
           "audit.read"
         ]
       }
+    },
+    "/api/v1/admin/meetings/providers": {
+      "get": {
+        "description": "HU-29 / HU-31: indica qué proveedores tienen credenciales en el servidor (`enabled`) para mostrar u ocultar el botón \"Generar enlace\" en los formularios de sesión y de entrevista. `usableForInterviews`: la entrevista de HU-31 solo acepta enlaces de zoom.us. Si ninguno está habilitado, el equipo sigue pegando el enlace a mano. Permiso `meetings.create`.",
+        "operationId": "AdminMeetings_providers",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingProvidersResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error. `code` posibles: `UNAUTHORIZED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "UNAUTHORIZED": {
+                    "summary": "UNAUTHORIZED",
+                    "value": {
+                      "statusCode": 401,
+                      "code": "UNAUTHORIZED",
+                      "message": "Necesitas iniciar sesión para continuar.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error. `code` posibles: `FORBIDDEN`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "FORBIDDEN": {
+                    "summary": "FORBIDDEN",
+                    "value": {
+                      "statusCode": 403,
+                      "code": "FORBIDDEN",
+                      "message": "No tienes permiso para realizar esta acción.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Proveedores de reuniones disponibles",
+        "tags": [
+          "Admin – Reuniones (Zoom / Google Meet)"
+        ],
+        "x-required-permissions": [
+          "meetings.create"
+        ]
+      }
+    },
+    "/api/v1/admin/meetings": {
+      "post": {
+        "description": "Crea la reunión en el proveedor y devuelve `joinUrl` / `hostUrl` para copiarlos al formulario de la sesión en vivo (HU-29, `joinUrl` y `hostUrl`) o de la entrevista (HU-31, `joinUrl`; solo Zoom). NO guarda la sesión ni la entrevista: el panel las envía después con sus endpoints de siempre. Si el usuario descarta el formulario, llama a `DELETE /admin/meetings/{provider}/{externalId}`. Zoom: reunión programada con sala de espera y sin entrar antes que el anfitrión; `hostUrl` (start_url) caduca ≈2 h. Google Meet: evento en el calendario configurado con sala de Meet; `hostUrl` = `joinUrl`. `startAt` debe ser futuro (400 `details[].code = MUST_BE_FUTURE`); `timezone` por defecto America/Mexico_City. Auditoría `meeting.create`. Permiso `meetings.create`.",
+        "operationId": "AdminMeetings_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMeetingRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error. `code` posibles: `VALIDATION_ERROR`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "summary": "VALIDATION_ERROR",
+                    "value": {
+                      "statusCode": 400,
+                      "code": "VALIDATION_ERROR",
+                      "message": "Los datos enviados no son válidos.",
+                      "details": [
+                        {
+                          "field": "email",
+                          "code": "IS_EMAIL",
+                          "message": "Debe ser un correo electrónico válido."
+                        }
+                      ],
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error. `code` posibles: `UNAUTHORIZED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "UNAUTHORIZED": {
+                    "summary": "UNAUTHORIZED",
+                    "value": {
+                      "statusCode": 401,
+                      "code": "UNAUTHORIZED",
+                      "message": "Necesitas iniciar sesión para continuar.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error. `code` posibles: `FORBIDDEN`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "FORBIDDEN": {
+                    "summary": "FORBIDDEN",
+                    "value": {
+                      "statusCode": 403,
+                      "code": "FORBIDDEN",
+                      "message": "No tienes permiso para realizar esta acción.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Error. `code` posibles: `MEETING_PROVIDER_ERROR`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "MEETING_PROVIDER_ERROR": {
+                    "summary": "MEETING_PROVIDER_ERROR",
+                    "value": {
+                      "statusCode": 502,
+                      "code": "MEETING_PROVIDER_ERROR",
+                      "message": "No pudimos comunicarnos con el proveedor de videollamadas. Intenta de nuevo.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error. `code` posibles: `MEETING_PROVIDER_NOT_CONFIGURED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "MEETING_PROVIDER_NOT_CONFIGURED": {
+                    "summary": "MEETING_PROVIDER_NOT_CONFIGURED",
+                    "value": {
+                      "statusCode": 503,
+                      "code": "MEETING_PROVIDER_NOT_CONFIGURED",
+                      "message": "La generación de reuniones con este proveedor no está configurada.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Generar reunión (Zoom / Google Meet)",
+        "tags": [
+          "Admin – Reuniones (Zoom / Google Meet)"
+        ],
+        "x-required-permissions": [
+          "meetings.create"
+        ]
+      }
+    },
+    "/api/v1/admin/meetings/{provider}/{externalId}/host-url": {
+      "get": {
+        "description": "HU-29: el `start_url` de Zoom caduca (≈2 h), así que el botón \"Iniciar como anfitrión\" debe pedir uno nuevo aquí justo antes de abrirlo. Google Meet devuelve el mismo enlace de la reunión. 404 `NOT_FOUND` si la reunión ya no existe en el proveedor. Permiso `meetings.create`.",
+        "operationId": "AdminMeetings_hostUrl",
+        "parameters": [
+          {
+            "name": "externalId",
+            "required": true,
+            "in": "path",
+            "description": "`externalId` que devolvió `POST /admin/meetings`.",
+            "schema": {
+              "example": "85746065432",
+              "type": "string"
+            }
+          },
+          {
+            "name": "provider",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "enum": [
+                "ZOOM",
+                "GOOGLE_MEET"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingHostUrlDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error. `code` posibles: `UNAUTHORIZED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "UNAUTHORIZED": {
+                    "summary": "UNAUTHORIZED",
+                    "value": {
+                      "statusCode": 401,
+                      "code": "UNAUTHORIZED",
+                      "message": "Necesitas iniciar sesión para continuar.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error. `code` posibles: `FORBIDDEN`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "FORBIDDEN": {
+                    "summary": "FORBIDDEN",
+                    "value": {
+                      "statusCode": 403,
+                      "code": "FORBIDDEN",
+                      "message": "No tienes permiso para realizar esta acción.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error. `code` posibles: `NOT_FOUND`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "summary": "NOT_FOUND",
+                    "value": {
+                      "statusCode": 404,
+                      "code": "NOT_FOUND",
+                      "message": "El recurso solicitado no existe.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Error. `code` posibles: `MEETING_PROVIDER_ERROR`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "MEETING_PROVIDER_ERROR": {
+                    "summary": "MEETING_PROVIDER_ERROR",
+                    "value": {
+                      "statusCode": 502,
+                      "code": "MEETING_PROVIDER_ERROR",
+                      "message": "No pudimos comunicarnos con el proveedor de videollamadas. Intenta de nuevo.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error. `code` posibles: `MEETING_PROVIDER_NOT_CONFIGURED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "MEETING_PROVIDER_NOT_CONFIGURED": {
+                    "summary": "MEETING_PROVIDER_NOT_CONFIGURED",
+                    "value": {
+                      "statusCode": 503,
+                      "code": "MEETING_PROVIDER_NOT_CONFIGURED",
+                      "message": "La generación de reuniones con este proveedor no está configurada.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Enlace de anfitrión vigente",
+        "tags": [
+          "Admin – Reuniones (Zoom / Google Meet)"
+        ],
+        "x-required-permissions": [
+          "meetings.create"
+        ]
+      }
+    },
+    "/api/v1/admin/meetings/{provider}/{externalId}": {
+      "delete": {
+        "description": "HU-29 / HU-31: borra la reunión en Zoom (o el evento de Google Calendar) cuando el usuario descarta el formulario o cambia de enlace. Idempotente: si ya no existe en el proveedor responde 204 igual. No toca la sesión ni la entrevista guardadas. Auditoría `meeting.cancel`. Permiso `meetings.create`.",
+        "operationId": "AdminMeetings_cancel",
+        "parameters": [
+          {
+            "name": "externalId",
+            "required": true,
+            "in": "path",
+            "description": "`externalId` que devolvió `POST /admin/meetings`.",
+            "schema": {
+              "example": "85746065432",
+              "type": "string"
+            }
+          },
+          {
+            "name": "provider",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "enum": [
+                "ZOOM",
+                "GOOGLE_MEET"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "401": {
+            "description": "Error. `code` posibles: `UNAUTHORIZED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "UNAUTHORIZED": {
+                    "summary": "UNAUTHORIZED",
+                    "value": {
+                      "statusCode": 401,
+                      "code": "UNAUTHORIZED",
+                      "message": "Necesitas iniciar sesión para continuar.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error. `code` posibles: `FORBIDDEN`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "FORBIDDEN": {
+                    "summary": "FORBIDDEN",
+                    "value": {
+                      "statusCode": 403,
+                      "code": "FORBIDDEN",
+                      "message": "No tienes permiso para realizar esta acción.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error. `code` posibles: `NOT_FOUND`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "summary": "NOT_FOUND",
+                    "value": {
+                      "statusCode": 404,
+                      "code": "NOT_FOUND",
+                      "message": "El recurso solicitado no existe.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Error. `code` posibles: `MEETING_PROVIDER_ERROR`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "MEETING_PROVIDER_ERROR": {
+                    "summary": "MEETING_PROVIDER_ERROR",
+                    "value": {
+                      "statusCode": 502,
+                      "code": "MEETING_PROVIDER_ERROR",
+                      "message": "No pudimos comunicarnos con el proveedor de videollamadas. Intenta de nuevo.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error. `code` posibles: `MEETING_PROVIDER_NOT_CONFIGURED`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "MEETING_PROVIDER_NOT_CONFIGURED": {
+                    "summary": "MEETING_PROVIDER_NOT_CONFIGURED",
+                    "value": {
+                      "statusCode": 503,
+                      "code": "MEETING_PROVIDER_NOT_CONFIGURED",
+                      "message": "La generación de reuniones con este proveedor no está configurada.",
+                      "requestId": "3f1c2a9e-5b7d-4c1e-9f0a-2d8b6e4c1a7f"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Cancelar reunión generada",
+        "tags": [
+          "Admin – Reuniones (Zoom / Google Meet)"
+        ],
+        "x-required-permissions": [
+          "meetings.create"
+        ]
+      }
     }
   },
   "info": {
@@ -26320,7 +26857,9 @@
               "SCHOLARSHIP_TYPE_FULL",
               "SCHOLARSHIP_TYPE_NOT_AVAILABLE",
               "ADMIN_LAST_SUPER_ADMIN",
-              "ADMIN_SELF_ACTION"
+              "ADMIN_SELF_ACTION",
+              "MEETING_PROVIDER_NOT_CONFIGURED",
+              "MEETING_PROVIDER_ERROR"
             ]
           },
           "message": {
@@ -27010,7 +27549,8 @@
                 "users.manage",
                 "audit.read",
                 "site.write",
-                "scholarship_types.write"
+                "scholarship_types.write",
+                "meetings.create"
               ]
             }
           }
@@ -27067,7 +27607,8 @@
                 "users.manage",
                 "audit.read",
                 "site.write",
-                "scholarship_types.write"
+                "scholarship_types.write",
+                "meetings.create"
               ]
             }
           }
@@ -27195,7 +27736,8 @@
                 "users.manage",
                 "audit.read",
                 "site.write",
-                "scholarship_types.write"
+                "scholarship_types.write",
+                "meetings.create"
               ]
             }
           },
@@ -41913,6 +42455,179 @@
           "summary",
           "changes",
           "createdAt"
+        ]
+      },
+      "MeetingProviderInfoDto": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "enum": [
+              "ZOOM",
+              "GOOGLE_MEET"
+            ],
+            "example": "ZOOM"
+          },
+          "label": {
+            "type": "string",
+            "example": "Zoom",
+            "description": "Texto para la UI."
+          },
+          "enabled": {
+            "type": "boolean",
+            "example": true,
+            "description": "`true` si el servidor tiene credenciales: muestra el botón \"Generar enlace\"."
+          },
+          "usableForInterviews": {
+            "type": "boolean",
+            "example": true,
+            "description": "Si sirve para entrevistas de postulación (HU-31 exige un enlace de zoom.us: solo Zoom). Ambos sirven para sesiones en vivo (HU-29)."
+          }
+        },
+        "required": [
+          "provider",
+          "label",
+          "enabled",
+          "usableForInterviews"
+        ]
+      },
+      "MeetingProvidersResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "description": "Todos los proveedores conocidos.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MeetingProviderInfoDto"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "CreateMeetingRequestDto": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "enum": [
+              "ZOOM",
+              "GOOGLE_MEET"
+            ],
+            "example": "ZOOM",
+            "description": "Proveedor. Debe estar habilitado (`GET /admin/meetings/providers`). Las entrevistas (HU-31) solo aceptan Zoom."
+          },
+          "topic": {
+            "type": "string",
+            "example": "Diplomado Gestión del Agua — Sesión 3",
+            "minLength": 3,
+            "maxLength": 200,
+            "description": "Título de la reunión (lo ven los participantes en Zoom / Google Calendar)."
+          },
+          "startAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-12T17:00:00.000Z",
+            "description": "Inicio en ISO 8601 con zona (UTC `Z` u offset). Debe ser futuro."
+          },
+          "durationMinutes": {
+            "type": "number",
+            "example": 90,
+            "minimum": 15,
+            "maximum": 480,
+            "description": "Duración en minutos."
+          },
+          "timezone": {
+            "type": "string",
+            "example": "America/Mexico_City",
+            "description": "Zona horaria IANA (ver GET /timezones). Por defecto America/Mexico_City."
+          }
+        },
+        "required": [
+          "provider",
+          "topic",
+          "startAt",
+          "durationMinutes"
+        ]
+      },
+      "MeetingDto": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "enum": [
+              "ZOOM",
+              "GOOGLE_MEET"
+            ],
+            "example": "ZOOM"
+          },
+          "externalId": {
+            "type": "string",
+            "example": "85746065432",
+            "description": "Id de la reunión en el proveedor (Zoom: id numérico; Google: id del evento de Calendar). Guárdalo en el estado del formulario para pedir un enlace de anfitrión nuevo o cancelarla."
+          },
+          "joinUrl": {
+            "type": "string",
+            "example": "https://us02web.zoom.us/j/85746065432?pwd=abc123",
+            "description": "Enlace de participantes → campo `joinUrl` de la sesión / entrevista."
+          },
+          "hostUrl": {
+            "type": "string",
+            "example": "https://us02web.zoom.us/s/85746065432?zak=eyJ0eXAiOi...",
+            "description": "Enlace de anfitrión → campo `hostUrl` de la sesión (HU-29). Zoom: `start_url`, CADUCA (≈2 h): para iniciar la reunión más tarde pide uno nuevo con `GET …/host-url`. Google Meet: igual a `joinUrl` (el anfitrión es la cuenta organizadora del evento)."
+          },
+          "password": {
+            "type": "string",
+            "nullable": true,
+            "example": "abc123",
+            "description": "Contraseña de la reunión (Zoom; ya va incluida en `joinUrl`). `null` en Meet."
+          },
+          "startAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-12T17:00:00.000Z"
+          },
+          "durationMinutes": {
+            "type": "number",
+            "example": 90
+          }
+        },
+        "required": [
+          "provider",
+          "externalId",
+          "joinUrl",
+          "hostUrl",
+          "password",
+          "startAt",
+          "durationMinutes"
+        ]
+      },
+      "MeetingHostUrlDto": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "enum": [
+              "ZOOM",
+              "GOOGLE_MEET"
+            ],
+            "example": "ZOOM"
+          },
+          "externalId": {
+            "type": "string",
+            "example": "85746065432"
+          },
+          "hostUrl": {
+            "type": "string",
+            "example": "https://us02web.zoom.us/s/85746065432?zak=eyJ0eXAiOi...",
+            "description": "Enlace de anfitrión vigente (Zoom: `start_url` recién emitido)."
+          }
+        },
+        "required": [
+          "provider",
+          "externalId",
+          "hostUrl"
         ]
       }
     }

@@ -426,6 +426,15 @@ export const ERROR_CODES = {
     status: HttpStatus.CONFLICT,
     message: 'No puedes quitarte el rol SUPER_ADMIN ni deshabilitar tu propia cuenta.',
   },
+  // Reuniones generadas (Zoom / Google Meet; apoyo a HU-29 y HU-31)
+  MEETING_PROVIDER_NOT_CONFIGURED: {
+    status: HttpStatus.SERVICE_UNAVAILABLE,
+    message: 'La generación de reuniones con este proveedor no está configurada.',
+  },
+  MEETING_PROVIDER_ERROR: {
+    status: HttpStatus.BAD_GATEWAY,
+    message: 'No pudimos comunicarnos con el proveedor de videollamadas. Intenta de nuevo.',
+  },
 } as const satisfies Record<string, ErrorDefinition>;
 
 export type ErrorCode = keyof typeof ERROR_CODES;
@@ -459,6 +468,8 @@ export const FIELD_ERROR_CODES = {
   SCHOLARSHIP_TYPE_INACTIVE: 'SCHOLARSHIP_TYPE_INACTIVE',
   /** Fase 04: campo que no corresponde al tipo de postulación (beca / convocatoria). */
   NOT_APPLICABLE: 'NOT_APPLICABLE',
+  /** Reuniones generadas: la fecha de inicio debe ser futura. */
+  MUST_BE_FUTURE: 'MUST_BE_FUTURE',
 } as const;
 
 export function getErrorDefinition(code: ErrorCode): ErrorDefinition {
