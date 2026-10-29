@@ -1,3 +1,4 @@
+import type { EmailLayoutOptions } from '../../infra/mail/templates/base.template';
 import type {
   NotificationCategory,
   NotificationPriority,
@@ -15,6 +16,7 @@ export const NOTIFICATION_CATEGORY_BY_TYPE: Record<NotificationType, Notificatio
   WHATSAPP_GROUP_AVAILABLE: 'TRAINING',
   MATERIAL_PUBLISHED: 'TRAINING',
   RECORDING_PUBLISHED: 'TRAINING',
+  SESSION_SCHEDULED: 'TRAINING',
   SESSION_RESCHEDULED: 'TRAINING',
   SESSION_CANCELLED: 'TRAINING',
   MOODLE_ENROLLMENT_LINKED: 'TRAINING',
@@ -33,6 +35,14 @@ export const NOTIFICATION_CATEGORY_BY_TYPE: Record<NotificationType, Notificatio
   TRANSFER_VALIDATED: 'PAYMENTS',
   TRANSFER_REJECTED: 'PAYMENTS',
   GENERAL: 'GENERAL',
+};
+
+/** Etiqueta sobre el título del correo según el grupo de la notificación. */
+export const EMAIL_EYEBROW_BY_CATEGORY: Record<NotificationCategory, string> = {
+  TRAINING: 'Tu formación',
+  APPLICATIONS: 'Postulaciones y becas',
+  PAYMENTS: 'Pagos',
+  GENERAL: 'Aviso',
 };
 
 /** Cobro fallido y mora: prioridad alta, fijadas al inicio hasta regularizar (HU-13 / HU-24). */
@@ -61,4 +71,39 @@ export function shouldEmail(email: boolean | object | undefined): boolean {
 /** Une la URL del frontend con la ruta relativa de la acción (sin dobles barras). */
 export function frontendLink(frontendUrl: string, path: string): string {
   return `${frontendUrl.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`;
+}
+
+/** Correo de una notificación (lo usan `NotificationsService` y las vistas previas). */
+export function buildNotificationEmail(input: {
+  fullName: string;
+  type: NotificationType;
+  priority: NotificationPriority;
+  title: string;
+  body: string;
+  frontendUrl: string;
+  action?: { label: string; path: string };
+  custom?: {
+    subject?: string;
+    paragraphs?: string[];
+    details?: { label: string; value: string }[];
+  };
+}): { subject: string; layout: EmailLayoutOptions } {
+  const firstName = input.fullName.split(' ')[0] ?? input.fullName;
+  return {
+    subject: input.custom?.subject ?? input.title,
+    layout: {
+      title: input.title,
+      eyebrow: EMAIL_EYEBROW_BY_CATEGORY[NOTIFICATION_CATEGORY_BY_TYPE[input.type]],
+      tone: input.priority === 'HIGH' ? 'alert' : 'default',
+      preheader: input.body.slice(0, 120),
+      paragraphs: [`Hola, ${firstName}:`, ...(input.custom?.paragraphs ?? [input.body])],
+      details: input.custom?.details,
+      action: input.action
+        ? { label: input.action.label, url: frontendLink(input.frontendUrl, input.action.path) }
+        : undefined,
+      footerNote:
+        'Recibes este correo porque tienes una cuenta en el portal de la Escuela Itinerante del ' +
+        'Agua. También puedes ver este aviso en la campana de notificaciones del portal.',
+    },
+  };
 }

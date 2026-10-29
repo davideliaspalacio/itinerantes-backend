@@ -48,6 +48,8 @@ import {
   sessionCancelledMessage,
   type SessionMessage,
   sessionRescheduledMessage,
+  sessionScheduledMessage,
+  sessionsGeneratedMessage,
 } from './policies/session-admin.policy';
 
 type ImportantKind = Exclude<CalendarEventKind, 'MANUAL'>;
@@ -181,6 +183,7 @@ export class AdminSessionsService {
     }
     const created = plan.toCreate.length;
     const dates = plan.importantDates.length;
+    if (created > 0) await this.notifyGenerated(offerId, plan.toCreate);
     return {
       createdSessions: created,
       importantDates: dates,
@@ -381,6 +384,28 @@ export class AdminSessionsService {
       summary: `Creó una sesión manual en «${offer.name}».`,
       after: { offerId, startsAt, endsAt, moduleId: created.moduleId, category: created.category },
     });
+    const moduleTitle = created.moduleId
+      ? ((
+          await this.prisma.offerModule.findUnique({
+            where: { id: created.moduleId },
+            select: { title: true },
+          })
+        )?.title ?? null)
+      : null;
+    await this.notifyEnrolled(
+      offer,
+      `session-scheduled:${created.id}`,
+      (tz) =>
+        sessionScheduledMessage({
+          offerName: offer.name,
+          startsAt,
+          endsAt,
+          moduleTitle,
+          userTimezone: tz,
+        }),
+      { label: 'Ver mis sesiones', path: PORTAL_LINKS.sessions() },
+      { offerId: offer.id, sessionId: created.id, startsAt: startsAt.toISOString() },
+    );
     return this.get(created.id);
   }
 
@@ -692,6 +717,36 @@ export class AdminSessionsService {
       return new AppException('SESSION_CONFLICT');
     }
     return error;
+  }
+
+  /** Un solo aviso con el resumen de las sesiones generadas (no uno por sesión). */
+  private async notifyGenerated(
+    offerId: string,
+    sessions: readonly { startsAt: Date; endsAt: Date }[],
+  ): Promise<number> {
+    const offer = await this.prisma.offer.findUnique({
+      where: { id: offerId },
+      select: { id: true, name: true },
+    });
+    if (!offer) return 0;
+    const sorted = [...sessions].sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime());
+    const first = sorted[0].startsAt;
+    const last = sorted[sorted.length - 1].startsAt;
+    return this.notifyEnrolled(
+      offer,
+      `sessions-generated:${offerId}:${first.getTime()}:${last.getTime()}:${sessions.length}`,
+      (tz) =>
+        sessionsGeneratedMessage({
+          offerName: offer.name,
+          count: sessions.length,
+          firstStartsAt: first,
+          firstEndsAt: sorted[0].endsAt,
+          lastStartsAt: last,
+          userTimezone: tz,
+        }),
+      { label: 'Ver mis sesiones', path: PORTAL_LINKS.sessions() },
+      { offerId, firstStartsAt: first.toISOString() },
+    );
   }
 
   /**

@@ -929,6 +929,8 @@ enum NotificationType {
   WHATSAPP_GROUP_AVAILABLE
   MATERIAL_PUBLISHED
   RECORDING_PUBLISHED
+  /// Sesión nueva en una formación en la que la persona está inscrita (alta manual o generación).
+  SESSION_SCHEDULED
   SESSION_RESCHEDULED
   SESSION_CANCELLED
   MOODLE_ENROLLMENT_LINKED

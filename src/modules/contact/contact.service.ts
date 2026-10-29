@@ -93,6 +93,7 @@ export class ContactService {
     try {
       await this.mail.sendLayout(message.email, 'Recibimos tu mensaje', {
         title: '¡Gracias! Recibimos tu mensaje.',
+        eyebrow: 'Contacto',
         paragraphs: [
           `Hola, ${message.name}:`,
           `Recibimos tu mensaje sobre "${CONTACT_SUBJECT_LABELS[message.subject]}". El equipo de la Escuela Itinerante del Agua lo revisará y te responderá a este correo lo antes posible.`,

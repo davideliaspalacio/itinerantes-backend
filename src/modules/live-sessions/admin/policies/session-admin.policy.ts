@@ -205,6 +205,78 @@ export interface SessionMessage {
   type: NotificationType;
   title: string;
   body: string;
+  /** Datos clave del correo (opcional; la notificación del portal usa `body`). */
+  email?: { details: { label: string; value: string }[] };
+}
+
+/** "1 h 30 min" / "2 h" / "45 min". */
+export function durationLabel(startsAt: Date, endsAt: Date): string {
+  const minutes = Math.max(0, Math.round((endsAt.getTime() - startsAt.getTime()) / 60_000));
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h === 0) return `${m} min`;
+  return m === 0 ? `${h} h` : `${h} h ${m} min`;
+}
+
+/** HU-13 / HU-29: sesión nueva (alta manual) para quienes ya están inscritos. */
+export function sessionScheduledMessage(input: {
+  offerName: string;
+  startsAt: Date;
+  endsAt: Date;
+  moduleTitle?: string | null;
+  userTimezone: string;
+}): SessionMessage {
+  const when = dualTime(input.startsAt, input.userTimezone);
+  return {
+    type: 'SESSION_SCHEDULED',
+    title: `Nueva sesión: ${input.offerName}`,
+    body:
+      `Se agendó una sesión de ${input.offerName} para el ${when}. El enlace para unirte estará ` +
+      'en Mis sesiones.',
+    email: {
+      details: [
+        { label: 'Formación', value: input.offerName },
+        ...(input.moduleTitle ? [{ label: 'Módulo', value: input.moduleTitle }] : []),
+        { label: 'Fecha y hora', value: when },
+        { label: 'Duración', value: durationLabel(input.startsAt, input.endsAt) },
+      ],
+    },
+  };
+}
+
+/** HU-13 / HU-29: varias sesiones generadas de una vez (un solo aviso con el resumen). */
+export function sessionsGeneratedMessage(input: {
+  offerName: string;
+  count: number;
+  firstStartsAt: Date;
+  firstEndsAt: Date;
+  lastStartsAt: Date;
+  userTimezone: string;
+}): SessionMessage {
+  if (input.count === 1) {
+    return sessionScheduledMessage({
+      offerName: input.offerName,
+      startsAt: input.firstStartsAt,
+      endsAt: input.firstEndsAt,
+      userTimezone: input.userTimezone,
+    });
+  }
+  const first = dualTime(input.firstStartsAt, input.userTimezone);
+  return {
+    type: 'SESSION_SCHEDULED',
+    title: `Nuevas sesiones: ${input.offerName}`,
+    body:
+      `Se agendaron ${input.count} sesiones de ${input.offerName}. La primera es el ${first}. ` +
+      'Consulta todas las fechas y los enlaces en Mis sesiones.',
+    email: {
+      details: [
+        { label: 'Formación', value: input.offerName },
+        { label: 'Sesiones agendadas', value: String(input.count) },
+        { label: 'Primera sesión', value: first },
+        { label: 'Última sesión', value: dualTime(input.lastStartsAt, input.userTimezone) },
+      ],
+    },
+  };
 }
 
 export function sessionRescheduledMessage(input: {

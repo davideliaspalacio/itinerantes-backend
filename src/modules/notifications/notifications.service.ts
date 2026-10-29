@@ -15,8 +15,8 @@ import { PrismaService } from '../../infra/prisma/prisma.service';
 import type { ListNotificationsQueryDto } from './dto/notifications.query.dto';
 import type { NotificationDto, UnreadCountDto } from './dto/notifications.response.dto';
 import {
+  buildNotificationEmail,
   defaultPriority,
-  frontendLink,
   isPinnedOnCreate,
   NOTIFICATION_CATEGORY_BY_TYPE,
   shouldEmail,
@@ -41,7 +41,14 @@ export interface NotifyInput {
    * Correo (HU-13: todos los eventos van al portal y por correo). `false` = solo portal
    * (p. ej. "En revisión"). Con objeto se personaliza el correo; por defecto replica la notificación.
    */
-  email?: boolean | { subject?: string; paragraphs?: string[] };
+  email?:
+    | boolean
+    | {
+        subject?: string;
+        paragraphs?: string[];
+        /** Datos clave del correo (fecha, monto, folio...) en una tabla etiqueta → valor. */
+        details?: { label: string; value: string }[];
+      };
   /**
    * Idempotencia: la misma clave no se notifica dos veces a la misma persona (jobs, reintentos).
    * Convención: `<tipo>:<id>` (p. ej. `attendance-open:<sessionId>`).
@@ -222,19 +229,18 @@ export class NotificationsService {
     for (const notification of created) {
       const user = byId.get(notification.userId);
       if (!user) continue;
-      const firstName = user.fullName.split(' ')[0] ?? user.fullName;
+      const { subject, layout } = buildNotificationEmail({
+        fullName: user.fullName,
+        type: notification.type,
+        priority: notification.priority,
+        title: input.title,
+        body: input.body,
+        frontendUrl: this.frontendUrl,
+        action: input.action,
+        custom,
+      });
       try {
-        await this.mail.sendLayout(user.email, custom?.subject ?? input.title, {
-          title: input.title,
-          preheader: input.body.slice(0, 120),
-          paragraphs: [`Hola, ${firstName}:`, ...(custom?.paragraphs ?? [input.body])],
-          action: input.action
-            ? { label: input.action.label, url: frontendLink(this.frontendUrl, input.action.path) }
-            : undefined,
-          footerNote:
-            'Recibes este correo porque tienes una cuenta en el portal de la Escuela Itinerante del ' +
-            'Agua. También puedes ver este aviso en la campana de notificaciones del portal.',
-        });
+        await this.mail.sendLayout(user.email, subject, layout);
         await this.prisma.notification.update({
           where: { id: notification.id },
           data: { emailStatus: 'SENT', emailSentAt: nowUtc() },

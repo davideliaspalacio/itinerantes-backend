@@ -14,6 +14,7 @@ export function buildOtpEmail(
       subject: `${params.code} es tu código para recuperar tu contraseña`,
       layout: {
         title: 'Recupera tu contraseña',
+        eyebrow: 'Tu cuenta',
         preheader: `Tu código de recuperación es ${params.code}`,
         paragraphs: [
           `Hola, ${firstName}:`,
@@ -31,6 +32,7 @@ export function buildOtpEmail(
     subject: `${params.code} es tu código de verificación`,
     layout: {
       title: 'Verifica tu correo',
+      eyebrow: 'Tu cuenta',
       preheader: `Tu código de verificación es ${params.code}`,
       paragraphs: [
         `Hola, ${firstName}:`,

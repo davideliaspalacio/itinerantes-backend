@@ -15,6 +15,8 @@ export interface PaymentMessage {
   title: string;
   body: string;
   action: { label: string; path: string };
+  /** Datos clave del correo (la notificación del portal usa `body`). */
+  email?: { details: { label: string; value: string }[] };
 }
 
 const date = (d: Date, zone: string) => `${formatInZone(d, zone, 'd/MM/yyyy')}`;
@@ -40,6 +42,14 @@ export function paymentConfirmedMessage(input: {
     action: input.enrolled
       ? { label: 'Ir a mi aula', path: PORTAL_LINKS.classroom(input.offerId) }
       : { label: 'Ver mis pagos', path: PORTAL_LINKS.myPayments() },
+    email: {
+      details: [
+        { label: 'Formación', value: input.offerName },
+        { label: 'Concepto', value: input.concept },
+        { label: 'Monto', value: formatMoney(input.amount) },
+        { label: 'Folio', value: input.folio },
+      ],
+    },
   };
 }
 
@@ -57,6 +67,14 @@ export function installmentPaidMessage(input: {
       `Cobramos la cuota ${input.sequence} de ${input.count} de ${input.offerName}: ` +
       `${formatMoney(input.amount)} (folio ${input.folio}).`,
     action: { label: 'Ver mis pagos', path: PORTAL_LINKS.myPayments() },
+    email: {
+      details: [
+        { label: 'Formación', value: input.offerName },
+        { label: 'Cuota', value: `${input.sequence} de ${input.count}` },
+        { label: 'Monto', value: formatMoney(input.amount) },
+        { label: 'Folio', value: input.folio },
+      ],
+    },
   };
 }
 
@@ -78,6 +96,15 @@ export function installmentUpcomingMessage(input: {
       `El ${date(input.dueAt, input.timezone)} cobraremos ${formatMoney(input.amount)} de ` +
       `${input.offerName} a ${card(input.cardBrand, input.cardLast4)}.`,
     action: { label: 'Ver mis pagos', path: PORTAL_LINKS.myPayments() },
+    email: {
+      details: [
+        { label: 'Formación', value: input.offerName },
+        { label: 'Cuota', value: `${input.sequence} de ${input.count}` },
+        { label: 'Fecha de cobro', value: date(input.dueAt, input.timezone) },
+        { label: 'Monto', value: formatMoney(input.amount) },
+        { label: 'Tarjeta', value: card(input.cardBrand, input.cardLast4) },
+      ],
+    },
   };
 }
 
@@ -103,6 +130,17 @@ export function installmentFailedMessage(input: {
       `paga ahora para evitar que el plan pase a "En mora" a los ` +
       `${BUSINESS_RULES.DELINQUENCY_AFTER_DAYS} días.`,
     action: { label: 'Actualizar tarjeta', path: PORTAL_LINKS.myPayments() },
+    email: {
+      details: [
+        { label: 'Formación', value: input.offerName },
+        { label: 'Cuota', value: `${input.sequence} de ${input.count}` },
+        { label: 'Monto', value: formatMoney(input.amount) },
+        {
+          label: 'Próximo intento',
+          value: input.nextRetryAt ? date(input.nextRetryAt, input.timezone) : 'Sin reintentos',
+        },
+      ],
+    },
   };
 }
 
@@ -122,6 +160,13 @@ export function planDelinquentMessage(input: {
         ? ' Tu acceso a la formación quedó suspendido hasta que regularices el pago.'
         : ' Regulariza tu pago para conservar tu acceso.'),
     action: { label: 'Pagar ahora', path: PORTAL_LINKS.myPayments() },
+    email: {
+      details: [
+        { label: 'Formación', value: input.offerName },
+        { label: 'Saldo pendiente', value: formatMoney(input.pending) },
+        { label: 'Acceso', value: input.accessSuspended ? 'Suspendido' : 'Activo' },
+      ],
+    },
   };
 }
 
@@ -138,6 +183,13 @@ export function transferValidatedMessage(input: {
       `Validamos tu transferencia de ${formatMoney(input.amount)} (folio ${input.folio}). ` +
       `Ya estás inscrito en ${input.offerName}.`,
     action: { label: 'Ir a mi aula', path: PORTAL_LINKS.classroom(input.offerId) },
+    email: {
+      details: [
+        { label: 'Formación', value: input.offerName },
+        { label: 'Monto', value: formatMoney(input.amount) },
+        { label: 'Folio', value: input.folio },
+      ],
+    },
   };
 }
 
