@@ -17,6 +17,7 @@ import { StorageModule } from './infra/storage/storage.module';
 import { MeetingsInfraModule } from './infra/meetings/meetings-infra.module';
 import { StripeModule } from './infra/stripe/stripe.module';
 import { ApplicationsModule } from './modules/applications/applications.module';
+import { AdminDashboardModule } from './modules/admin-dashboard/admin-dashboard.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CalendarModule } from './modules/calendar/calendar.module';
@@ -93,6 +94,7 @@ import { UsersModule } from './modules/users/users.module';
     UsersModule,
     AuthModule,
     ContactModule,
+    AdminDashboardModule,
     SiteModule,
     ScholarshipTypesModule,
     OffersModule,

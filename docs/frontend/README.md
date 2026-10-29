@@ -16,6 +16,7 @@ agrega su guía específica en `docs/frontend/fase-XX-<nombre>.md`.
 | [`fase-05-pagos.md`](fase-05-pagos.md) | Stripe Checkout (pago completo y saldo tras beca), transferencia México, cuotas con cobro automático (fallos, mora, actualizar tarjeta), acceso Moodle, Mis pagos y recibos PDF + acciones de ficha/postulaciones, Dashboard y notificaciones | Fase 05 ✔ |
 | [`fase-06-admin.md`](fase-06-admin.md) | Panel administrativo: acceso por roles y matriz de permisos, equipo y auditoría, tipos de beca parametrizables, asistente de ofertas de 7 pasos, docentes, imágenes, módulos y recursos, generación de sesiones y calendario, asistencia, revisión de postulaciones, embudo y seguimiento, pagos/transferencias/cuotas/reembolsos, Moodle | Fase 06 ✔ |
 | [`fase-07-reuniones.md`](fase-07-reuniones.md) | Botón "Generar enlace": reuniones de Zoom / Google Meet para sesiones en vivo (HU-29) y entrevistas (HU-31), enlace de anfitrión vigente y cancelación | ✔ |
+| [`fase-08-dashboard.md`](fase-08-dashboard.md) | Inicio del panel: cifras por rol (personas, formación, postulaciones, pagos, contacto), pendientes y series por mes | ✔ |
 
 ## Cambio incompatible (becas parametrizables)
 
