@@ -18,7 +18,7 @@ describe('payment-messages.policy (HU-13)', () => {
     expect(m.type).toBe('PAYMENT_CONFIRMED');
     expect(m.body).toContain('$10,200.00 MXN');
     expect(m.body).toContain('PAG-000001');
-    expect(m.action.path).toBe('/portal/aula/o1');
+    expect(m.action.path).toBe('/aula/o1');
   });
 
   it('cobro fallido con reintento y actualización de tarjeta', () => {
@@ -52,6 +52,6 @@ describe('payment-messages.policy (HU-13)', () => {
       dueAt: null,
     });
     expect(r.body).toContain('El monto no coincide');
-    expect(r.action.path).toBe('/portal/postulaciones/a1/pago');
+    expect(r.action.path).toBe('/postulaciones/a1/pago');
   });
 });

@@ -613,11 +613,11 @@ describe('Portal del participante (e2e) — Fase 03', () => {
       expect(notifications.body.data[0]).toMatchObject({
         type: 'ENROLLMENT_CONFIRMED',
         category: 'TRAINING',
-        action: { label: 'Ir a mi aula', path: `/portal/aula/${ids.free}` },
+        action: { label: 'Ir a mi aula', path: `/aula/${ids.free}` },
       });
       const email = mail.last(bob.email);
       expect(email?.subject).toContain('Inscripción confirmada');
-      expect(email?.text).toContain(`/portal/aula/${ids.free}`);
+      expect(email?.text).toContain(`/aula/${ids.free}`);
 
       const again = await post('/me/enrollments', bob, { offerId: ids.free }).expect(409);
       expect(again.body).toMatchObject({
@@ -784,7 +784,7 @@ describe('Portal del participante (e2e) — Fase 03', () => {
       );
       expect(notice.action).toEqual({
         label: 'Registrar asistencia',
-        path: `/portal/asistencia/${sessions.closed}`,
+        path: `/asistencia/${sessions.closed}`,
       });
       expect(notice.body).toContain('cierra en 24 h');
       expect(mail.to(alice.email).some((m) => m.subject === 'Registra tu asistencia')).toBe(true);

@@ -429,7 +429,7 @@ export class OfferActionDto {
     example: 'ENROLL_AND_PAY',
     description:
       'Fase 05: ENROLL_AND_PAY / PAY_IN_INSTALLMENTS → pantalla de pago (`GET /me/payments/quote?offerId=`), ' +
-      'PAY_BALANCE → `/portal/postulaciones/{applicationId}/pago`, CONTINUE_PAYMENT [Continuar pago] ' +
+      'PAY_BALANCE → `/postulaciones/{applicationId}/pago`, CONTINUE_PAYMENT [Continuar pago] ' +
       '(checkout abierto: `POST /me/payments/checkout` devuelve la misma sesión), ' +
       'PAYMENT_IN_VALIDATION "Pago en validación" (deshabilitado), REGULARIZE_PAYMENT [Regularizar ' +
       'pago] → Mis pagos (acceso suspendido por mora).',
@@ -470,7 +470,7 @@ export class OfferActionDto {
     example: null,
     description:
       'Fase 04: en `VIEW_APPLICATION` / `PAY_BALANCE`, id de mi postulación → ' +
-      '`/portal/postulaciones/{applicationId}` (`GET /me/applications/{id}`).',
+      '`/postulaciones/{applicationId}` (`GET /me/applications/{id}`).',
   })
   applicationId!: string | null;
 

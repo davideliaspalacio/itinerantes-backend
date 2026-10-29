@@ -85,6 +85,8 @@ NODE_ENV=production
 LOG_LEVEL=info
 APP_PUBLIC_URL=https://<servicio>.up.railway.app   # o tu dominio propio
 FRONTEND_URL=https://<frontend>
+# Raíz del portal del participante, SIN /portal (botones de correos y regreso de Stripe)
+PORTAL_URL=https://portal.<dominio>
 CORS_ORIGINS=https://<frontend>,https://www.<frontend>
 DOCS_ENABLED=true                                   # /docs público; ponlo en false si no se desea
 DATABASE_URL=...                                    # ver sección 1

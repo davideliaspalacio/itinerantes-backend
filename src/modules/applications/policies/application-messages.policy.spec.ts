@@ -37,7 +37,7 @@ describe('mensajes de postulaciones (HU-13 / HU-21)', () => {
     expect(message.body).toContain('Estado: Enviada');
     expect(message.action).toEqual({
       label: 'Ver mi postulación',
-      path: '/portal/postulaciones/app-1',
+      path: '/postulaciones/app-1',
     });
     expect(statusChangeMessage('SUBMITTED', { ...ctx, kind: 'OPEN_CALL' })!.body).toContain(
       'entrevista por Zoom',
@@ -67,7 +67,7 @@ describe('mensajes de postulaciones (HU-13 / HU-21)', () => {
     expect(message.body).toContain('28/10/2026');
     expect(message.action).toEqual({
       label: 'Pagar saldo',
-      path: '/portal/postulaciones/app-1/pago',
+      path: '/postulaciones/app-1/pago',
     });
   });
 
@@ -77,7 +77,7 @@ describe('mensajes de postulaciones (HU-13 / HU-21)', () => {
     ).toMatchObject({ label: 'Confirmar mi participación' });
     expect(statusChangeMessage('ENROLLED', ctx)!.action).toEqual({
       label: 'Ir a mi aula',
-      path: '/portal/aula/offer-1',
+      path: '/aula/offer-1',
     });
     expect(statusChangeMessage('NOT_SELECTED', ctx)!.body).toContain('No seleccionada');
     const expired = statusChangeMessage('EXPIRED', ctx)!;

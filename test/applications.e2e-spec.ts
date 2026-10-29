@@ -492,7 +492,7 @@ describe('Postulaciones (e2e) — Fase 04', () => {
       const [notice] = await notificationsOf(ana.id, 'APPLICATION_SUBMITTED');
       expect(notice).toMatchObject({
         category: 'APPLICATIONS',
-        actionPath: `/portal/postulaciones/${appId}`,
+        actionPath: `/postulaciones/${appId}`,
         emailStatus: 'SENT',
       });
       expect(notice.body).toContain(res.body.folio);
@@ -593,7 +593,7 @@ describe('Postulaciones (e2e) — Fase 04', () => {
       const [approved] = await notificationsOf(ana.id, 'SCHOLARSHIP_APPROVED');
       expect(approved.body).toContain('Aguas Libres (50%)');
       expect(approved.body).toContain('$5,100.00 MXN');
-      expect(approved.actionPath).toBe(`/portal/postulaciones/${appId}/pago`);
+      expect(approved.actionPath).toBe(`/postulaciones/${appId}/pago`);
       expect(approved.dedupeKey).toMatch(
         new RegExp(`^app-status:${appId}:APPROVED_PENDING_PAYMENT:`),
       );
@@ -824,7 +824,7 @@ describe('Postulaciones (e2e) — Fase 04', () => {
       const [enrolled] = (await notificationsOf(beto.id, 'APPLICATION_STATUS_CHANGED')).filter(
         (n) => n.title.startsWith('Inscrita'),
       );
-      expect(enrolled.actionPath).toBe(`/portal/aula/${ids.call}`);
+      expect(enrolled.actionPath).toBe(`/aula/${ids.call}`);
     });
 
     it('confirmar fuera de plazo → 422 APPLICATION_DEADLINE_PASSED', async () => {

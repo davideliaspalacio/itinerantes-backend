@@ -4,7 +4,7 @@ import { AppException } from '../../common/errors/app.exception';
 import { type Currency, currencyForCountry, isCurrency } from '../../common/utils/money';
 import { addMinutes, nowUtc } from '../../common/utils/time';
 import { BUSINESS_RULES } from '../../config/business-rules';
-import type { Env } from '../../config/env.schema';
+import { type Env, portalBaseUrl } from '../../config/env.schema';
 import type { PaymentConcept, Prisma, User } from '../../generated/prisma/client';
 import { PrismaService } from '../../infra/prisma/prisma.service';
 import { PAYMENT_GATEWAY, type PaymentGateway } from '../../infra/stripe/payment-gateway';
@@ -102,6 +102,7 @@ interface Target {
 @Injectable()
 export class CheckoutService {
   private readonly logger = new Logger(CheckoutService.name);
+  /** Raíz del portal (PORTAL_URL o FRONTEND_URL). */
   private readonly frontendUrl: string;
   private readonly bank: { holder?: string; bank?: string; clabe?: string };
 
@@ -113,7 +114,7 @@ export class CheckoutService {
     @Inject(PAYMENT_GATEWAY) private readonly gateway: PaymentGateway,
     config: ConfigService<Env, true>,
   ) {
-    this.frontendUrl = config.get('FRONTEND_URL', { infer: true });
+    this.frontendUrl = portalBaseUrl(config);
     this.bank = {
       holder: config.get('BANK_TRANSFER_ACCOUNT_HOLDER', { infer: true }),
       bank: config.get('BANK_TRANSFER_BANK_NAME', { infer: true }),

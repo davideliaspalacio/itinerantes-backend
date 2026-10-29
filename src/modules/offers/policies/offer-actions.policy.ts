@@ -70,7 +70,7 @@ export interface OfferAction {
   reason: OfferActionReason | null;
   /** Para *_NOT_OPEN_YET: cuándo se habilita. */
   availableFrom: Date | null;
-  /** VIEW_APPLICATION / PAY_BALANCE: postulación de la persona (ruta /portal/postulaciones/{id}). */
+  /** VIEW_APPLICATION / PAY_BALANCE: postulación de la persona (ruta del portal /postulaciones/{id}). */
   applicationId: string | null;
   applicationStatus: ApplicationStatus | null;
 }

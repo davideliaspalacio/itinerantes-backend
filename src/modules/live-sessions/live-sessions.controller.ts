@@ -61,7 +61,7 @@ export class LiveSessionsController {
     summary: 'Detalle de una sesión',
     description:
       'HU-12 / HU-18: datos de la sesión (oferta, módulo, docente, hora UTC → tu hora y CDMX), ' +
-      'acceso, grabación y asistencia. Úsalo en la ruta `/portal/asistencia/[sesión]` (enlace de ' +
+      'acceso, grabación y asistencia. Úsalo en la ruta `/asistencia/[sesión]` (enlace de ' +
       'la notificación/correo) y para refrescar el botón al llegar `join.opensAt`. Sin inscripción ' +
       'activa → 403 `ENROLLMENT_REQUIRED` (sin enlaces); sesión inexistente → 404.',
   })

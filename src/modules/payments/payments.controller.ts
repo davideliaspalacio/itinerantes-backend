@@ -99,7 +99,7 @@ export class PaymentsController {
       'HU-22 (pago completo), HU-23 (saldo tras beca) y HU-24 (`installmentCount` 2–4 + ' +
       '`autoDebitAuthorized`: se cobra la 1.ª cuota y se guarda la tarjeta). Requiere ' +
       '`termsAccepted: true`. Devuelve `checkoutUrl`: redirige el navegador ahí (`window.location`). ' +
-      'Stripe regresa a `/portal/pagos/resultado?paymentId=…&result=success|cancel`; consulta ' +
+      'Stripe regresa a `/pagos/resultado?paymentId=…&result=success|cancel`; consulta ' +
       '`GET /me/payments/{paymentId}` hasta que deje de estar PENDING. Si ya hay un checkout abierto ' +
       'con los mismos datos se reutiliza (`reused: true`, [Continuar pago]). Con cupo limitado, la ' +
       'reserva retiene el lugar mientras la sesión está abierta (30 min). Nada se cobra hasta que ' +
@@ -193,7 +193,7 @@ export class PaymentsController {
     description:
       'HU-24 / HU-26: crea una sesión de Stripe Checkout en modo `setup` (Stripe pide la tarjeta ' +
       'nueva, con 3-D Secure; el portal no ve datos de tarjeta). Redirige a `checkoutUrl`; al volver ' +
-      '(`/portal/perfil/pagos?planId=…&cardUpdate=success|cancel`) recarga el plan: el webhook guarda ' +
+      '(`/perfil/pagos?planId=…&cardUpdate=success|cancel`) recarga el plan: el webhook guarda ' +
       'la tarjeta y cobra de inmediato las cuotas fallidas.' +
       OWN,
   })

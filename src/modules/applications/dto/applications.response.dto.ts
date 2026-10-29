@@ -148,7 +148,7 @@ export class ApplicationActionDto {
     example: 'PAY_BALANCE',
     description:
       'CONTINUE_DRAFT [Continuar] · JOIN_INTERVIEW [Entrar a la entrevista] (abre `interview.join.url`) ' +
-      '· PAY_BALANCE [Pagar saldo] (Fase 05: `/portal/postulaciones/{id}/pago`) · CONTINUE_PAYMENT ' +
+      '· PAY_BALANCE [Pagar saldo] (Fase 05: `/postulaciones/{id}/pago`) · CONTINUE_PAYMENT ' +
       '[Continuar pago] (ya inició un pago: misma pantalla) · UPLOAD_TRANSFER_PROOF [Subir ' +
       'comprobante] (transferencia rechazada) · PAYMENT_IN_VALIDATION "Pago en validación" ' +
       '(deshabilitado, comprobante en revisión) · ' +

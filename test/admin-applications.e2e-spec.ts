@@ -494,7 +494,7 @@ describe('Admin — Postulaciones y seguimiento (e2e) — Fase 06', () => {
       }).expect(201);
       expect(res.body.url).toMatch(/^https:\/\/wa\.me\/52\d+\?text=/);
       expect(res.body.text).toContain('$5,100.00 MXN');
-      expect(res.body.text).toContain(`/portal/postulaciones/${ids.f2}/pago`);
+      expect(res.body.text).toContain(`/postulaciones/${ids.f2}/pago`);
       await prisma.application.update({ where: { id: ids.f3 }, data: { phoneNumber: '' } });
       const bad = await post(`/admin/applications/${ids.f3}/whatsapp`, followUp).expect(422);
       expect(bad.body.code).toBe('FOLLOW_UP_PHONE_INVALID');

@@ -28,14 +28,14 @@ describe('renderEmail (plantilla con la marca)', () => {
       title: 'Tu plan está en mora',
       body: 'Tienes saldo pendiente.',
       frontendUrl: 'https://portal.example.com/',
-      action: { label: 'Pagar ahora', path: '/portal/perfil/pagos' },
+      action: { label: 'Pagar ahora', path: '/perfil/pagos' },
       custom: { details: [{ label: 'Saldo', value: '$1.00 MXN' }] },
     });
     expect(layout).toMatchObject({
       eyebrow: 'Pagos',
       tone: 'alert',
       paragraphs: ['Hola, Ana:', 'Tienes saldo pendiente.'],
-      action: { url: 'https://portal.example.com/portal/perfil/pagos' },
+      action: { url: 'https://portal.example.com/perfil/pagos' },
     });
     expect(renderEmail(layout).html).toContain('Requiere tu atención');
   });

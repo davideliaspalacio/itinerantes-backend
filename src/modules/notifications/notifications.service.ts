@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { AppException } from '../../common/errors/app.exception';
 import { paginate, type PaginatedResponseDto } from '../../common/dto/pagination.dto';
 import { nowUtc } from '../../common/utils/time';
-import type { Env } from '../../config/env.schema';
+import { type Env, portalBaseUrl } from '../../config/env.schema';
 import type {
   Notification,
   NotificationPriority,
@@ -65,7 +65,7 @@ export interface NotifyInput {
  *   type: 'SCHOLARSHIP_APPROVED',
  *   title: 'Tu beca fue aprobada',
  *   body: 'Nivel Aguas Libres (50%). Saldo: $5,100 MXN. Fecha límite: 14/11/2026.',
- *   action: { label: 'Pagar saldo', path: `/portal/postulaciones/${applicationId}` },
+ *   action: { label: 'Pagar saldo', path: `/postulaciones/${applicationId}` },
  *   data: { applicationId },
  *   dedupeKey: `scholarship-approved:${applicationId}`,
  * });
@@ -74,6 +74,7 @@ export interface NotifyInput {
 @Injectable()
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
+  /** Raíz del portal (PORTAL_URL o FRONTEND_URL). */
   private readonly frontendUrl: string;
 
   constructor(
@@ -81,7 +82,7 @@ export class NotificationsService {
     private readonly mail: MailService,
     config: ConfigService<Env, true>,
   ) {
-    this.frontendUrl = config.get('FRONTEND_URL', { infer: true });
+    this.frontendUrl = portalBaseUrl(config);
   }
 
   /**

@@ -29,7 +29,7 @@ token → `401 UNAUTHORIZED` (refresca y reintenta; ver Fase 01). Fechas en **UT
 | `PUT /me/classrooms/{offerId}/final-project { key }` | 17 | Proyecto final: confirmar entrega |
 | `GET /me/classrooms/{offerId}/final-project/download` | 17 | Proyecto final: descargar mi entrega |
 | `GET /me/sessions?scope=&offerId=` | 12 | Próximas sesiones / historial (en línea) |
-| `GET /me/sessions/{sessionId}` | 12, 18 | Detalle (ruta `/portal/asistencia/[sesión]`) |
+| `GET /me/sessions/{sessionId}` | 12, 18 | Detalle (ruta `/asistencia/[sesión]`) |
 | `POST /me/sessions/{sessionId}/attendance` | 18 | Registrar asistencia |
 | `GET /me/calendar?from=&to=&categories=` | 10 | Calendario del rango |
 | `GET /library?type=&q=` | 09 | Biblioteca |
@@ -118,7 +118,7 @@ Tarjeta (`FormationCardDto`):
   (`modality = IN_PERSON`): hora local del lugar + `offer.venue`. Sin próxima sesión según
   `scheduleStatus`: `FINISHED` → "Finalizado", `NO_UPCOMING_SESSIONS` → "Sin sesiones próximas".
 - **"Vía Moodle"**: badge discreto si `origin = MOODLE`. [Continuar] funciona igual.
-- **[Continuar]** solo si `canContinue` (`false` = suspendida) → Aula `/portal/aula/{offer.id}`.
+- **[Continuar]** solo si `canContinue` (`false` = suspendida) → Aula `/aula/{offer.id}`.
 - **Vacío** (`data: []`): "Aún no tienes [diplomados/cursos/talleres]" + botón a
   `/escuela/oferta?type=DIPLOMA` (o `COURSE`, `WORKSHOP`).
 - "¿No ves tu formación?" (código Moodle, HU-25) llega en la Fase 05.
@@ -256,7 +256,7 @@ El backend **solo** entrega el join_url y **solo** con `state = OPEN`; nunca el 
 ## HU-18 — Registro de asistencia
 
 Desde el historial (HU-12), el Aula (HU-17) o la notificación/correo, que enlaza a
-`/portal/asistencia/{sessionId}`: esa página llama `GET /me/sessions/{sessionId}` (oferta, módulo,
+`/asistencia/{sessionId}`: esa página llama `GET /me/sessions/{sessionId}` (oferta, módulo,
 docente, hora CDMX y local) y pinta según `attendance`:
 
 | `attendance` | UI |
@@ -341,16 +341,16 @@ de un curso; solo llega si estás inscrito), `offer`, `featured`. Para abrir: `G
   `POST /me/notifications/read-all` → `{ updated }`. Las fijadas siguen fijadas hasta regularizarse.
 - Vacío → "No tienes notificaciones".
 
-Rutas que usan `action.path` y los botones de los correos (`FRONTEND_URL + path`). Si el frontend usa
+Rutas que usan `action.path` y los botones de los correos (`PORTAL_URL + path`). Si el frontend usa
 otras rutas, se cambian en `src/modules/notifications/portal-links.ts`:
 
 | Ruta | Pantalla |
 |---|---|
-| `/portal` | Dashboard |
-| `/portal/aula/{offerId}` | Aula |
-| `/portal/aula/{offerId}/materiales#modulo-{moduleId}` | Materiales |
-| `/portal/asistencia/{sessionId}` | Registro de asistencia |
-| `/portal/sesiones` · `/portal/calendario` · `/portal/biblioteca` · `/portal/notificaciones` | |
+| `/` | Dashboard |
+| `/aula/{offerId}` | Aula |
+| `/aula/{offerId}/materiales#modulo-{moduleId}` | Materiales |
+| `/asistencia/{sessionId}` | Registro de asistencia |
+| `/sesiones` · `/calendario` · `/biblioteca` · `/notificaciones` | |
 | `/escuela/oferta/{slug}` | Ficha pública |
 
 Eventos que ya emite la Fase 03 (portal + correo):
@@ -358,7 +358,7 @@ Eventos que ya emite la Fase 03 (portal + correo):
 | `type` | Cuándo | Acción |
 |---|---|---|
 | `ENROLLMENT_CONFIRMED` | Inscripción gratuita confirmada | Ir a mi aula |
-| `ATTENDANCE_OPEN` | Al terminar una sesión (job cada 5 min): "el registro cierra en 24 h" | Registrar asistencia → `/portal/asistencia/{sessionId}` |
+| `ATTENDANCE_OPEN` | Al terminar una sesión (job cada 5 min): "el registro cierra en 24 h" | Registrar asistencia → `/asistencia/{sessionId}` |
 | `WHATSAPP_GROUP_AVAILABLE` | Llega la fecha de visibilidad del grupo (o te inscribes después) | Unirme al grupo → Aula |
 
 Las Fases 04–06 emitirán el resto de tipos (tabla abajo) con el mismo formato.

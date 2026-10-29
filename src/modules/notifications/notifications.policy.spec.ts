@@ -29,7 +29,7 @@ describe('notifications.policy (HU-13)', () => {
   });
 
   it('arma el enlace del frontend', () => {
-    expect(frontendLink('https://eia.mx/', '/portal/aula/1')).toBe('https://eia.mx/portal/aula/1');
+    expect(frontendLink('https://eia.mx/', '/aula/1')).toBe('https://eia.mx/aula/1');
     expect(frontendLink('https://eia.mx', 'portal')).toBe('https://eia.mx/portal');
   });
 });

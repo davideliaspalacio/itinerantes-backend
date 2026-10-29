@@ -44,18 +44,18 @@ Rutas sugeridas del frontend (las usan notificaciones y correos; ver
 
 | Ruta | Pantalla |
 |---|---|
-| `/portal/pagar/{offerSlug}` | Resumen y pago de una oferta (HU-22/24) |
-| `/portal/postulaciones/{applicationId}/pago` | Pagar saldo (HU-23) |
-| `/portal/pagos/resultado?paymentId=…&result=success\|cancel` | Regreso de Stripe Checkout |
-| `/portal/perfil/pagos` | Perfil › Mis pagos (HU-14/26) |
-| `/portal/perfil/pagos/{paymentId}` | Detalle de un pago (opcional; puede ser modal) |
+| `/pagar/{offerSlug}` | Resumen y pago de una oferta (HU-22/24) |
+| `/postulaciones/{applicationId}/pago` | Pagar saldo (HU-23) |
+| `/pagos/resultado?paymentId=…&result=success\|cancel` | Regreso de Stripe Checkout |
+| `/perfil/pagos` | Perfil › Mis pagos (HU-14/26) |
+| `/perfil/pagos/{paymentId}` | Detalle de un pago (opcional; puede ser modal) |
 
 ## Mapa de criterios de aceptación → API
 
 | HU | Criterio | Endpoint / regla |
 |---|---|---|
 | 22 | Precio en mi moneda ($10,200 MXN si México; $585 USD en otro caso) | `quote.amount` (país del perfil); ficha `pricing` (Fase 02) |
-| 22 | Sin sesión → login/registro y regreso al resumen | Ficha `actions[].requiresLogin`; tras login, `/portal/pagar/{slug}` |
+| 22 | Sin sesión → login/registro y regreso al resumen | Ficha `actions[].requiresLogin`; tras login, `/pagar/{slug}` |
 | 22 | Stripe confirma → inscripción activa, comprobante por correo, aparece en Mi formación | Webhook → `PAID`, inscripción `ACTIVE` (`source = PAYMENT`), notificación `PAYMENT_CONFIRMED` (portal + correo con folio y monto) |
 | 22 | Cancelo o vuelvo sin confirmación → "Pago cancelado" / "Procesando pago…"; solo la confirmación activa | `result=cancel` → `POST …/cancel`; `result=success` → polling `GET /me/payments/{id}` |
 | 22 | Ya inscrito o cupo agotado → "Ya estás inscrito · Ir a mi aula" / "Cupo agotado", sin cobro | `quote.blocker` / `409 ENROLLMENT_ALREADY_EXISTS` / `409 OFFER_SOLD_OUT` |
@@ -88,7 +88,7 @@ Rutas sugeridas del frontend (las usan notificaciones y correos; ver
 ### Flujo completo
 
 ```
-Ficha [Inscribirme y pagar] / [Pagar en cuotas]   (sin sesión → login → /portal/pagar/{slug})
+Ficha [Inscribirme y pagar] / [Pagar en cuotas]   (sin sesión → login → /pagar/{slug})
   │
   ▼  GET /me/payments/quote?offerId={offer.id}
 Resumen (paso 1): oferta, fechas (hora CDMX + local), precio con moneda, chips de cuotas,
@@ -98,7 +98,7 @@ Resumen (paso 1): oferta, fechas (hora CDMX + local), precio con moneda, chips d
   ▼  POST /me/payments/checkout { offerId, termsAccepted: true, installmentCount?, autoDebitAuthorized? }
 "Redirigiendo a Stripe…"  →  window.location.assign(checkoutUrl)      (paso 2, en stripe.com)
   │
-  ├─ paga → Stripe redirige a /portal/pagos/resultado?paymentId={id}&result=success&session_id=cs_…
+  ├─ paga → Stripe redirige a /pagos/resultado?paymentId={id}&result=success&session_id=cs_…
   │          "Procesando pago…": GET /me/payments/{paymentId} cada 2–3 s (máx. ~60 s)
   │            PAID      → Confirmación (paso 3): folio, monto, [Ir a mi aula], [Ver comprobante],
   │                         aviso "el grupo de WhatsApp está en el Aula"
@@ -106,7 +106,7 @@ Resumen (paso 1): oferta, fechas (hora CDMX + local), precio con moneda, chips d
   │                         avisaremos por correo" (el webhook lo confirmará y llega la notificación)
   │            CANCELLED / FAILED → "El pago no se completó" + [Reintentar]
   │
-  └─ vuelve/cancela → /portal/pagos/resultado?paymentId={id}&result=cancel
+  └─ vuelve/cancela → /pagos/resultado?paymentId={id}&result=cancel
              POST /me/payments/{paymentId}/cancel (204) → "Pago cancelado: no se realizó ningún cargo"
 ```
 
@@ -190,7 +190,7 @@ async function waitForPayment(paymentId: string) {
 ## HU-23 — Pagar el saldo tras beca
 
 Entrada: acción `PAY_BALANCE` (o `CONTINUE_PAYMENT` / `UPLOAD_TRANSFER_PROOF`) de Mis postulaciones o
-de la ficha → `/portal/postulaciones/{applicationId}/pago`.
+de la ficha → `/postulaciones/{applicationId}/pago`.
 
 `GET /me/payments/quote?applicationId={id}` → `concept = BALANCE`:
 
@@ -286,7 +286,7 @@ const { data: payment } = await api.POST('/api/v1/me/payments/transfers', {
 - Banner de cobro fallido (Dashboard, Aula y Mis pagos): monto pendiente, días desde el fallo
   (`daysSinceFailure`), cuándo pasa a mora (`delinquencyAt`) y botones:
   - [Actualizar tarjeta] → `POST …/card-update` → redirigir a `checkoutUrl` (Stripe pide la tarjeta
-    nueva). Al volver (`/portal/perfil/pagos?planId=…&cardUpdate=success|cancel`) recarga el plan: el
+    nueva). Al volver (`/perfil/pagos?planId=…&cardUpdate=success|cancel`) recarga el plan: el
     backend guarda la tarjeta y **cobra de inmediato** las cuotas fallidas.
   - [Pagar ahora] (`canPayNow`) → `POST …/pay-now` → `200` con el plan "Al día" o `422
     PAYMENT_CHARGE_FAILED` (`meta.failureMessage`) → ofrecer [Actualizar tarjeta].
@@ -351,7 +351,7 @@ Object.assign(document.createElement('a'), { href: url, download: `recibo-${foli
 |---|---|---|
 | `INSTALLMENT_FAILED` | "No pudimos cobrar tu cuota" + monto pendiente | [Actualizar tarjeta] / [Pagar ahora] (`planId`) |
 | `PLAN_DELINQUENT` | "Tu plan está en mora" (acceso suspendido si `accessSuspended`) | [Pagar ahora] |
-| `TRANSFER_REJECTED` | "Tu comprobante fue rechazado" | [Subir comprobante] → `/portal/postulaciones/{applicationId}/pago` |
+| `TRANSFER_REJECTED` | "Tu comprobante fue rechazado" | [Subir comprobante] → `/postulaciones/{applicationId}/pago` |
 | `TRANSFER_PENDING` | "Transferencia en validación (1–2 días hábiles)" | Ver detalle |
 | `INSTALLMENT_UPCOMING` | "El {date} cobraremos {amount} a VISA •••• 4242" (informativo) | — |
 
@@ -363,9 +363,9 @@ Object.assign(document.createElement('a'), { href: url, download: `recibo-${foli
 
 | `type` | Cuándo | UI |
 |---|---|---|
-| `ENROLL_AND_PAY` / `PAY_IN_INSTALLMENTS` | Igual que Fase 02 | → `/portal/pagar/{slug}` (preselecciona cuotas en la 2.ª) |
+| `ENROLL_AND_PAY` / `PAY_IN_INSTALLMENTS` | Igual que Fase 02 | → `/pagar/{slug}` (preselecciona cuotas en la 2.ª) |
 | `CONTINUE_PAYMENT` | Tengo un checkout abierto en esa oferta | [Continuar pago] → `POST /me/payments/checkout` (misma sesión) o `quote.openCheckout` |
-| `PAY_BALANCE` | Beca aprobada con saldo | [Pagar saldo] → `/portal/postulaciones/{applicationId}/pago` |
+| `PAY_BALANCE` | Beca aprobada con saldo | [Pagar saldo] → `/postulaciones/{applicationId}/pago` |
 | `PAYMENT_IN_VALIDATION` | Comprobante en revisión (`enabled = false`, `reason = TRANSFER_PENDING_VALIDATION`) | "Pago en validación" |
 | `REGULARIZE_PAYMENT` | Acceso suspendido por mora | [Regularizar pago] → Mis pagos |
 | `GO_TO_CLASSROOM` | Inscrito | [Ir a mi aula] |
@@ -402,14 +402,14 @@ Regulariza tu pago" → Mis pagos.
 
 | `type` | Cuándo | Prioridad | `action.path` |
 |---|---|---|---|
-| `PAYMENT_CONFIRMED` | Pago completo / saldo / 1.ª cuota confirmados (folio, monto) | normal | `/portal/aula/{offerId}` |
-| `INSTALLMENT_PAID` | Cuota 2..N cobrada | normal | `/portal/perfil/pagos` |
-| `INSTALLMENT_UPCOMING` | 7 días antes del cobro (monto, fecha, tarjeta) | normal | `/portal/perfil/pagos` |
-| `INSTALLMENT_FAILED` | Cobro rechazado (próximo reintento) | **alta, fijada** hasta regularizar | `/portal/perfil/pagos` |
-| `PLAN_DELINQUENT` | Plan en mora (y acceso suspendido) | **alta, fijada** | `/portal/perfil/pagos` |
-| `TRANSFER_VALIDATED` | Transferencia validada (Inscrita) | normal | `/portal/aula/{offerId}` |
-| `TRANSFER_REJECTED` | Transferencia rechazada (motivo) | normal | `/portal/postulaciones/{id}/pago` |
-| `MOODLE_ENROLLMENT_LINKED` | Formación Moodle vinculada | normal | `/portal/aula/{offerId}` |
+| `PAYMENT_CONFIRMED` | Pago completo / saldo / 1.ª cuota confirmados (folio, monto) | normal | `/aula/{offerId}` |
+| `INSTALLMENT_PAID` | Cuota 2..N cobrada | normal | `/perfil/pagos` |
+| `INSTALLMENT_UPCOMING` | 7 días antes del cobro (monto, fecha, tarjeta) | normal | `/perfil/pagos` |
+| `INSTALLMENT_FAILED` | Cobro rechazado (próximo reintento) | **alta, fijada** hasta regularizar | `/perfil/pagos` |
+| `PLAN_DELINQUENT` | Plan en mora (y acceso suspendido) | **alta, fijada** | `/perfil/pagos` |
+| `TRANSFER_VALIDATED` | Transferencia validada (Inscrita) | normal | `/aula/{offerId}` |
+| `TRANSFER_REJECTED` | Transferencia rechazada (motivo) | normal | `/postulaciones/{id}/pago` |
+| `MOODLE_ENROLLMENT_LINKED` | Formación Moodle vinculada | normal | `/aula/{offerId}` |
 
 `data` trae `paymentId`, `planId`, `offerId`, `applicationId` según el caso.
 

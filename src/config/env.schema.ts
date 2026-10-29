@@ -55,8 +55,14 @@ export const envSchema = z
       .default('info'),
     /** URL pública de esta API (enlaces en correos, servidor en OpenAPI). */
     APP_PUBLIC_URL: z.url().default('http://localhost:3000'),
-    /** URL del frontend (enlaces en correos: verificar, recuperar contraseña, etc.). */
+    /** URL del frontend (sitio público). Base de los enlaces del portal si falta PORTAL_URL. */
     FRONTEND_URL: z.url().default('http://localhost:5173'),
+    /**
+     * Raíz del portal del participante, SIN el prefijo /portal (p. ej.
+     * https://portal.itinerantesdelagua.com o http://localhost:4201). Base de los botones de los
+     * correos, del regreso de Stripe y de los enlaces de pago de Seguimiento. Si falta: FRONTEND_URL.
+     */
+    PORTAL_URL: z.url().optional(),
     /** Orígenes permitidos por CORS, separados por coma. Vacío = ninguno (solo mismo origen). */
     CORS_ORIGINS: csv,
     /** Activa /docs y /docs/openapi.json. */
@@ -224,4 +230,12 @@ export function validateEnv(raw: Record<string, unknown>): Env {
     throw new Error(`Variables de entorno inválidas:\n${issues}`);
   }
   return result.data;
+}
+
+/** Raíz del portal para armar enlaces absolutos (correos, Stripe): PORTAL_URL o FRONTEND_URL. */
+export function portalBaseUrl(config: {
+  get(key: 'PORTAL_URL', options: { infer: true }): string | undefined;
+  get(key: 'FRONTEND_URL', options: { infer: true }): string;
+}): string {
+  return config.get('PORTAL_URL', { infer: true }) ?? config.get('FRONTEND_URL', { infer: true });
 }

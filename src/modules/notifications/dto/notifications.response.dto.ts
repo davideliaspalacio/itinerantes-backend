@@ -10,8 +10,8 @@ export class NotificationActionDto {
   label!: string;
 
   @ApiProperty({
-    example: '/portal/asistencia/0b6f2c1e-8d1a-4f7e-9a51-3c2d1e0f9a8b',
-    description: 'Ruta RELATIVA del frontend (los correos usan FRONTEND_URL + path).',
+    example: '/asistencia/0b6f2c1e-8d1a-4f7e-9a51-3c2d1e0f9a8b',
+    description: 'Ruta RELATIVA del frontend (los correos usan PORTAL_URL + path).',
   })
   path!: string;
 }

@@ -53,7 +53,7 @@ export class CalendarLinkDto {
     example: 'CLASSROOM',
     description:
       '`CLASSROOM` → Aula (`offerId`); `OFFER` → ficha `/escuela/oferta/{slug}`; `APPLICATION` ' +
-      '(Fase 04, entrevistas) → mi postulación `/portal/postulaciones/{applicationId}`.',
+      '(Fase 04, entrevistas) → mi postulación `/postulaciones/{applicationId}`.',
   })
   kind!: 'CLASSROOM' | 'OFFER' | 'APPLICATION' | 'NONE';
 

@@ -32,7 +32,7 @@ otro caso).
 | `POST /me/applications/{id}/submit` | 19, 20 | [Enviar postulación] → folio y "Enviada" |
 | `POST /me/applications/{id}/confirm` | 21 | [Confirmar mi participación] (sin costo) |
 
-`{id}` es el `id` de la postulación. Ruta sugerida del frontend: `/portal/postulaciones/{id}` (es la
+`{id}` es el `id` de la postulación. Ruta sugerida del frontend: `/postulaciones/{id}` (es la
 que usan las notificaciones; ver `notifications/portal-links.ts`).
 
 ## Mapa de criterios de aceptación → API
@@ -97,7 +97,7 @@ que usan las notificaciones; ver `notifications/portal-links.ts`).
 
 ```
 [Postular] ──POST /me/applications {offerId}──▶ borrador (201)
-     │              409 APPLICATION_ALREADY_EXISTS → ir a /portal/postulaciones/{meta.applicationId}
+     │              409 APPLICATION_ALREADY_EXISTS → ir a /postulaciones/{meta.applicationId}
      ▼
 Formulario  ◀── GET /me/applications/{id} (form, answers, applicant, documents, missingRequirements)
   autoguardado: PATCH /me/applications/{id} {campo…}  (debounce ~1 s; "Borrador guardado · {updatedAt}")
@@ -265,9 +265,9 @@ En convocatorias sin costo (`CONFIRMATION`) no muestres bloques de beca ni de pa
 |---|---|---|
 | `CONTINUE_DRAFT` | [Continuar] | `enabled = false`, `reason = WINDOW_CLOSED` → "Convocatoria cerrada" (solo lectura) |
 | `JOIN_INTERVIEW` | [Entrar a la entrevista] | Abre `interview.join.url`. `reason`: `INTERVIEW_NOT_OPEN_YET` ("Disponible 10 min antes", cuenta regresiva a `interview.join.opensAt`; al llegar vuelve a pedir el detalle), `INTERVIEW_LINK_PENDING`, `INTERVIEW_ENDED` ("En espera de resultado") |
-| `PAY_BALANCE` | [Pagar saldo] | Fase 05 (HU-23): `/portal/postulaciones/{id}/pago`. Cuenta regresiva a `dueAt` |
+| `PAY_BALANCE` | [Pagar saldo] | Fase 05 (HU-23): `/postulaciones/{id}/pago`. Cuenta regresiva a `dueAt` |
 | `CONFIRM_PARTICIPATION` | [Confirmar mi participación] | `POST /me/applications/{id}/confirm`. Cuenta regresiva a `dueAt` |
-| `GO_TO_CLASSROOM` | [Ir a mi aula] | `/portal/aula/{offer.id}` |
+| `GO_TO_CLASSROOM` | [Ir a mi aula] | `/aula/{offer.id}` |
 | `VIEW` | [Ver mi postulación] | Solo lectura |
 
 ### Entrevista (`interview`, solo en "Entrevista agendada")
@@ -309,7 +309,7 @@ cambia (campos nuevos en cada acción: `applicationId`, `applicationStatus`):
 | Inscrito | [`GO_TO_CLASSROOM`] |
 
 `APPLY_SCHOLARSHIP` / `APPLY_OPEN_CALL` → `POST /me/applications { offerId }` (o al formulario).
-`VIEW_APPLICATION` / `PAY_BALANCE` → `/portal/postulaciones/{applicationId}` (`…/pago`).
+`VIEW_APPLICATION` / `PAY_BALANCE` → `/postulaciones/{applicationId}` (`…/pago`).
 
 ### Dashboard (HU-06)
 
@@ -330,7 +330,7 @@ como `scholarships` / `openCalls`):
 
 Las entrevistas aparecen como "Fecha importante": `source = APPLICATION`, `kind = INTERVIEW`,
 `category = IMPORTANT_DATES`, `join` (Zoom 10 min antes) y
-`link = { kind: "APPLICATION", applicationId, offerId, slug }` → `/portal/postulaciones/{applicationId}`.
+`link = { kind: "APPLICATION", applicationId, offerId, slug }` → `/postulaciones/{applicationId}`.
 
 ### Notificaciones (HU-13)
 
@@ -340,11 +340,11 @@ Todas en la categoría `APPLICATIONS` (salvo el recordatorio de saldo, `PAYMENTS
 
 | `type` | Cuándo | Acción (`action.path`) |
 |---|---|---|
-| `APPLICATION_SUBMITTED` | Al enviar (folio; en convocatorias, aviso de entrevista) | Ver mi postulación → `/portal/postulaciones/{id}` |
+| `APPLICATION_SUBMITTED` | Al enviar (folio; en convocatorias, aviso de entrevista) | Ver mi postulación → `/postulaciones/{id}` |
 | `APPLICATION_STATUS_CHANGED` | En revisión (**solo portal**), Aprobada – confirma tu participación, Aprobada (convocatoria con costo), Inscrita, No seleccionada | Ver / Confirmar / Ir a mi aula |
 | `INTERVIEW_SCHEDULED` | Entrevista agendada o reprogramada (hora local + CDMX) | Ver mi entrevista |
 | `INTERVIEW_REMINDER` | 24 h antes de la entrevista | Ver mi entrevista |
-| `SCHOLARSHIP_APPROVED` | Beca aprobada: tipo de beca y %, saldo, fecha límite | Pagar saldo → `/portal/postulaciones/{id}/pago` |
+| `SCHOLARSHIP_APPROVED` | Beca aprobada: tipo de beca y %, saldo, fecha límite | Pagar saldo → `/postulaciones/{id}/pago` |
 | `BALANCE_DUE_REMINDER` | 48 h antes de vencer el saldo | Pagar saldo |
 | `APPLICATION_EXPIRED` | Venció sin pago/confirmación | Ver mi postulación |
 

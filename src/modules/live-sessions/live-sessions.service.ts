@@ -80,7 +80,7 @@ export class LiveSessionsService {
     );
   }
 
-  /** Detalle de una sesión (registro de asistencia `/portal/asistencia/[sesión]`, HU-18). */
+  /** Detalle de una sesión (registro de asistencia `/asistencia/[sesión]`, HU-18). */
   async detail(userId: string, sessionId: string): Promise<SessionCardDto> {
     const { row } = await this.findAuthorized(userId, sessionId);
     return toSessionCard(row, nowUtc());

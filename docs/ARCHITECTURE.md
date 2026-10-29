@@ -284,7 +284,7 @@ pruebas en `payments/policies/` (`payment-amounts`, `installment-collection`, `p
   INSTALLMENT, `method` CARD / BANK_TRANSFER). Montos SIEMPRE calculados por el servidor: precio fijo
   por moneda del perfil (`offerPriceFor`) o `Application.balanceCents` en la moneda de la postulación.
 - **Stripe Checkout** (`mode=payment`, `allowed_payment_method_types: ['card']`, sesión de 30 min,
-  clave idempotente `checkout:{paymentId}`). Regreso a `FRONTEND_URL/portal/pagos/resultado`. La
+  clave idempotente `checkout:{paymentId}`). Regreso a `PORTAL_URL/pagos/resultado`. La
   consulta `GET /me/payments/{id}` concilia con Stripe si el webhook tarda.
 - **Webhook** `POST /api/v1/webhooks/stripe`: `app.setup.ts` monta `express.raw()` SOLO en esa ruta
   (el parser JSON de Nest la omite porque el cuerpo ya se leyó); firma con `constructEvent`;

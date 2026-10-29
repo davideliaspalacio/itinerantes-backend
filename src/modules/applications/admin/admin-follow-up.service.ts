@@ -5,7 +5,7 @@ import type { AdminUser } from '../../../common/guards/permissions.guard';
 import { paginate, type PaginatedResponseDto } from '../../../common/dto/pagination.dto';
 import { formatMoney, isCurrency, type Money } from '../../../common/utils/money';
 import { formatInZone, nowUtc, OFFICIAL_TIMEZONE } from '../../../common/utils/time';
-import type { Env } from '../../../config/env.schema';
+import { type Env, portalBaseUrl } from '../../../config/env.schema';
 import type {
   ApplicationFollowUpNote,
   FollowUpNoteKind,
@@ -81,6 +81,7 @@ const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
  */
 @Injectable()
 export class AdminFollowUpService {
+  /** Raíz del portal (PORTAL_URL o FRONTEND_URL). */
   private readonly frontendUrl: string;
 
   constructor(
@@ -90,7 +91,7 @@ export class AdminFollowUpService {
     private readonly audit: AuditService,
     config: ConfigService<Env, true>,
   ) {
-    this.frontendUrl = config.get('FRONTEND_URL', { infer: true });
+    this.frontendUrl = portalBaseUrl(config);
   }
 
   // --- Embudo ----------------------------------------------------------------------------------------

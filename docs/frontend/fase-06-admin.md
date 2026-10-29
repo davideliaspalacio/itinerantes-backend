@@ -463,7 +463,7 @@ allDay?, location?, joinUrl? (https) }`. No envía notificaciones. Cancelar → 
 - **Recordar a pendientes** (`POST …/remind`): solo con "Registro abierto"; aviso ATTENDANCE_OPEN (portal +
   correo) a quienes no registraron; máx. 1 por persona por día (`notified: 0` si ya se envió hoy).
 - **Exportar** (CSV UTF-8 con BOM, abre en Excel): descarga con `fetch` (Bearer) → `blob`. Respeta los
-  filtros de la pestaña. "Copiar enlace" = enlace del portal `/portal/asistencia/{sessionId}` (frontend).
+  filtros de la pestaña. "Copiar enlace" = enlace del portal `/asistencia/{sessionId}` (frontend).
 
 ### Estados de UI ↔ respuestas
 
@@ -775,7 +775,7 @@ embudo). Clic en una etapa: usa `tab` y `paymentStarted=true|false` para filtrar
   (`meta.availableAt`). Fuera de "Aprobada – pendiente de …" → `409 APPLICATION_INVALID_STATE`.
 - **WhatsApp** `POST …/whatsapp { template? }` → `{ url, text, note }`. El frontend abre `url` en otra
   pestaña (la plataforma no envía WhatsApp). Variables de la plantilla: `{nombre}` (primer nombre),
-  `{saldo}` (`$5,100.00 MXN`), `{link_pago}` (`FRONTEND_URL/portal/postulaciones/{id}/pago`, o el
+  `{saldo}` (`$5,100.00 MXN`), `{link_pago}` (`PORTAL_URL/postulaciones/{id}/pago`, o el
   detalle de la postulación si no hay saldo). Omitir `template` = texto por defecto.
 - **Notas** `POST …/notes { body (≤ 1000), outcome? }`.
 - **Extender plazo** `POST …/extend-deadline { responseDueAt, reason }` → nueva fecha futura y ≤ inicio
