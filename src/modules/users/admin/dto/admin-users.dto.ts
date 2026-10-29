@@ -131,6 +131,14 @@ export class AdminUserDto {
   @ApiProperty({ example: 'MX' })
   countryCode!: string;
 
+  @ApiProperty({
+    example: '2026-10-01T12:05:00.000Z',
+    nullable: true,
+    type: String,
+    description: 'null = nunca verificó su correo (no puede iniciar sesión).',
+  })
+  emailVerifiedAt!: string | null;
+
   @ApiProperty({ example: '2026-11-07T16:00:00.000Z', nullable: true, type: String })
   lastLoginAt!: string | null;
 

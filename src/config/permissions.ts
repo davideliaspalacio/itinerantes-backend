@@ -49,6 +49,11 @@ export const Permission = {
   /** Consultar el registro de auditoría. */
   AUDIT_READ: 'audit.read',
 
+  /** HU-38: bandeja de mensajes del formulario de Contacto (ver y buscar). */
+  CONTACT_READ: 'contact.read',
+  /** HU-38: cambiar el estado de un mensaje de Contacto y su nota interna. */
+  CONTACT_MANAGE: 'contact.manage',
+
   /** Editar contenido del sitio público (cifras de impacto de la landing). Solo SUPER_ADMIN. */
   SITE_WRITE: 'site.write',
 
@@ -74,10 +79,10 @@ const STAFF_BASE: readonly Permission[] = [P.ADMIN_ACCESS, P.OFFERS_READ, P.PAYM
  * | Rol                    | Para qué (HU)                                                                  |
  * |------------------------|---------------------------------------------------------------------------------|
  * | SUPER_ADMIN            | Todo, incluida la gestión de roles y la auditoría                                |
- * | ACADEMIC_COORDINATOR   | Ofertas, contenido, sesiones, asistencia (27–30); revisión y decisión (31); seguimiento (32) |
+ * | ACADEMIC_COORDINATOR   | Ofertas, contenido, sesiones, asistencia (27–30); revisión y decisión (31); seguimiento (32); bandeja de Contacto (38) |
  * | REVIEW_COMMITTEE       | Revisión: evaluar y entrevistas, SIN registrar decisión (31)                      |
  * | REVIEW_DECIDER         | Revisión con permiso de decisión (31)                                             |
- * | FOLLOW_UP              | Seguimiento de postulación a inscripción (32)                                     |
+ * | FOLLOW_UP              | Seguimiento de postulación a inscripción (32); bandeja de Contacto (38)            |
  * | FINANCE                | Administración y finanzas: acciones sobre pagos (33)                              |
  */
 export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
@@ -95,6 +100,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     P.APPLICATIONS_DECIDE,
     P.FOLLOW_UP_READ,
     P.FOLLOW_UP_MANAGE,
+    P.CONTACT_READ,
+    P.CONTACT_MANAGE,
   ],
   REVIEW_COMMITTEE: [
     ...STAFF_BASE,
@@ -109,7 +116,14 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     P.APPLICATIONS_INTERVIEW,
     P.APPLICATIONS_DECIDE,
   ],
-  FOLLOW_UP: [...STAFF_BASE, P.APPLICATIONS_READ, P.FOLLOW_UP_READ, P.FOLLOW_UP_MANAGE],
+  FOLLOW_UP: [
+    ...STAFF_BASE,
+    P.APPLICATIONS_READ,
+    P.FOLLOW_UP_READ,
+    P.FOLLOW_UP_MANAGE,
+    P.CONTACT_READ,
+    P.CONTACT_MANAGE,
+  ],
   FINANCE: [...STAFF_BASE, P.PAYMENTS_MANAGE],
 };
 

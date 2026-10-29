@@ -26,7 +26,8 @@ recibe.
 4. [HU-31 / HU-32 — Revisión de postulaciones y seguimiento](#hu-31--revisión-de-postulaciones-en-equipo)
    - [Tipos de beca (parametrizables)](#tipos-de-beca-parametrizables)
 5. [HU-33 — Pagos, cuotas, transferencias y reembolsos](#hu-33--gestión-de-pagos-cuotas-y-transferencias-admin--pagos)
-6. [Datos demo](#datos-demo)
+6. [HU-38 — Bandeja de Contacto](#hu-38--bandeja-de-contacto)
+7. [Datos demo](#datos-demo)
 
 ## Acceso al panel, roles y permisos
 
@@ -67,6 +68,8 @@ Fuente única: `src/config/permissions.ts` (`GET /admin/roles` la devuelve con t
 | `audit.read` | Registro de auditoría | ✔ | | | | | |
 | `site.write` | Cifras de la landing (`/admin/site/metrics`) | ✔ | | | | | |
 | `scholarship_types.write` | Crear, editar, desactivar y borrar tipos de beca (`/admin/scholarship-types`). La lectura usa `offers.read` | ✔ | | | | | |
+| `contact.read` | Bandeja de mensajes de Contacto y contadores (38) | ✔ | ✔ | | | ✔ | |
+| `contact.manage` | Cambiar estado / nota interna de un mensaje (38) | ✔ | ✔ | | | ✔ | |
 
 Reglas de las HU que resuelve la matriz:
 - HU-31: "integrante sin permiso de decisión… puede evaluar y comentar, pero no ve Registrar decisión"
@@ -100,6 +103,13 @@ Textos de los roles (`Role`):
 | `PUT /admin/users/{id}/roles { roles: [...] }` | `users.manage` | Reemplaza los roles del equipo (`PARTICIPANT` se conserva) |
 | `POST /admin/users/{id}/disable { reason? }` | `users.manage` | Deshabilita la cuenta y cierra sus sesiones |
 | `POST /admin/users/{id}/enable { reason? }` | `users.manage` | La vuelve a habilitar |
+| `POST /admin/users/{id}/verify-email { reason? }` | `users.manage` | Marca el correo como verificado sin OTP (`PENDING_VERIFICATION` → `ACTIVE`; ya verificada → `409 AUTH_ALREADY_VERIFIED`) |
+
+- `AdminUserDto.emailVerifiedAt` (`null` = nunca verificó): muestra la etiqueta "Correo sin verificar"
+  y el botón [Marcar correo como verificado] (auditoría `user.verify-email`).
+- Si todavía nadie puede entrar al panel (ninguna cuenta verificada), en el servidor:
+  `pnpm users:verify --domain <dominio> --staff-only [--dry-run]` o `--email <correo>` (en producción:
+  `node dist/seed/prisma/verify-users.js ...`).
 
 - **Alta del equipo**: no hay "invitar" desde el panel. La persona se registra en el portal (HU-02/03)
   y el SUPER_ADMIN la busca (`GET /admin/users?q=correo`) y le asigna roles. El primer SUPER_ADMIN de
@@ -989,6 +999,32 @@ Se reutilizan `PaymentStatus`, `PaymentConcept`/`PaymentMethod`, `InstallmentPla
 - Reembolsos hechos directamente en el dashboard de Stripe también se reflejan (webhook
   `charge.refunded` → `refunded`), aunque no aparecen como registros en la pestaña "Reembolsos".
 - Contactar: el panel no envía WhatsApp; usa `payer.email` / `payer.phone` (mailto / wa.me).
+
+## HU-38 — Bandeja de Contacto
+
+Los mensajes del formulario de Contacto y de la landing (`POST /contact-messages`, Fase 01) se ven en el
+panel. La respuesta al visitante se sigue haciendo por correo (el aviso al buzón del equipo trae
+`replyTo`); aquí solo se consulta y se marca el estado.
+
+| Método y ruta | Permiso | Uso |
+|---|---|---|
+| `GET /admin/contact-messages?q=&status=&subject=&origin=&from=&to=&sort=&page=&pageSize=` | `contact.read` | Bandeja paginada (más reciente primero; `sort=CREATED_ASC` invierte). `q` busca en nombre, correo, organización y texto |
+| `GET /admin/contact-messages/summary` | `contact.read` | `{ unread, byStatus: [{ status, label, count }] }` para el contador del menú y las pestañas |
+| `GET /admin/contact-messages/{id}` | `contact.read` | Detalle (abrirlo NO cambia el estado) |
+| `PATCH /admin/contact-messages/{id} { status?, internalNote? }` | `contact.manage` | Cambia estado y/o nota interna (al menos uno; `internalNote: null` la borra). Guarda `handledBy`/`handledAt`. Auditoría `contact.update` |
+
+Cada mensaje trae `subjectLabel`, `originLabel` y `statusLabel` en español, `phone` (o `null`), y para
+`DESIGN_CONSULTING` también `projectType`, `projectLocation` y `service`.
+
+| `ContactStatus` | Texto | Sugerencia de UI |
+|---|---|---|
+| `NEW` | Nuevo | Negrita / punto; cuenta en `summary.unread` |
+| `IN_PROGRESS` | En atención | Alguien lo está atendiendo (`handledBy`) |
+| `ANSWERED` | Respondido | Cerrado con respuesta |
+| `ARCHIVED` | Archivado | Spam o sin acción; oculto por defecto |
+
+Cualquier transición está permitida. Flujo sugerido: abrir → [Responder por correo] (`mailto:` con el
+correo del visitante) → marcar `ANSWERED`.
 
 ## Datos demo
 

@@ -105,7 +105,11 @@ export class AuthService {
 
   // --- HU-03 -------------------------------------------------------------------------------------
 
-  async verifyEmail(email: string, code: string): Promise<VerifyEmailResponseDto> {
+  async verifyEmail(
+    email: string,
+    code: string,
+    options: { startSession?: boolean; rememberMe?: boolean; userAgent?: string } = {},
+  ): Promise<VerifyEmailResponseDto> {
     const user = await this.users.findByEmail(email);
     if (!user) throw new AppException('AUTH_OTP_INVALID');
     if (user.status === UserStatus.ACTIVE) throw new AppException('AUTH_ALREADY_VERIFIED');
@@ -122,7 +126,24 @@ export class AuthService {
     ]);
     // HU-25: si el correo está en la lista de una oferta Moodle, la formación se vincula sola.
     await this.moodle.linkAfterVerification(user.id);
-    return { verified: true, email: user.email };
+    if (!options.startSession) return { verified: true, email: user.email };
+
+    // Inicio de sesión directo: el código OTP ya probó que la persona controla el correo.
+    const verified = await this.prisma.user.update({
+      where: { id: user.id },
+      data: { failedLoginAttempts: 0, loginLockedUntil: null, lastLoginAt: now },
+    });
+    const tokens = await this.tokens.createSession(
+      verified,
+      options.rememberMe ?? false,
+      options.userAgent,
+      now,
+    );
+    return {
+      verified: true,
+      email: user.email,
+      session: { ...tokens, user: await this.users.toProfile(user.id) },
+    };
   }
 
   /** HU-03 / HU-05: reenviar el código. */

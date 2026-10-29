@@ -147,4 +147,32 @@ export class AdminUsersController {
   ): Promise<AdminUserDto> {
     return this.users.enable(user, id, body.reason);
   }
+
+  @Post('users/:id/verify-email')
+  @HttpCode(200)
+  @RequirePermissions(Permission.USERS_MANAGE)
+  @ApiOperation({
+    summary: 'Marcar el correo de una cuenta como verificado',
+    description:
+      'HU-03 (soporte): para cuentas del equipo a las que no les llega el código OTP. Deja ' +
+      '`emailVerifiedAt` y pasa de `PENDING_VERIFICATION` a `ACTIVE` (una cuenta `DISABLED` sigue ' +
+      'deshabilitada). Invalida los códigos pendientes y vincula la formación Moodle como la ' +
+      'verificación normal. Ya verificada → `409 AUTH_ALREADY_VERIFIED`. Auditoría ' +
+      '`user.verify-email`. Permiso `users.manage`.',
+  })
+  @ApiOkResponse({ type: AdminUserDto })
+  @ApiErrorResponses(
+    'VALIDATION_ERROR',
+    'UNAUTHORIZED',
+    'FORBIDDEN',
+    'NOT_FOUND',
+    'AUTH_ALREADY_VERIFIED',
+  )
+  verifyEmail(
+    @CurrentUser() user: AdminUser,
+    @Param('id', USER_ID) id: string,
+    @Body() body: UserStatusChangeRequestDto,
+  ): Promise<AdminUserDto> {
+    return this.users.verifyEmail(user, id, body.reason);
+  }
 }

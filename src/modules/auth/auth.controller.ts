@@ -90,7 +90,8 @@ export class AuthController {
     description:
       `HU-03: activa la cuenta. ${OTP_RULES_TEXT} Errores con \`meta\`: ` +
       '`AUTH_OTP_INVALID` → `attemptsRemaining`; `AUTH_OTP_LOCKED` → `lockedUntil`; ' +
-      '`AUTH_OTP_EXPIRED` → `resendAvailableAt`. Tras el éxito, redirige al login (no inicia sesión).',
+      '`AUTH_OTP_EXPIRED` → `resendAvailableAt`. Por defecto NO inicia sesión (redirige al login); ' +
+      'con `startSession: true` la respuesta trae `session` (tokens + perfil, como el login).',
   })
   @ApiOkResponse({ type: VerifyEmailResponseDto })
   @ApiErrorResponses(
@@ -102,8 +103,15 @@ export class AuthController {
     'AUTH_ACCOUNT_DISABLED',
     'RATE_LIMITED',
   )
-  verifyEmail(@Body() dto: VerifyEmailRequestDto): Promise<VerifyEmailResponseDto> {
-    return this.auth.verifyEmail(dto.email, dto.code);
+  verifyEmail(
+    @Body() dto: VerifyEmailRequestDto,
+    @Headers('user-agent') userAgent?: string,
+  ): Promise<VerifyEmailResponseDto> {
+    return this.auth.verifyEmail(dto.email, dto.code, {
+      startSession: dto.startSession,
+      rememberMe: dto.rememberMe,
+      userAgent,
+    });
   }
 
   @Post('otp/resend')

@@ -117,6 +117,26 @@ export class VerifyEmailRequestDto {
 
   @IsOtpCode()
   code!: string;
+
+  @ApiPropertyOptional({
+    example: true,
+    default: false,
+    description:
+      'true = inicia sesión al verificar (la respuesta trae `session`, igual que el login) y el ' +
+      'frontend no tiene que pedir la contraseña otra vez.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  startSession?: boolean;
+
+  @ApiPropertyOptional({
+    example: false,
+    default: false,
+    description: '"Recordarme" de la sesión que se inicia (solo con `startSession: true`).',
+  })
+  @IsOptional()
+  @IsBoolean()
+  rememberMe?: boolean;
 }
 
 /** HU-03 / HU-05: reenviar el código (invalida el anterior). */

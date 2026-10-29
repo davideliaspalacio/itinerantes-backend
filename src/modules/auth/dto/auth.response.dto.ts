@@ -64,14 +64,6 @@ export class AvailabilityResponseDto {
   username?: FieldAvailabilityDto;
 }
 
-export class VerifyEmailResponseDto {
-  @ApiProperty({ example: true })
-  verified!: boolean;
-
-  @ApiProperty({ example: 'maria.nunez@example.com' })
-  email!: string;
-}
-
 /** Par de tokens. Guarda SIEMPRE el último refreshToken (rotación). */
 export class TokenPairDto {
   @ApiProperty({ example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' })
@@ -101,6 +93,21 @@ export class TokenPairDto {
 export class LoginResponseDto extends TokenPairDto {
   @ApiProperty({ type: UserProfileDto })
   user!: UserProfileDto;
+}
+
+export class VerifyEmailResponseDto {
+  @ApiProperty({ example: true })
+  verified!: boolean;
+
+  @ApiProperty({ example: 'maria.nunez@example.com' })
+  email!: string;
+
+  @ApiPropertyOptional({
+    type: LoginResponseDto,
+    description:
+      'Solo si se pidió `startSession: true`: tokens y perfil, igual que POST /auth/login.',
+  })
+  session?: LoginResponseDto;
 }
 
 export class ResetTokenResponseDto {

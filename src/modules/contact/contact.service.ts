@@ -23,8 +23,9 @@ export interface RequestMeta {
 }
 
 /**
- * Formulario de Contacto (HU-38 / HU-01). Sin bandeja en el panel (Anexo A): se registra en BD con
- * estado NEW y se notifica por correo al buzón del equipo, con acuse al visitante.
+ * Formulario de Contacto (HU-38 / HU-01). Se registra en BD con
+ * estado NEW (bandeja del panel: `AdminContactService`) y se notifica por correo al buzón del
+ * equipo, con acuse al visitante.
  */
 @Injectable()
 export class ContactService {

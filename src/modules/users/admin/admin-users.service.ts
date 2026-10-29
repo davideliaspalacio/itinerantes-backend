@@ -7,6 +7,7 @@ import { permissionsForRoles, ROLE_PERMISSIONS, STAFF_ROLES } from '../../../con
 import type { Prisma, Role, User } from '../../../generated/prisma/client';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
 import { AuditService } from '../../audit/audit.service';
+import { MoodleAccessService } from '../../moodle/moodle-access.service';
 import {
   type AdminMeDto,
   type AdminUserDto,
@@ -18,7 +19,8 @@ import { normalizeRoles, staffChangeIssue } from './policies/staff-access.policy
 
 /**
  * Cuentas del equipo (Fase 06). No hay alta de cuentas desde el panel: la persona se registra en el
- * portal (HU-02/03) y un SUPER_ADMIN le asigna roles aquí. El primer SUPER_ADMIN se crea con
+ * portal (HU-02/03) y un SUPER_ADMIN le asigna roles aquí (y, si no le llegó el código, puede marcar
+ * su correo como verificado). El primer SUPER_ADMIN se crea con
  * BOOTSTRAP_ADMIN_* o `pnpm admin:create` (docs/DEPLOY.md).
  */
 @Injectable()
@@ -26,6 +28,7 @@ export class AdminUsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly moodle: MoodleAccessService,
   ) {}
 
   async me(user: AdminUser): Promise<AdminMeDto> {
@@ -120,6 +123,53 @@ export class AdminUsersService {
     );
   }
 
+  /**
+   * Marca el correo como verificado sin OTP (cuentas del equipo a las que no les llega el código).
+   * PENDING_VERIFICATION → ACTIVE; una cuenta DISABLED sigue deshabilitada. Invalida los códigos de
+   * verificación pendientes y vincula la formación Moodle igual que `POST /auth/verify-email`.
+   */
+  async verifyEmail(actor: AdminUser, userId: string, reason?: string): Promise<AdminUserDto> {
+    const now = nowUtc();
+    const saved = await this.prisma.$transaction(async (tx) => {
+      const target = await tx.user.findUnique({ where: { id: userId } });
+      if (!target) throw AppException.notFound('La cuenta no existe.');
+      if (target.emailVerifiedAt) {
+        throw new AppException('AUTH_ALREADY_VERIFIED', {
+          message: 'El correo de esta cuenta ya está verificado.',
+        });
+      }
+      const status = target.status === 'DISABLED' ? 'DISABLED' : 'ACTIVE';
+      const updated = await tx.user.update({
+        where: { id: userId },
+        data: { emailVerifiedAt: now, status },
+      });
+      await tx.otpCode.updateMany({
+        where: { userId, purpose: 'EMAIL_VERIFICATION', consumedAt: null },
+        data: { consumedAt: now },
+      });
+      await this.audit.record(
+        {
+          actor,
+          action: 'user.verify-email',
+          entityType: 'User',
+          entityId: userId,
+          summary: `Verificó manualmente el correo de ${target.email}${reason ? `: ${reason}` : '.'}`,
+          before: { status: target.status, emailVerifiedAt: null },
+          after: {
+            status: updated.status,
+            emailVerifiedAt: now.toISOString(),
+            ...(reason ? { reason } : {}),
+          },
+        },
+        tx,
+      );
+      return updated;
+    });
+    // HU-25: igual que la verificación por OTP (best effort, nunca falla).
+    await this.moodle.linkAfterVerification(userId);
+    return toDto(saved);
+  }
+
   // ------------------------------------------------------------------------------------------------
 
   /** Aplica el cambio con las reglas (sin auto-bloqueo, siempre un SUPER_ADMIN) de forma atómica. */
@@ -192,6 +242,7 @@ function toDto(user: User): AdminUserDto {
     roles: user.roles,
     permissions: permissionsForRoles(user.roles),
     status: user.status,
+    emailVerifiedAt: user.emailVerifiedAt?.toISOString() ?? null,
     countryCode: user.countryCode,
     lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
     createdAt: user.createdAt.toISOString(),

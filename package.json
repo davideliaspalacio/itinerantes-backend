@@ -30,6 +30,8 @@
     "db:seed:prod": "node dist/seed/prisma/seed.js",
     "admin:create": "ts-node --transpile-only prisma/create-admin.ts",
     "admin:create:prod": "node dist/seed/prisma/create-admin.js",
+    "users:verify": "ts-node --transpile-only prisma/verify-users.ts",
+    "users:verify:prod": "node dist/seed/prisma/verify-users.js",
     "db:reset": "prisma migrate reset --force",
     "db:studio": "prisma studio"
   },

@@ -231,8 +231,10 @@ indicativo), `INVALID_LOCATION` (país/estado/municipio que no existe o no corre
 1. Llega desde el registro (con `otp`) o desde el login (`AUTH_EMAIL_NOT_VERIFIED`, con `meta`).
 2. Muestra `maskedEmail`, 6 casillas (`codeLength`), cuenta regresiva hasta `resendAvailableAt`.
 3. `POST /auth/verify-email { email, code }` → `200 { verified: true, email }`.
-4. Éxito → redirige al login (HU-04) con el correo precargado (o al Dashboard si ya hay sesión). No
-   inicia sesión automáticamente.
+4. Éxito → redirige al login (HU-04) con el correo precargado (o al Dashboard si ya hay sesión).
+   **Opcional — entrar directo:** envía `{ email, code, startSession: true, rememberMe? }` y la
+   respuesta trae `session` (mismo formato que `POST /auth/login`: tokens + `user`); guárdala y lleva
+   a la persona al Dashboard sin pedirle la contraseña otra vez.
 5. "Reenviar código" (habilitado cuando la cuenta regresiva llega a 0):
    `POST /auth/otp/resend { email, purpose: "EMAIL_VERIFICATION" }` → `200` con el nuevo
    `{ maskedEmail, codeLength, expiresAt, resendAvailableAt }`. El código anterior deja de servir.

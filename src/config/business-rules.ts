@@ -295,6 +295,8 @@ export const BUSINESS_RULES = {
   CONTACT_NAME_MIN_LENGTH: 3,
   /** HU-38: máximo 5 envíos por IP por hora. */
   CONTACT_THROTTLE: { limit: 5, ttlSeconds: 3600 },
+  /** Bandeja del panel: nota interna del equipo sobre un mensaje (columna VARCHAR(2000)). */
+  CONTACT_INTERNAL_NOTE_MAX_LENGTH: 2000,
 
   // ---------------------------------------------------------------------------
   // Paginación (convención de la API)

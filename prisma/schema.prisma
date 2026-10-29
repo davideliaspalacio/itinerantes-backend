@@ -107,14 +107,15 @@ model User {
 
   // Fase 05 — Pagos y acceso Moodle
   /// Cliente de Stripe (se crea al primer checkout; reutilizado para guardar la tarjeta de cuotas).
-  stripeCustomerId    String?             @unique @map("stripe_customer_id") @db.VarChar(255)
-  payments            Payment[]           @relation("PaymentPayer")
-  reviewedPayments    Payment[]           @relation("PaymentReviewer")
-  installmentPlans    InstallmentPlan[]
-  moodleRosterLinks   MoodleRosterEntry[] @relation("MoodleRosterLinkedUser")
-  moodleRosterUploads MoodleRosterEntry[] @relation("MoodleRosterCreatedBy")
-  moodleCodesUsed     MoodleAccessCode[]  @relation("MoodleCodeUsedBy")
-  moodleCodesCreated  MoodleAccessCode[]  @relation("MoodleCodeCreatedBy")
+  stripeCustomerId       String?             @unique @map("stripe_customer_id") @db.VarChar(255)
+  payments               Payment[]           @relation("PaymentPayer")
+  reviewedPayments       Payment[]           @relation("PaymentReviewer")
+  installmentPlans       InstallmentPlan[]
+  handledContactMessages ContactMessage[]    @relation("ContactHandledBy")
+  moodleRosterLinks      MoodleRosterEntry[] @relation("MoodleRosterLinkedUser")
+  moodleRosterUploads    MoodleRosterEntry[] @relation("MoodleRosterCreatedBy")
+  moodleCodesUsed        MoodleAccessCode[]  @relation("MoodleCodeUsedBy")
+  moodleCodesCreated     MoodleAccessCode[]  @relation("MoodleCodeCreatedBy")
 
   // Fase 06 — Panel administrativo
   adminAuditLogs         AdminAuditLog[]
@@ -252,8 +253,12 @@ enum ContactOrigin {
   ABOUT_PAGE
 }
 
+/// Bandeja de Contacto del panel: NEW → IN_PROGRESS → ANSWERED; ARCHIVED para spam o cerrados.
 enum ContactStatus {
   NEW
+  IN_PROGRESS
+  ANSWERED
+  ARCHIVED
 }
 
 /// Tipo de proyecto (HU-35: domiciliario, comercial, colectivo, productivo).
@@ -291,6 +296,12 @@ model ContactMessage {
   privacyAcceptedAt DateTime            @map("privacy_accepted_at") @db.Timestamptz(3)
   origin            ContactOrigin
   status            ContactStatus       @default(NEW)
+  /// Nota interna del equipo (no se envía a quien escribió).
+  internalNote      String?             @map("internal_note") @db.VarChar(2000)
+  /// Último integrante del equipo que cambió el estado o la nota.
+  handledById       String?             @map("handled_by_id") @db.Uuid
+  handledBy         User?               @relation("ContactHandledBy", fields: [handledById], references: [id], onDelete: SetNull)
+  handledAt         DateTime?           @map("handled_at") @db.Timestamptz(3)
   /// HMAC-SHA256 de la IP (nunca la IP en claro).
   ipHash            String?             @map("ip_hash") @db.VarChar(64)
   userAgent         String?             @map("user_agent") @db.VarChar(255)
@@ -298,6 +309,7 @@ model ContactMessage {
   updatedAt         DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   @@index([createdAt])
+  @@index([status, createdAt])
   @@map("contact_messages")
 }
 
